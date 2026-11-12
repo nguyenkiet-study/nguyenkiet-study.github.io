@@ -460,6 +460,20 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
 .more-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line-2)}
 .more-row .input{width:84px;height:38px}
 .row-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.wd-note{margin-top:12px;padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.5;background:var(--wash-2);border:1px solid #E7E4FF}
+.wd-note.warn{background:#FEF3DC;border-color:#F8DFA8;color:#92400E}.wd-note.stop{background:#FEF2F2;border-color:#F9CDCD;color:#991B1B}
+.round-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.round-size{display:flex;gap:8px;align-items:center;margin-left:auto}.round-size .input{width:76px;min-width:76px;height:38px;padding:0 28px 0 12px}
+.clue{margin-top:8px;font-size:14.5px;color:var(--muted);line-height:1.5}.clue.num{letter-spacing:.06em;color:var(--text);font-weight:560}
+.hints{margin-top:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.hint{padding:7px 12px;border-radius:10px;background:#FEF3DC;color:#92400E;font-size:14px}
+.vi-row{margin-top:16px;min-height:32px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.listen-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.use-also{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.rel-line{margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);font-size:14px;color:var(--text)}
+.better{margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.65)}
+.wd-stat b .of{font-size:15px;font-weight:520;color:var(--muted);letter-spacing:0}
+@media (max-width:640px){.round-size{margin-left:0;width:100%}.round-row .btn{flex:1 1 auto}}
 .linkbtn{background:none;border:0;padding:0;color:var(--primary-d);font:inherit;font-size:13px;font-weight:550;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .know-link{margin-top:14px}
 .wrow{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto auto auto auto auto}
@@ -869,7 +883,7 @@ var state = {
   weekly: [0, 0, 0, 0, 0, 0, 0],
   recent: [],
   ov: null,
-  settings: { reminder: true, reduceMotion: false, accent: 'us', weeklyGoal: 150, voiceMode: 'ai', voiceName: '', quickWords: true, studyLang: 'vi' },
+  settings: { reminder: true, reduceMotion: false, accent: 'us', weeklyGoal: 150, voiceMode: 'ai', voiceName: '', quickWords: true, studyLang: 'vi', wordsGoal: 30, wordsRound: 5, wordsAuto: true },
   view: 'dashboard',
   ob: { step: 0, overall: null, skills: {}, goals: [] }
 };
@@ -1296,10 +1310,25 @@ function renderPractice() { $('#practice-hub').innerHTML = SKILLS.map(skillCard)
 /* ---------- speech helpers ---------- */
 var activeRec = null;
 var speakGen = 0, curAudio = null;
+/* iPhone and iPad need extra care: a voice picked by hand can stay silent, speak() right after cancel() is dropped, and audio
+   may only start from a tap. So: let the system choose the voice there, cancel only when something is speaking, and keep one
+   audio player that is "unlocked" inside the tap and reused for clips that arrive later. */
+var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var keepUtter = [], player = null, voiceSilent = false;
 function stopSpeech() {
   speakGen++;
-  try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
-  if (curAudio) { try { curAudio.pause(); } catch (e) {} if (curAudio._url) URL.revokeObjectURL(curAudio._url); curAudio = null; }
+  try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); } catch (e) {}
+  keepUtter = [];
+  if (curAudio) { try { curAudio.pause(); } catch (e) {} curAudio = null; }
+}
+/** Call inside a tap, before any waiting: plays a moment of silence so the shared player may start later without a new tap. */
+function unlockAudio() {
+  if (player || typeof Audio === 'undefined') return;
+  try {
+    player = new Audio(); player.preload = 'auto';
+    player.src = pcmToWavUrl(btoa(new Array(481).join('\0')), 24000);
+    var p = player.play(); if (p && p.catch) p.catch(function () {});
+  } catch (e) { player = null; }
 }
 /** Higher score = a more natural browser voice. Edge "Online (Natural)" and Google voices rank first; robotic ones last. */
 function voiceScore(v) {
@@ -1331,24 +1360,40 @@ function speechChunks(lines) {
   });
   return out;
 }
-function speakLines(lines, rate, onEnd) {
-  if (!('speechSynthesis' in window)) return false;
+/**
+ * Reads lines with the browser voice. onFail (optional) is called when the first words never start: some phones accept
+ * speak() and stay silent, so the caller can switch to the natural voice.
+ */
+function speakLines(lines, rate, onEnd, onFail) {
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  var busy = false; try { busy = speechSynthesis.speaking || speechSynthesis.pending; } catch (e) {}
   stopSpeech();
-  var voices = pickVoices(), chunks = speechChunks(lines), i = 0, cancelled = false, gen = speakGen;
+  try { speechSynthesis.resume(); } catch (e) {}
+  var voices = pickVoices(), chunks = speechChunks(lines), i = 0, cancelled = false, gen = speakGen, started = false, watch = 0;
   var second = voices.length > 1 ? voices[1] : null;
+  var choose = !IOS || !!state.settings.voiceName;           // on iPhone the system voice for the language is the safe one
+  function alive() { return !cancelled && gen === speakGen; }
+  function fail() { if (!alive()) return; cancelled = true; clearTimeout(watch); try { speechSynthesis.cancel(); } catch (e) {} onFail(); }
   function next() {
-    if (cancelled || gen !== speakGen) return;
+    if (!alive()) return;
     if (i >= chunks.length) { if (onEnd) onEnd(); return; }
     var c = chunks[i++], u = new SpeechSynthesisUtterance(c.t);
     u.lang = state.settings.accent === 'uk' ? 'en-GB' : 'en-US'; u.rate = rate;
-    var v = c.s && second ? second : voices[0]; if (v) u.voice = v;
-    u.pitch = c.s && !second ? 1.2 : 1;
-    var done = function () { setTimeout(next, c.gap); };
+    var v = c.s && second ? second : voices[0]; if (v && choose) u.voice = v;
+    u.pitch = c.s && !(second && choose) ? 1.2 : 1;
+    u.onstart = function () { started = true; clearTimeout(watch); };
+    var done = function (ev) {
+      clearTimeout(watch); u.onend = u.onerror = null;
+      if (ev && ev.type === 'error' && !started && onFail && alive()) return fail();
+      setTimeout(next, c.gap);
+    };
     u.onend = done; u.onerror = done;
+    keepUtter.push(u);                                         // an utterance that is garbage-collected is never spoken on iOS
     speechSynthesis.speak(u);
+    if (onFail && !started && i === 1) watch = setTimeout(function () { if (!started) fail(); }, 4000);
   }
-  next();
-  return { cancel: function () { cancelled = true; stopSpeech(); } };
+  if (busy) setTimeout(next, 90); else next();                 // speak() straight after cancel() is dropped on phones
+  return { cancel: function () { cancelled = true; clearTimeout(watch); stopSpeech(); } };
 }
 
 /* ---------- natural voice (Gemini TTS through the backend), with the browser voice as a safety net ---------- */
@@ -1362,8 +1407,11 @@ function pcmToWavUrl(b64, rate) {
   var u = new Uint8Array(buf, 44); for (i = 0; i < n; i++) u[i] = bin.charCodeAt(i);
   return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
 }
-function speakNatural(lines, rate, onEnd) {
-  if (!BACKEND_READY || state.settings.voiceMode === 'browser' || Date.now() < ttsRestUntil || typeof Audio === 'undefined') return speakLines(lines, rate, onEnd);
+/** force: use the natural voice even when Settings say "Browser voice" (used when the browser voice stays silent). */
+function speakNatural(lines, rate, onEnd, force) {
+  var silentOk = function () { voiceSilent = true; if (onEnd) onEnd(); };
+  if (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser') || Date.now() < ttsRestUntil || typeof Audio === 'undefined') return force ? false : speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk);
+  unlockAudio();
   stopSpeech();
   var gen = speakGen, h = { cancelled: false, inner: null }, accent = state.settings.accent === 'uk' ? 'uk' : 'us';
   var key = accent + '|' + JSON.stringify(lines);
@@ -1371,15 +1419,18 @@ function speakNatural(lines, rate, onEnd) {
   function alive() { return !h.cancelled && gen === speakGen; }
   function fallback(e) {
     if (!alive()) return;
-    ttsRestUntil = Date.now() + ((e && e.code === 'limit') ? 3600e3 : 600e3);
-    h.inner = speakLines(lines, rate, onEnd); if (!h.inner && onEnd) onEnd();
+    if (!e || e.code !== 'play') ttsRestUntil = Date.now() + ((e && e.code === 'limit') ? 3600e3 : 600e3);
+    if (force) { toast('Sound is not available right now. Check that your phone is not on silent.'); if (onEnd) onEnd(); return; }
+    h.inner = speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk); if (!h.inner && onEnd) onEnd();
   }
   function play(url) {
     if (!alive()) return;
-    var a = new Audio(url); a.playbackRate = rate || 1; curAudio = a;
+    var a = player || new Audio(); a.onended = a.onerror = null;
+    try { a.pause(); } catch (e) {}
+    a.src = url; a.playbackRate = rate || 1; curAudio = a;
     a.onended = function () { if (curAudio === a) curAudio = null; if (alive() && onEnd) onEnd(); };
-    a.onerror = function () { fallback({ code: 'x' }); };
-    var pr = a.play(); if (pr && pr.catch) pr.catch(function () { fallback({ code: 'x' }); });
+    a.onerror = function () { fallback({ code: 'play' }); };
+    var pr = a.play(); if (pr && pr.catch) pr.catch(function () { fallback({ code: 'play' }); });
   }
   if (ttsCache[key]) { play(ttsCache[key]); return h; }
   if (!ttsCache._told) { ttsCache._told = true; toast('Preparing the natural voice. This takes a few seconds the first time.'); }
@@ -1388,6 +1439,21 @@ function speakNatural(lines, rate, onEnd) {
     ttsCache[key] = pcmToWavUrl(r.audio, r.rate || 24000); play(ttsCache[key]);
   }).catch(fallback);
   return h;
+}
+/**
+ * One word or a short sentence, from a tap. The browser voice comes first: it is instant and uses no AI. If it stays
+ * silent (seen on some iPhones), the natural voice takes over for the rest of the visit.
+ */
+function say(text, rate) {
+  var lines = [{ s: 0, t: String(text) }];
+  rate = rate || 0.9;
+  unlockAudio();
+  function natural() {
+    voiceSilent = true;
+    if (speakNatural(lines, rate, null, true) === false) toast('This browser cannot play the word right now.');
+  }
+  if (voiceSilent) return natural();
+  if (!speakLines(lines, rate, null, natural)) natural();
 }
 function makeRecognizer(handlers) {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1850,6 +1916,10 @@ function renderSettings() {
     '<div class="set-row"><div><div class="t">Voice quality</div><div class="s">The natural AI voice sounds like a real person. It needs a connection and falls back to your browser voice if it is busy.</div></div><select class="input" id="set-vmode" style="width:160px"><option value="ai"' + (s.voiceMode !== 'browser' ? ' selected' : '') + '>Natural AI voice</option><option value="browser"' + (s.voiceMode === 'browser' ? ' selected' : '') + '>Browser voice</option></select></div>' +
     '<div class="set-row"><div><div class="t">Browser voice</div><div class="s">Used for single words and when the AI voice is off. Edge and Chrome have the best ones.</div></div><div style="display:flex;gap:8px;align-items:center"><select class="input" id="set-vname" style="width:200px"><option value="">Best available</option>' + englishVoices().map(function (v) { return '<option value="' + esc(v.voiceURI) + '"' + (s.voiceName === v.voiceURI ? ' selected' : '') + '>' + esc(v.name) + '</option>'; }).join('') + '</select><button class="btn" data-action="voice-test">Test</button></div></div>' +
     '<div class="set-row"><div><div class="t">Weekly goal</div><div class="s">Minutes of practice per week.</div></div><select class="input" id="set-goal" style="width:160px">' + [60, 100, 150, 200, 300].map(function (m) { return '<option value="' + m + '"' + (s.weeklyGoal === m ? ' selected' : '') + '>' + m + ' minutes</option>'; }).join('') + '</select></div></article>' +
+    '<article class="card mt" style="max-width:720px"><div class="card-head"><h2>Words</h2></div>' +
+    '<div class="set-row"><div><div class="t">Daily goal for Words</div><div class="s">Minutes a day. There is no limit on new words: you learn as many rounds as you like, and this is the time to aim for.</div></div><div style="display:flex;gap:8px;align-items:center"><input class="input" id="set-wgoal" type="number" inputmode="numeric" min="5" max="180" step="5" value="' + (s.wordsGoal || 30) + '" style="width:90px" aria-label="Daily goal for Words in minutes"><span class="small muted">min</span></div></div>' +
+    '<div class="set-row"><div><div class="t">New words per round</div><div class="s">Your saved words come first in every round.</div></div><select class="input" id="set-wround" style="width:160px">' + [5, 10, 15].map(function (m) { return '<option value="' + m + '"' + ((s.wordsRound || 5) === m ? ' selected' : '') + '>' + m + ' words</option>'; }).join('') + '</select></div>' +
+    '<div class="set-row"><div><div class="t">When many reviews are waiting</div><div class="s">Kelvin always tells you. It can also make rounds smaller (2 new words) until you catch up, so reviews do not pile up.</div></div><select class="input" id="set-wauto" style="width:200px"><option value="1"' + (s.wordsAuto !== false ? ' selected' : '') + '>Smaller rounds</option><option value="0"' + (s.wordsAuto === false ? ' selected' : '') + '>Only warn me</option></select></div></article>' +
     '<article class="card mt" style="max-width:720px"><div class="card-head"><h2>Account</h2></div><div class="set-row"><div><div class="t">Sign out</div><div class="s">You can sign back in at any time.</div></div><button class="btn" data-action="logout">Sign out</button></div></article>';
 }
 
@@ -1857,7 +1927,7 @@ function renderSettings() {
 var REG = { views: {}, actions: {}, dash: null, hub: null, go: [] };
 window.Kelvin = {
   state: state, $: $, $$: $$, esc: esc, ic: ic, toast: toast, go: go, persist: persist,
-  speakLines: speakLines, speakNatural: speakNatural, stopSpeech: stopSpeech, SK: SK,
+  speakLines: speakLines, speakNatural: speakNatural, stopSpeech: stopSpeech, say: say, canSpeak: function () { return ('speechSynthesis' in window) || BACKEND_READY; }, SK: SK,
   register: function (name, view) { REG.views[name] = view; },
   actions: function (map) { Object.keys(map).forEach(function (k) { REG.actions[k] = map[k]; }); },
   setDash: function (fn) { REG.dash = fn; },
@@ -1919,6 +1989,13 @@ document.addEventListener('change', function (ev) {
   if (ev.target.id === 'set-accent') { state.settings.accent = ev.target.value; persist(); syncSettings(); toast('Voice updated.'); }
   if (ev.target.id === 'set-vmode') { state.settings.voiceMode = ev.target.value; persist(); toast('Voice updated.'); }
   if (ev.target.id === 'set-vname') { state.settings.voiceName = ev.target.value; persist(); speakLines([{ s: 0, t: 'Hello, this is how I sound.' }], 1); }
+  if (ev.target.id === 'set-wgoal') {
+    var g = Math.round(Number(ev.target.value));
+    if (!(g >= 5 && g <= 180)) { ev.target.value = state.settings.wordsGoal || 30; return toast('Choose from 5 to 180 minutes.'); }
+    state.settings.wordsGoal = g; ev.target.value = g; persist(); syncSettings(); loadOverview(true); toast('Words goal: ' + g + ' minutes a day.');
+  }
+  if (ev.target.id === 'set-wround') { state.settings.wordsRound = parseInt(ev.target.value, 10); persist(); syncSettings(); toast('Round size updated.'); }
+  if (ev.target.id === 'set-wauto') { state.settings.wordsAuto = ev.target.value === '1'; persist(); syncSettings(); toast('Saved.'); }
   if (ev.target.id === 'set-goal') { state.settings.weeklyGoal = parseInt(ev.target.value, 10); persist(); syncSettings(); toast('Weekly goal updated.'); }
 });
 document.addEventListener('input', function (ev) {
@@ -2217,11 +2294,21 @@ K.actions({
 
 /* =====================================================================
    Words module (real data)
-   - Five Leitner boxes. The server holds the boxes and the due dates; the browser only
-     reports right or wrong for each word at the end of a session.
-   - Every answer here is graded by this code. No AI call is made while you study.
-   - The word content (definitions, examples, word partners, Vietnamese gloss) was prepared
-     once by AI and checked by a second model before it reached the word bank.
+   - No daily limit on new words. You set a daily study time (Settings), review what is due and learn new words
+     in rounds of 5, 10 or 15. Your saved words come first in every round.
+   - Five Leitner boxes. The server holds the boxes and the due dates; the browser reports one result per word at the
+     end of a session: "ok", "hint" (right, but with a hint: the box stays) or "miss" (back to box 1).
+   - The kind of exercise follows the box: the higher the box, the more you have to recall by yourself.
+       new / box 1  choose the meaning, then fill the blank with the first letter given
+       box 2        fill the blank from the meaning, no letters
+       box 3        hear the word and type it, or type it from its meaning
+       box 4        word partners, Vietnamese to English, or the closest word (similar meaning)
+       box 5        answer a question using the word, or the opposite word
+   - Similar and opposite words are never shown with a new word (learning two close words at once makes both harder).
+     From box 3 they appear after each answer, with a short note on the difference.
+   - A word you miss comes back a few cards later as a different exercise, until you get it right.
+   - Every answer here is graded by this code. AI is used only for a short note on your own sentence at the end of a round,
+     and (in the background) to write more example sentences, so reviews do not show the same sentence every time.
    - Example sentences keep the target word in [brackets]. The brackets are removed on screen.
    ===================================================================== */
 
@@ -2230,7 +2317,7 @@ var LV = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 var BOX_DAYS = [1, 2, 4, 8, 16];
 var LIVE = K.live;
 
-var W = { t: null, err: null, showVi: false, filter: 'due', page: 0, items: null, total: 0, pageSize: 20, run: null, profile: null, loadingList: false, sv: null, svFilter: 'all', svPage: 0, more: 5, recent: [], autoStart: false };
+var W = { t: null, err: null, showVi: false, filter: 'due', page: 0, items: null, total: 0, pageSize: 20, run: null, profile: null, loadingList: false, sv: null, svFilter: 'all', svPage: 0, recent: [], autoStart: false, next: null, busy: false };
 
 /* ---------- helpers ---------- */
 function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -2244,7 +2331,7 @@ function lev(a, b) {
 }
 /* typed answer check: exact, or one slip in a word of five letters or more */
 function gradeTyped(input, accepted) {
-  var v = String(input).trim().toLowerCase().replace(/[^a-z' -]/g, ''), best = null;
+  var v = String(input).trim().toLowerCase().replace(/[^a-z' -]/g, '').replace(/\s+/g, ' '), best = null;
   if (!v) return { ok: false, empty: true };
   for (var i = 0; i < accepted.length; i++) {
     var a = String(accepted[i]).toLowerCase();
@@ -2265,9 +2352,20 @@ function parts(ex, word) {
 function blankHtml(ex, word) { var p = parts(ex, word); return esc(p.pre) + '<span class="blank"></span>' + esc(p.post); }
 function highlight(ex, word) { var p = parts(ex, word); return esc(p.pre) + '<mark>' + esc(p.form) + '</mark>' + esc(p.post); }
 function boxes(n) { var h = '<span class="boxes" aria-label="Box ' + n + ' of 5">'; for (var i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? 'on' : '') + '"></i>'; return h + '</span>'; }
-function speak(w) { if (!K.speakLines([{ s: 0, t: w }], 0.9)) K.toast('This browser has no built-in voice.'); }
+function speak(w) { K.say(w, 0.9); }
 function root() { return W.run && W.run.where === 'quick' ? qwBody() : $('#words-root'); }
 function studying() { return !!(K.study && K.study.active()); }
+function hash(s) { var h = 0; s = String(s); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+function nWords(n) { return n + (n === 1 ? ' word' : ' words'); }
+function mins(sec) { return Math.floor((Number(sec) || 0) / 60); }
+/* "d _ _ _ _ _ _ _" for deadline; each word of a phrase gets its own first letter */
+function pattern(ans) { return String(ans).split(' ').map(function (w) { return w.charAt(0) + new Array(w.length).join(' _'); }).join('   '); }
+function letters(ans) { var n = String(ans).replace(/[^A-Za-z]/g, '').length; return n + (n === 1 ? ' letter' : ' letters'); }
+function usesWord(text, w) {
+  var first = String(w).toLowerCase().split(/[ -]/)[0], stem = first.length <= 4 ? first : first.replace(/e$/, '').slice(0, Math.max(3, first.length - 3));
+  return String(text).toLowerCase().indexOf(stem) > -1;
+}
+function wordCount(t) { return String(t).trim().split(/\s+/).filter(Boolean).length; }
 
 /* ---------- loading ---------- */
 function render() {
@@ -2280,8 +2378,8 @@ function render() {
 function load() {
   W.err = null;
   return K.Api.call('wordsToday').then(function (t) {
-    W.t = t; W.profile = t.profile || W.profile;
-    if (W.autoStart && K.state.view === 'words' && !W.run) { W.autoStart = false; if (startSession()) return; }
+    W.t = t; W.profile = t.profile || W.profile; W.next = null;
+    if (W.autoStart && K.state.view === 'words' && !W.run) { W.autoStart = false; if (startToday()) return; }
     if (K.state.view === 'words' && !W.run) draw(); loadList(true); loadSaved(true);
   })
     .catch(function (e) { W.err = (e && e.message) || 'Could not load your words.'; if (K.state.view === 'words' && !W.run) draw(); });
@@ -2301,6 +2399,34 @@ function loadSaved(quiet) {
 }
 
 /* ---------- Words page ---------- */
+function roundCount(t) { return t && t.round ? t.round.fresh.length + t.round.saved.items.length : 0; }
+function reviewCount(t) { return t && t.review ? t.review.review.length + t.review.saved.items.length : 0; }
+/* The goal line: minutes studied today against the goal. */
+function goalHtml(g) {
+  var done = mins(g.doneSec), pct = Math.min(100, Math.round(g.doneSec / Math.max(60, g.minutes * 60) * 100)), ok = g.doneSec >= g.minutes * 60;
+  return '<div class="goal-line"><div class="row-between" style="gap:8px"><span class="small"><b>Today: <span class="num">' + done + '</span> of ' + g.minutes + ' min</b>' + (ok ? ' <span class="pill ok-pill">Goal reached</span>' : '') + '</span><span class="tiny muted">Change the goal in Settings</span></div><div class="wd-bar" style="margin:8px 0 0"><i style="width:' + pct + '%"></i></div></div>';
+}
+/* What to say when reviews are piling up. */
+function loadNote(g) {
+  if (g.state === 'ok') return '';
+  var head = '<b>' + g.due + ' reviews are waiting</b>, about ' + g.dueMin + ' min. ';
+  if (g.state === 'warn') return '<div class="wd-note warn" role="status">' + head + 'Review first, so they do not pile up.</div>';
+  return '<div class="wd-note stop" role="status">' + head + (g.reduced ? 'New rounds are down to ' + g.reducedRound + ' words until you catch up. Your saved words are not cut.' : 'That is more than your daily goal. Review before you learn more.') + '</div>';
+}
+function todayCard(t) {
+  var g = t.goal, s = t.stats, rv = reviewCount(t), rd = roundCount(t), urgent = g.state !== 'ok' && rv > 0;
+  var sizes = '<label class="small muted round-size">Round of <select class="input" id="wd-size" aria-label="New words per round">' + g.sizes.map(function (n) { return '<option value="' + n + '"' + (g.round === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>';
+  var learnLabel = rd ? 'Learn ' + rd + ' new ' + (rd === 1 ? 'word' : 'words') : 'No new words ready';
+  var reviewBtn = rv ? '<button class="btn ' + (urgent || !rd ? 'btn-primary' : 'btn-soft') + '" data-action="wd-review">Review ' + (g.due > rv ? rv + ' of ' + g.due : rv) + '</button>' : '';
+  var learnBtn = '<button class="btn ' + (urgent ? 'btn-soft' : 'btn-primary') + '" data-action="wd-learn"' + (rd ? '' : ' disabled') + '>' + learnLabel + '</button>';
+  return '<article class="card sk-words"><div class="card-head"><h2>Today\'s words</h2><span class="pill plain">' + (g.due ? g.due + ' to review' : 'No reviews waiting') + '</span></div>' +
+    goalHtml(g) + loadNote(g) +
+    '<div class="wd-stats"><div class="wd-stat"><b class="num">' + g.due + '</b><span class="small muted">to review</span></div><div class="wd-stat"><b class="num">' + g.newToday + '</b><span class="small muted">new today</span></div><div class="wd-stat"><b class="num">' + s.known + '</b><span class="small muted">mastered</span></div><div class="wd-stat"><b class="num">' + (s.knew || 0) + '</b><span class="small muted">already knew</span></div></div>' +
+    '<div class="form-banner" id="wd-banner" role="alert"></div>' +
+    '<div class="round-row">' + (urgent ? reviewBtn + learnBtn : learnBtn + reviewBtn) + sizes + '</div>' +
+    '<p class="tiny muted" style="margin-top:12px">No daily limit: learn as many rounds as you like. A steady pace for a ' + g.minutes + '-minute goal is about ' + g.suggest + ' new words a day.' +
+    (g.savedFresh ? ' Your saved words come first (' + g.savedFresh + ' waiting).' : '') + (g.tomorrow ? ' By tomorrow: about ' + g.tomorrow + ' ' + (g.tomorrow === 1 ? 'review' : 'reviews') + ' (' + g.tomorrowMin + ' min).' : '') + '</p></article>';
+}
 function draw() {
   if (W.run) return drawRun();
   if (studying()) return;
@@ -2312,46 +2438,31 @@ function draw() {
     r.innerHTML = '<article class="card"><div class="card-head"><h2>Words</h2><span class="pill warn">Not ready yet</span></div><p class="muted">The word bank is still being prepared. Each word needs a definition, an example and word partners before it can be taught.</p>' +
       '<p class="small muted mt">If you manage this app, open the sheet menu: Kelvin, then Generate word content. It runs in the background and fills the bank step by step.</p>' +
       '<div class="callout mt" style="margin-bottom:0"><span class="ico">' + ic('i-cards') + '</span><div class="grow small"><b>Ready words: ' + t.bank.approved + '</b><div class="muted">Waiting for content: ' + t.bank.pending + '</div></div></div></article>' +
-      (t.saved && t.saved.items.length ? '<article class="card mt sk-words"><div class="card-head"><h2>Your saved words</h2><span class="pill">' + t.saved.items.length + ' today</span></div><p class="muted">You can already study the words you saved while practising.</p><button class="btn btn-primary mt" data-action="wd-start">Start today\'s session</button></article>' : '');
+      (roundCount(t) + reviewCount(t) ? '<div class="mt">' + todayCard(t) + '</div>' : '');
     return;
   }
-  var s = t.stats, nSaved = t.saved ? t.saved.items.length : 0, total = s.review + s.fresh + nSaved;
-  var savedRev = nSaved - (t.saved ? t.saved.fresh || 0 : 0);
+  var s = t.stats;
   var bars = s.levels.map(function (l) {
     var tt = l.total || 1;
     return '<div class="r"><b>' + l.lvl + '</b><div class="t"><i class="k" style="width:' + l.known / tt * 100 + '%"></i><i class="l" style="width:' + l.learning / tt * 100 + '%"></i></div><span class="muted num">' + (l.known + l.learning) + ' of ' + l.total + '</span></div>';
   }).join('');
   var prof = W.profile ? profileHtml(W.profile) : '<p class="muted">A 3-minute check shows whether the gap is size (too few words), recall (you know words but cannot use them) or word partners (which words go together).</p><button class="btn btn-soft mt" data-action="wd-check">Take the vocabulary check</button>';
-  r.innerHTML = '<div class="grid g-7-5"><article class="card sk-words"><div class="card-head"><h2>Today\'s words</h2><span class="pill">About ' + s.minutes + ' minutes</span></div>' +
-    goalHtml(t.goal) +
-    '<div class="wd-stats"><div class="wd-stat"><b class="num">' + (s.review + savedRev) + '</b><span class="small muted">to review' + (s.due > s.review ? ' (' + s.due + ' due)' : '') + '</span></div><div class="wd-stat"><b class="num">' + s.newToday + '</b><span class="small muted">new in this session</span></div><div class="wd-stat"><b class="num">' + s.known + '</b><span class="small muted">mastered</span></div><div class="wd-stat"><b class="num">' + (s.knew || 0) + '</b><span class="small muted">already knew</span></div></div>' +
-    '<div class="form-banner" id="wd-banner" role="alert"></div>' +
-    (total ? '<button class="btn btn-primary" data-action="wd-start">Start today\'s session</button>' : '<p class="small muted">' + (s.learning + s.known > 0 ? 'Today\'s session is done. Learn more below, or practise a set.' : 'Nothing to study right now.') + '</p>') +
-    moreHtml() + '</article>' +
+  r.innerHTML = '<div class="grid g-7-5">' + todayCard(t) +
     '<article class="card"><div class="card-head"><h2>Your word bank</h2><span class="pill plain">' + t.bank.approved + ' words</span></div><div class="lvbars">' + bars + '</div><div class="legend" style="margin-top:6px"><span><i style="border-color:var(--primary)"></i>Known</span><span><i style="border-color:#C9C4FF"></i>Learning</span></div></article></div>' +
     '<div class="grid g-2 mt"><article class="card"><div class="card-head"><h2>Vocabulary profile</h2></div>' + prof + '</article>' +
-    '<article class="card"><div class="card-head"><h2>How review timing works</h2></div><p class="muted small" style="margin-bottom:12px">Each word sits in a box. A right answer moves it up and the next review comes later. A wrong answer sends it back to box 1.</p><div class="boxladder">' + BOX_DAYS.map(function (d, i) { return '<div><b>Box ' + (i + 1) + '</b>' + d + (d === 1 ? ' day' : ' days') + '</div>'; }).join('') + '</div></article></div>' +
+    '<article class="card"><div class="card-head"><h2>How review works</h2></div><p class="muted small" style="margin-bottom:12px">Each word sits in a box. A right answer moves it up and the next review comes later. A right answer with a hint keeps the box. A wrong answer sends it back to box 1, and the word comes back in the same session until you get it. The higher the box, the more you recall by yourself.</p><div class="boxladder">' + BOX_DAYS.map(function (d, i) { return '<div><b>Box ' + (i + 1) + '</b>' + d + (d === 1 ? ' day' : ' days') + '</div>'; }).join('') + '</div></article></div>' +
     (K.study ? K.study.card(t) : '') + savedCard() + '<article class="card mt"><div class="card-head"><h2>My words</h2><div class="row-between" style="gap:10px"><div class="filters" role="group" aria-label="Filter words">' +
     [['due', 'Due today'], ['new', 'New'], ['learning', 'Learning'], ['known', 'Known'], ['all', 'All']].map(function (f) { return '<button data-action="wd-filter" data-f="' + f[0] + '" aria-pressed="' + (W.filter === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>' +
     '<button class="btn btn-ghost btn-sm" data-action="wd-vi" aria-pressed="' + W.showVi + '">' + ic('i-eye', 'ic-sm') + (W.showVi ? 'Hide' : 'Show') + ' Vietnamese</button></div></div><div id="wd-list">' + listHtml() + '</div></article>';
 }
-function goalHtml(g) {
-  g = g || { target: 4, done: 0 };
-  var pct = Math.min(100, Math.round(g.done / Math.max(1, g.target) * 100)), ok = g.done >= g.target;
-  return '<div class="goal-line"><div class="row-between" style="gap:8px"><span class="small"><b>' + (g.done > g.target ? 'New words today: ' + g.done + ' (goal ' + g.target + ')' : 'New words today: ' + g.done + ' of ' + g.target) + '</b>' + (ok ? ' <span class="pill ok-pill">Goal done</span>' : '') + '</span><span class="tiny muted">Your saved words come first</span></div><div class="wd-bar" style="margin:8px 0 0"><i style="width:' + pct + '%"></i></div></div>';
-}
-function moreHtml() {
-  return '<div class="more-row"><label for="wd-more" class="small"><b>Learn more new words</b></label><input class="input" id="wd-more" type="number" inputmode="numeric" min="1" max="50" step="1" value="' + W.more + '" aria-describedby="wd-more-note"><button class="btn btn-soft" data-action="wd-more">Learn more</button></div>' +
-    '<p class="tiny muted" id="wd-more-note">Any number from 1 to 50. Saved words come first. Extra words join your reviews from tomorrow.</p>';
-}
 function knowBtn(x) {
   if (x.status === 'knew') return '<button class="btn btn-ghost btn-sm" data-action="wd-again" data-id="' + esc(x.id) + '">Study again</button>';
-  return '<button class="btn btn-ghost btn-sm" data-action="wd-know-row" data-id="' + esc(x.id) + '" aria-label="I know ' + esc(x.w) + '">I know it</button>';
+  return '<button class="btn btn-ghost btn-sm" data-action="wd-know-row" data-id="' + esc(x.id) + '" data-w="' + esc(x.w) + '" aria-label="I know ' + esc(x.w) + '">I know it</button>';
 }
 function savedCard() {
   var c = W.t && W.t.saved ? W.t.saved.counts : null, sv = W.sv;
   var head = '<div class="card-head"><h2>Saved from practice</h2><span class="pill plain">' + (c ? c.total : 0) + ' saved</span></div>';
-  if (c && !c.total && (!sv || !sv.total)) return '<article class="card mt sk-words">' + head + '<p class="muted">While you practise, select a word or phrase and tap Save. It shows up here and in your daily session, with its own sentence.</p></article>';
+  if (c && !c.total && (!sv || !sv.total)) return '<article class="card mt sk-words">' + head + '<p class="muted">While you practise, select a word or phrase and tap Save. It shows up here and comes first in your next round, with its own sentence.</p></article>';
   var pages = sv ? Math.ceil(sv.total / sv.pageSize) : 0;
   return '<article class="card mt sk-words">' + head + '<div class="filters" role="group" aria-label="Filter saved words" style="margin-bottom:8px">' +
     [['all', 'All'], ['due', 'Due'], ['new', 'New'], ['learning', 'Learning'], ['known', 'Known']].map(function (f) { return '<button data-action="wd-sfilter" data-f="' + f[0] + '" aria-pressed="' + (W.svFilter === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>' +
@@ -2377,70 +2488,133 @@ function profileHtml(p) {
 }
 
 /* ---------- building a session ---------- */
-var LABEL = { intro: 'New word', meaning: 'Choose the meaning', cloze: 'Fill in the blank', coll: 'Choose the word partner', def: 'Type the word', sentence: 'Use it in a sentence' };
+var LABEL = { syn: 'Closest meaning', ant: 'Opposite', intro: 'New word', meaning: 'Choose the meaning', cloze: 'Fill in the blank', coll: 'Choose the word partner', def: 'Type the word', listen: 'Listen and type', vi: 'Vietnamese to English', ask: 'Answer with the word', use: 'Use it yourself' };
+var TYPED = { cloze: 1, def: 1, listen: 1, vi: 1, ask: 1 };
+var RANK = { ok: 0, hint: 1, miss: 2 };
 
-function mapSaved(x) { return { id: x.id, w: x.w, pos: '', lvl: '', def: x.def || '', ex: x.ex || '', coll: [], vi: x.vi || '', quiz: null, box: x.box, status: x.status, saved: true, skill: x.skill }; }
-function savedItems(d) { d = d || W.t; return ((d && d.saved && d.saved.items) || []).map(mapSaved); }
+function mapSaved(x) { return { id: x.id, w: x.w, pos: '', lvl: '', def: x.def || '', ex: x.ex || '', ex2: x.ex2 || [], q: x.q || '', rel: x.rel || null, more: !!x.more, coll: [], vi: x.vi || '', quiz: null, box: x.box, status: x.status, saved: true, skill: x.skill }; }
+function savedItems(d) { return ((d && d.saved && d.saved.items) || []).map(mapSaved); }
 function canMeaning(run, x) { return x.def && (run.pool.length - 1 + run.extra.length) >= 3; }
-/* Reviews first, then new words (saved words before WordBank words). Light rounds (Quick words): one check per word. */
-function buildSteps(run, rev, nw, svRev, svNew, noSentence) {
-  var steps = [], news = svNew.concat(nw);
-  rev.forEach(function (x) { steps.push({ t: 'cloze', wd: x }); });
-  svRev.forEach(function (x) { steps.push(x.ex ? { t: 'cloze', wd: x } : canMeaning(run, x) ? { t: 'meaning', wd: x } : { t: 'intro', wd: x }); });
-  news.forEach(function (x) { steps.push({ t: 'intro', wd: x }); });
-  if (run.light) {
-    news.forEach(function (x) { if (x.ex) steps.push({ t: 'cloze', wd: x }); else if (canMeaning(run, x)) steps.push({ t: 'meaning', wd: x }); });
-    return steps;
+function canListen() { return K.canSpeak(); }
+/* "closest meaning" (syn) or "opposite" (ant): needs the related word and three other words to choose from */
+function relList(wd, kind) { return (wd.rel && wd.rel[kind === 'syn' ? 's' : 'a']) || []; }
+function relChoices(run, wd) {
+  var skip = {}; [wd.w].concat(relList(wd, 'syn'), relList(wd, 'ant')).forEach(function (x) { skip[String(x).toLowerCase()] = 1; });
+  var seen = {}, out = [];
+  run.pool.map(function (x) { return x.w; }).concat(run.extra.map(function (d) { return d.w; })).forEach(function (w) {
+    var k = String(w || '').toLowerCase(); if (!w || skip[k] || seen[k]) return; seen[k] = 1; out.push(w);
+  });
+  return out;
+}
+function canRel(run, wd, kind) { return relList(wd, kind).length > 0 && relChoices(run, wd).length >= 3; }
+/* The sentence for a blank: a different one at each box when the word has more than one, so you learn the word and not the sentence. */
+function sentenceOf(wd) {
+  var list = [wd.ex].concat(wd.ex2 || []).filter(Boolean);
+  return list.length ? list[(wd.box || 1) % list.length] : '';
+}
+/* One check for a word that is due. The exercise follows the box (see the top of this file); missing content falls back to an easier kind. */
+function reviewStep(run, wd) {
+  var b = wd.box || 1, alt = hash(wd.id + ((W.t && W.t.day) || '')) % 2, hasEx = !!sentenceOf(wd), s = null;
+  if (b <= 1) s = hasEx ? { t: 'cloze', clue: 'letter' } : canMeaning(run, wd) ? { t: 'meaning' } : null;
+  else if (b === 2) s = hasEx ? { t: 'cloze', clue: wd.def ? 'def' : 'letter' } : null;
+  else if (b === 3) s = alt && canListen() ? { t: 'listen' } : wd.def ? { t: 'def' } : canListen() ? { t: 'listen' } : null;
+  else if (b === 4) {
+    var k3 = hash(wd.id + 'r' + ((W.t && W.t.day) || '')) % 3, opts4 = [];
+    if (wd.quiz) opts4.push({ t: 'coll' });
+    if (wd.vi) opts4.push({ t: 'vi' });
+    if (canRel(run, wd, 'syn')) opts4.push({ t: 'syn' });
+    s = opts4.length ? opts4[k3 % opts4.length] : null;
   }
-  news.filter(function (x) { return canMeaning(run, x); }).forEach(function (x) { steps.push({ t: 'meaning', wd: x }); });
-  news.filter(function (x) { return x.ex; }).forEach(function (x) { steps.push({ t: 'cloze', wd: x }); });
-  nw.filter(function (x) { return x.quiz; }).forEach(function (x) { steps.push({ t: 'coll', wd: x }); });
-  if (nw.length && !noSentence) steps.push({ t: 'sentence', wd: nw[nw.length - 1] });
+  else s = wd.q && wd.def && (alt || !canRel(run, wd, 'ant')) ? { t: 'ask' } : canRel(run, wd, 'ant') ? { t: 'ant' } : canRel(run, wd, 'syn') ? { t: 'syn' } : null;
+  if (!s) s = wd.def ? { t: 'def' } : hasEx ? { t: 'cloze', clue: 'letter' } : canMeaning(run, wd) ? { t: 'meaning' } : { t: 'intro' };
+  s.wd = wd; return s;
+}
+/* New words, five at a time: look at each one, then choose its meaning, then fill a blank (first letter given). Quick rounds: one look, one check. */
+function newSteps(run, news) {
+  var steps = [];
+  for (var i = 0; i < news.length; i += 5) {
+    var ch = news.slice(i, i + 5);
+    ch.forEach(function (x) { steps.push({ t: 'intro', wd: x }); });
+    if (run.light) { ch.forEach(function (x) { if (sentenceOf(x)) steps.push({ t: 'cloze', clue: 'letter', wd: x }); else if (canMeaning(run, x)) steps.push({ t: 'meaning', wd: x }); }); continue; }
+    var typedAfter = [];
+    shuffle(ch).forEach(function (x) { if (canMeaning(run, x)) steps.push({ t: 'meaning', wd: x }); });
+    shuffle(ch).forEach(function (x) { if (sentenceOf(x)) typedAfter.push({ t: 'cloze', clue: 'letter', wd: x }); else if (x.def && !canMeaning(run, x)) typedAfter.push({ t: 'def', wd: x }); });
+    steps = steps.concat(typedAfter);
+  }
   return steps;
 }
-/* data: { review, fresh, saved: { items }, extraDefs } (today, "Learn more" or Quick words). opts: { where: 'page' | 'quick', light, label } */
+/* data: { review, fresh, spare, saved: { items }, extraDefs }. opts: { where: 'page' | 'quick', light, mode: 'review' | 'round' | 'quick' } */
 function startSession(data, opts) {
-  data = data || W.t; opts = opts || {};
+  opts = opts || {};
   if (!data) return false;
   var rev = data.review || [], nw = data.fresh || [], sv = savedItems(data);
   if (!rev.length && !nw.length && !sv.length) return false;
-  var run = { kind: 'session', where: opts.where || 'page', light: !!opts.light, label: opts.label || '', i: 0, miss: {}, skip: {}, fb: null, started: Date.now(), summary: null,
-    pool: rev.concat(nw, sv).filter(function (x) { return x.def; }), extra: data.extraDefs || [] };
-  run.steps = buildSteps(run, rev, nw, sv.filter(function (x) { return x.status !== 'new'; }), sv.filter(function (x) { return x.status === 'new'; }));
+  var svRev = sv.filter(function (x) { return x.status !== 'new'; }), news = sv.filter(function (x) { return x.status === 'new'; }).concat(nw);
+  var run = { kind: 'session', mode: opts.mode || 'round', where: opts.where || 'page', light: !!opts.light, i: 0, res: {}, skip: {}, tries: {}, fb: null, secs: 0, last: Date.now(), summary: null,
+    spare: (data.spare || []).slice(), pool: rev.concat(svRev, news, data.spare || []).filter(function (x) { return x.def; }), extra: data.extraDefs || [] };
+  run.steps = rev.concat(svRev).map(function (x) { return reviewStep(run, x); }).concat(newSteps(run, news));
+  if (news.length && !run.light) run.steps.push({ t: 'use', wd: news[0], cands: news.slice() });
   if (!run.steps.length) return false;
-  W.run = run; draw(); return true;
+  W.run = run; W.busy = false;
+  if (LIVE && !run.light) {
+    getExtras(run, news.concat(rev, svRev));
+    // the next round is fetched now, so "Learn more" at the end starts at once
+    if (run.mode === 'round' && run.where === 'page') W.next = K.Api.call('wordsRound', { n: sizeNow(), exclude: news.concat(run.spare).map(function (x) { return x.id; }) }).catch(function () { return null; });
+  }
+  draw(); return true;
 }
-function learnMore(btn) {
-  var inp = $('#wd-more'), n = inp ? Math.floor(Number(inp.value)) : W.more;
-  if (!(n >= 1 && n <= 50)) { K.toast('Enter a number from 1 to 50.'); if (inp) inp.focus(); return; }
-  W.more = n; btn.disabled = true; btn.textContent = 'Preparing…';
-  var t = W.t || {}, ex = (t.review || []).concat(t.fresh || [], (t.saved && t.saved.items) || []).map(function (x) { return x.id; });
-  K.Api.call('wordsMore', { n: n, exclude: ex }).then(function (r) {
-    var got = r.fresh.length + r.saved.items.length;
-    if (got < n) K.toast('Only ' + got + ' new ' + (got === 1 ? 'word is' : 'words are') + ' ready right now.');
-    startSession(r, { label: 'Extra words' });
-  }).catch(function (e) { btn.disabled = false; btn.textContent = 'Learn more'; K.toast((e && e.message) || 'Could not get more words.'); });
+function sizeNow() { return (W.t && W.t.goal && W.t.goal.round) || K.state.settings.wordsRound || 5; }
+/* In the background: more example sentences and a question for words that have none yet. Never blocks or fails the session. */
+function getExtras(run, words) {
+  var ids = words.filter(function (x) { return !x.more && x.def; }).slice(0, 10).map(function (x) { return x.id; });
+  if (!ids.length) return;
+  K.Api.call('wordsExtras', { ids: ids }).then(function (r) {
+    var items = (r && r.items) || {};
+    words.forEach(function (x) { var e = items[x.id]; if (e) { x.ex2 = e.ex2 || []; x.q = e.q || ''; x.rel = e.rel || null; x.more = true; } });
+  }).catch(function () {});
 }
-/* "I know this word": the word leaves the session and the reviews; a new word takes the place of a new one. */
-function knowWord(btn) {
-  var r = W.run; if (!r || r.knowing || r.fb) return;
-  var s = r.steps[r.i], wd = s.wd, isNew = wd.status === 'new' || !wd.box;
-  r.knowing = true; if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-  var ids = {}; r.steps.forEach(function (x) { ids[x.wd.id] = 1; });
-  K.Api.call('wordsKnow', { id: wd.id, replace: isNew, exclude: Object.keys(ids) }).then(function (res) {
-    r.knowing = false; if (W.run !== r) return;
-    r.skip[wd.id] = true; W.t = null;
-    var add = [];
-    if (res.replacement) {
-      var rp = res.replacement, nw = rp.fresh || [], svn = savedItems(rp);
-      r.pool = r.pool.concat(nw, svn).filter(function (x) { return x.def; }); r.extra = r.extra.concat(rp.extraDefs || []);
-      add = buildSteps(r, [], nw, [], svn, true);
-    }
-    r.steps = r.steps.slice(0, r.i).concat(add, r.steps.slice(r.i).filter(function (x) { return x.wd.id !== wd.id; }));
-    K.toast(add.length ? '“' + wd.w + '” marked as known. Here is another word.' : '“' + wd.w + '” marked as known. It will not come back.');
-    if (r.i >= r.steps.length) return finish();
-    draw();
-  }).catch(function (e) { r.knowing = false; if (btn) { btn.disabled = false; btn.textContent = 'I know this word'; } K.toast((e && e.message) || 'Could not save that.'); });
+function startToday() {
+  var t = W.t; if (!t) return false;
+  return reviewCount(t) ? startReview() : startRound();
+}
+function startReview() { var t = W.t; return !!t && startSession({ review: t.review.review, saved: t.review.saved, extraDefs: t.extraDefs }, { mode: 'review' }); }
+function startRound() { var t = W.t; return !!t && startSession({ fresh: t.round.fresh, spare: t.round.spare, saved: t.round.saved, extraDefs: t.extraDefs }, { mode: 'round' }); }
+/* "Learn more" and "Review more" after a session: the Words page data is stale by then, so these ask the server. */
+function moreRound(btn) {
+  if (W.busy) return; W.busy = true; if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  var p = W.next || K.Api.call('wordsRound', { n: sizeNow() }).catch(function (e) { K.toast((e && e.message) || 'Could not get more words.'); return null; });
+  W.next = null;
+  p.then(function (r) {
+    return r || K.Api.call('wordsRound', { n: sizeNow() }).catch(function (e) { K.toast((e && e.message) || 'Could not get more words.'); return null; });
+  }).then(function (r) {
+    W.busy = false;
+    if (!r || !startSession(r, { mode: 'round' })) { if (btn) { btn.disabled = false; btn.textContent = 'No more new words right now'; } }
+  });
+}
+function moreReview(btn) {
+  if (W.busy) return; W.busy = true; if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  K.Api.call('wordsReview').then(function (r) {
+    W.busy = false;
+    if (!startSession(r, { mode: 'review' })) { K.toast('No reviews are waiting.'); if (btn) btn.disabled = false; }
+  }).catch(function (e) { W.busy = false; if (btn) { btn.disabled = false; btn.textContent = 'Review more'; } K.toast((e && e.message) || 'Could not load your reviews.'); });
+}
+/* Time counts only while you are active: a pause of more than a minute between two actions is counted as one minute. */
+function tick() { var r = W.run; if (!r || r.kind !== 'session') return; var now = Date.now(); r.secs += Math.min(Math.max(0, now - r.last), 60000); r.last = now; }
+
+/* "I know this word": it leaves the session and the reviews at once; a spare new word takes the place of a new one. Saving runs in the background. */
+function knowWord() {
+  var r = W.run; if (!r || r.fb || r.kind !== 'session') return;
+  tick();
+  var s = r.steps[r.i], wd = s.wd, isNew = wd.status === 'new' || !wd.box, add = [], sp = null;
+  r.skip[wd.id] = true; delete r.res[wd.id];
+  if (isNew && r.spare.length) { sp = r.spare.shift(); add = newSteps(r, [sp]); }
+  r.steps = r.steps.slice(0, r.i).concat(add, r.steps.slice(r.i).filter(function (x) { return x.t === 'use' || x.wd.id !== wd.id; }));
+  r.steps.forEach(function (x) { if (x.t === 'use') { x.cands = x.cands.filter(function (c) { return c.id !== wd.id; }); if (sp) x.cands.push(sp); x.ready = false; } });
+  if (sp) getExtras(r, [sp]);
+  K.toast(sp ? '“' + wd.w + '” marked as known. Here is another word.' : '“' + wd.w + '” marked as known. It will not come back.');
+  W.t = null;
+  K.Api.call('wordsKnow', { id: wd.id }).catch(function () { K.toast('Could not save “' + wd.w + '” as known. It will come back later.'); });
+  step();
 }
 function startCheck(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
@@ -2451,18 +2625,40 @@ function startCheck(btn) {
     draw();
   }).catch(function (e) { if (btn) { btn.disabled = false; btn.textContent = 'Take the vocabulary check'; } K.toast((e && e.message) || 'Could not start the check.'); });
 }
+/* The answer a typed step expects, and the hints it can give (first letters, then a meaning). */
+function answerOf(s) { return s.t === 'cloze' ? parts(s.sent, s.wd.w).form : s.wd.w; }
+function hintsOf(s) {
+  var wd = s.wd, ans = answerOf(s), pat = pattern(ans) + ' (' + letters(ans) + ')', vi = wd.vi ? 'In Vietnamese: ' + wd.vi : '', def = wd.def ? 'Meaning: ' + wd.def : '';
+  if (s.t === 'cloze') return s.clue === 'letter' ? [vi || def] : [pat, vi];
+  if (s.t === 'def') return [pat, vi];
+  if (s.t === 'listen') return [pat, def || vi];
+  if (s.t === 'vi') return [pat, def];
+  if (s.t === 'ask') return [pat, vi];
+  return [];
+}
 function prep(s) {
   if (s.ready) return; s.ready = true;
-  var wd = s.wd;
+  var wd = s.wd, run = W.run;
   if (s.t === 'meaning') {
-    var run = W.run, cands = run.pool.filter(function (x) { return x.id !== wd.id; }).map(function (x) { return { pos: x.pos, def: x.def }; }).concat(run.extra);
+    var cands = run.pool.filter(function (x) { return x.id !== wd.id; }).map(function (x) { return { pos: x.pos, def: x.def }; }).concat(run.extra);
     var same = shuffle(cands.filter(function (c) { return c.pos === wd.pos && c.def !== wd.def; })), other = shuffle(cands.filter(function (c) { return c.pos !== wd.pos && c.def !== wd.def; }));
     var seen = {}, picks = [];
     same.concat(other).forEach(function (c) { if (picks.length < 3 && !seen[c.def]) { seen[c.def] = 1; picks.push({ t: c.def, ok: false }); } });
     s.opts = shuffle(picks.concat([{ t: wd.def, ok: true }]));
   } else if (s.t === 'coll') {
     s.opts = shuffle(wd.quiz.o.map(function (o, i) { return { t: o, ok: i === 0 }; }));
+  } else if (s.t === 'syn' || s.t === 'ant') {
+    var right = relList(wd, s.t)[0], others = shuffle(relChoices(run, wd)).slice(0, 3);
+    s.opts = shuffle(others.map(function (w) { return { t: w, ok: false }; }).concat([{ t: right, ok: true }]));
+  } else if (s.t === 'cloze') {
+    s.sent = sentenceOf(wd);
+  } else if (s.t === 'use') {
+    // the question of one new word, and up to two more new words to work in if they fit
+    var live = s.cands.filter(function (c) { return !run.skip[c.id]; });
+    var anchor = live.filter(function (c) { return c.q; })[0] || live[live.length - 1];
+    s.wd = anchor || s.wd; s.also = live.filter(function (c) { return c !== anchor; }).slice(0, 2); s.dead = !anchor;
   }
+  if (TYPED[s.t]) { s.hints = hintsOf(s).filter(Boolean); s.hint = 0; }
 }
 
 /* ---------- running ---------- */
@@ -2470,32 +2666,50 @@ function drawRun() {
   var r = W.run;
   if (r.summary) return drawSummary();
   if (r.saving) return root().innerHTML = '<div class="test-shell sk-words"><article class="card"><p class="muted">Saving your session…</p></article></div>';
-  var s = r.steps[r.i], total = r.steps.length, wd = s.wd, body = '';
+  var s = r.steps[r.i], total = r.steps.length, body = '';
   prep(s);
-  var head = r.kind === 'check' ? 'Vocabulary check' : (r.label ? r.label + ': ' : '') + LABEL[s.t];
+  var wd = s.wd, check = r.kind === 'check';
+  var head = check ? 'Vocabulary check' : LABEL[s.t] + (s.retry ? ' <span class="pill warn" style="margin-left:6px">Once more</span>' : '');
   if (s.t === 'intro') {
     body = '<div class="row-between"><div><div class="wd-word">' + esc(wd.w) + '</div><div class="muted" style="margin-top:6px">' + (wd.saved ? 'Saved from ' + esc(wd.skill) : esc(wd.pos) + ' <span class="pill lvl" style="--c:var(--primary);margin-left:6px">' + esc(wd.lvl) + '</span>') + '</div></div><button class="iconbtn" style="width:46px;height:46px" data-action="wd-speak" data-w="' + esc(wd.w) + '" aria-label="Hear the word">' + ic('i-volume') + '</button></div>' +
       (wd.def ? '<p class="cap" style="font-size:18px;margin:18px 0 14px">' + esc(wd.def) + '</p>' : '<p class="muted" style="margin:18px 0 14px">The meaning is not ready yet. Use the sentence to guess it, then look it up.</p>') + (wd.ex ? '<div class="wd-ex cap">' + highlight(wd.ex, wd.w) + '</div>' : '') +
       (wd.coll.length ? '<div class="chips" style="margin-top:14px">' + wd.coll.map(function (c) { return '<span class="tag sk">' + esc(c) + '</span>'; }).join('') + '</div>' : '') +
-      (wd.vi ? '<div style="margin-top:16px;min-height:28px">' + (W.showVi ? '<span class="small"><b>Tiếng Việt:</b> ' + esc(wd.vi) + '</span>' : '<button class="btn btn-ghost btn-sm" data-action="wd-vi-run">' + ic('i-eye', 'ic-sm') + 'Show Vietnamese</button>') + '</div>' : '') +
+      (wd.vi ? '<div class="vi-row"><button class="btn btn-ghost btn-sm" data-action="wd-vi-run" aria-pressed="' + !!s.vi + '">' + ic(s.vi ? 'i-eye-off' : 'i-eye', 'ic-sm') + (s.vi ? 'Hide Vietnamese' : 'Show Vietnamese') + '</button>' + (s.vi ? '<span class="small"><b>' + esc(wd.vi) + '</b></span>' : '') + '</div>' : '') +
       '<div class="row-between mt"><span class="small muted">Say it out loud once before you continue.</span><div class="row-btns"><button class="btn btn-ghost" data-action="wd-know">I know this word</button><button class="btn btn-primary" data-action="wd-next">Got it</button></div></div>';
   } else if (s.t === 'meaning') {
     body = '<p class="wd-q">What does <b>' + esc(wd.w) + '</b> mean?</p><div class="opts" style="margin-top:14px">' + optsHtml(s, r) + '</div>';
+  } else if (s.t === 'syn' || s.t === 'ant') {
+    body = '<p class="wd-q">' + (s.t === 'syn' ? 'Which word is closest in meaning to <b>' : 'Which word means the opposite of <b>') + esc(wd.w) + '</b>?</p><div class="opts" style="margin-top:14px">' + optsHtml(s, r) + '</div>';
   } else if (s.t === 'coll') {
     body = '<p class="wd-q">' + esc(wd.quiz.s).replace('___', '<span class="blank"></span>') + '</p><div class="opts" style="margin-top:14px">' + optsHtml(s, r) + '</div>';
   } else if (s.t === 'cloze') {
-    body = '<p class="wd-q">' + blankHtml(wd.ex, wd.w) + ' <span class="muted">(' + esc(wd.w) + ')</span></p>' + typedHtml(r, 'Type the missing word');
+    var form = answerOf(s);
+    body = '<p class="wd-q cap">' + blankHtml(s.sent, wd.w) + '</p>' +
+      (s.clue === 'def' ? '<p class="clue">Meaning: ' + esc(wd.def) + '</p>' : '<p class="clue num">' + esc(pattern(form)) + ' <span class="muted">(' + letters(form) + ')</span></p>') + typedHtml(s, r, 'Type the missing word');
   } else if (s.t === 'def') {
-    var hint = wd.w[0] + ' ' + new Array(wd.w.length).join('_ ').trim();
-    body = '<p class="wd-q">' + esc(wd.def.charAt(0).toUpperCase() + wd.def.slice(1)) + '.</p><p class="muted small" style="margin-top:6px">' + hint + ' (' + wd.w.length + ' letters)</p>' + typedHtml(r, 'Type the word');
-  } else if (s.t === 'sentence') {
-    body = '<p class="wd-q">Write one sentence of your own with <b>' + esc(wd.w) + '</b>.</p><textarea class="input mt" id="wd-input" style="min-height:96px" aria-label="Your sentence"></textarea>' +
-      (r.fb ? '' : '<div class="row-between mt"><span class="small muted">Checked for the word and length only. It is not scored by AI and does not change your boxes.</span><button class="btn btn-primary" data-action="wd-submit">Save sentence</button></div>');
+    body = '<p class="wd-q">' + esc(wd.def.charAt(0).toUpperCase() + wd.def.slice(1)) + (/[.!?]$/.test(wd.def) ? '' : '.') + '</p>' + (wd.pos ? '<p class="clue">' + esc(wd.pos) + '</p>' : '') +
+      (check ? '<p class="clue num">' + esc(pattern(wd.w)) + ' <span class="muted">(' + letters(wd.w) + ')</span></p>' : '') + typedHtml(s, r, 'Type the word');
+  } else if (s.t === 'listen') {
+    body = '<div class="listen-row"><button class="btn btn-soft" data-action="wd-speak" data-w="' + esc(wd.w) + '">' + ic('i-volume', 'ic-sm') + 'Play the word</button><span class="small muted">Listen, then type what you hear.</span></div>' + typedHtml(s, r, 'Type the word you hear');
+  } else if (s.t === 'vi') {
+    body = '<p class="wd-q">Which English word means <b>' + esc(wd.vi) + '</b>?</p>' + (wd.pos ? '<p class="clue">' + esc(wd.pos) + '</p>' : '') + typedHtml(s, r, 'Type the English word');
+  } else if (s.t === 'ask') {
+    body = '<p class="wd-q cap">' + blankHtml(wd.q, wd.w) + '</p><p class="clue">Answer in a full sentence. Use the word that means: ' + esc(wd.def) + '</p>' +
+      '<textarea class="input mt" id="wd-input" style="min-height:84px" aria-label="Your answer"' + (r.fb ? ' disabled' : '') + '></textarea>' + (r.fb ? '' : hintHtml(s) + '<div class="row-between mt"><span></span><button class="btn btn-primary" data-action="wd-submit">Check</button></div>');
+  } else if (s.t === 'use') {
+    body = (wd.q ? '<p class="wd-q cap">' + highlight(wd.q, wd.w) + '</p><p class="clue">Answer about yourself in one or two sentences.</p>' : '<p class="wd-q">Write one sentence of your own with <b>' + esc(wd.w) + '</b>.</p>') +
+      (s.also.length ? '<div class="use-also"><span class="small muted">If they fit, use these too:</span>' + s.also.map(function (c) { return '<span class="tag sk">' + esc(c.w) + '</span>'; }).join('') + '</div>' : '') +
+      '<textarea class="input mt" id="wd-input" style="min-height:96px" aria-label="Your sentence"' + (r.fb ? ' disabled' : '') + '></textarea>' +
+      (r.fb ? '' : '<div class="row-between mt"><span class="small muted">This does not change your boxes. You get a short note on your sentence.</span><div class="row-btns"><button class="btn btn-ghost" data-action="wd-next">Skip</button><button class="btn btn-primary" data-action="wd-submit">Check my sentence</button></div></div>');
   }
-  if (!r.fb && r.kind === 'session' && s.t !== 'intro' && s.t !== 'sentence' && wd.status !== 'new' && wd.box) body += '<div class="know-link"><button class="linkbtn" data-action="wd-know">I know this word. Stop reviewing it.</button></div>';
-  if (r.fb) body += '<div class="fbk ' + r.fb.cls + '">' + r.fb.html + '</div><div class="row-between mt"><span></span><button class="btn btn-primary" data-action="wd-next">' + (r.i === total - 1 ? 'Finish' : 'Continue') + '</button></div>';
+  if (!r.fb && r.kind === 'session' && s.t !== 'intro' && s.t !== 'use' && wd.status !== 'new' && wd.box) body += '<div class="know-link"><button class="linkbtn" data-action="wd-know">I know this word. Stop reviewing it.</button></div>';
+  if (r.fb) body += '<div class="fbk ' + r.fb.cls + '" id="wd-fb">' + r.fb.html + '</div><div class="row-between mt"><span></span><button class="btn btn-primary" data-action="wd-next" id="wd-go">' + (r.i === total - 1 ? 'Finish' : 'Continue') + '</button></div>';
+  var keep = r.fb && $('#wd-input') ? $('#wd-input').value : null;
   root().innerHTML = '<div class="test-shell sk-words"><div class="row-between" style="margin-bottom:10px">' + (r.where === 'quick' ? '<span class="small muted">' + (r.light ? 'One look, one check' : '') + '</span>' : '<button class="btn btn-ghost btn-sm" data-action="wd-exit">' + ic('i-back', 'ic-sm') + 'Exit</button>') + '<span class="small muted num">' + (r.i + 1) + ' of ' + total + '</span></div><div class="wd-bar"><i style="width:' + (r.i / total * 100) + '%"></i></div><article class="card"><div class="small muted" style="margin-bottom:14px">' + head + '</div>' + body + '<div class="form-banner" id="wd-banner" role="alert" style="margin-top:14px"></div></article></div>';
-  var inp = $('#wd-input'); if (inp && !r.fb) inp.focus();
+  var inp = $('#wd-input');
+  if (inp && keep !== null) inp.value = keep;
+  if (inp && !r.fb) inp.focus(); else if (r.fb && $('#wd-go')) try { $('#wd-go').focus(); } catch (e) {}
+  if (s.t === 'listen' && !s.played) { s.played = true; speak(wd.w); }
 }
 function optsHtml(s, r) {
   return s.opts.map(function (o, i) {
@@ -2503,42 +2717,118 @@ function optsHtml(s, r) {
     return '<button class="opt' + cls + '" data-action="wd-pick" data-i="' + i + '" ' + (r.fb ? 'disabled' : '') + '><span class="k">' + 'ABCD'[i] + '</span><span>' + esc(o.t) + '</span></button>';
   }).join('');
 }
-function typedHtml(r, ph) {
-  return '<div class="row-between mt" style="gap:10px;flex-wrap:nowrap"><input class="input" id="wd-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + ph + '" ' + (r.fb ? 'disabled' : '') + ' style="flex:1"><button class="btn btn-primary" data-action="wd-submit"' + (r.fb ? ' disabled' : '') + '>Check</button></div>';
+/* The hints already taken, and the button for the next one. A right answer after a hint keeps the word in its box. */
+function hintHtml(s) {
+  var r = W.run; if (r.kind !== 'session' || !s.hints || !s.hints.length) return '';
+  var shown = s.hints.slice(0, s.hint).map(function (h) { return '<div class="hint num">' + esc(h) + '</div>'; }).join('');
+  return '<div class="hints">' + shown + (s.hint < s.hints.length ? '<button class="linkbtn" data-action="wd-hint">' + (s.hint ? 'Another hint' : 'Hint') + '</button>' + (s.hint ? '' : ' <span class="tiny muted">With a hint, a right answer keeps the word in its box.</span>') : '') + '</div>';
+}
+function typedHtml(s, r, ph) {
+  return '<div class="row-between mt" style="gap:10px;flex-wrap:nowrap"><input class="input" id="wd-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="' + ph + '" ' + (r.fb ? 'disabled' : '') + ' style="flex:1"><button class="btn btn-primary" data-action="wd-submit"' + (r.fb ? ' disabled' : '') + '>Check</button></div>' + (r.fb ? '' : hintHtml(s));
+}
+function useHint() {
+  var r = W.run; if (!r || r.fb) return;
+  var s = r.steps[r.i]; if (!s.hints || s.hint >= s.hints.length) return;
+  var inp = $('#wd-input'), val = inp ? inp.value : '';
+  tick(); s.hint++; draw();
+  inp = $('#wd-input'); if (inp) { inp.value = val; inp.focus(); }
 }
 
 /* answering */
-function record(ok) {
-  var r = W.run, s = r.steps[r.i];
-  if (s.t === 'sentence') return;
-  if (r.kind === 'session') { if (!ok) r.miss[s.wd.id] = true; } else r.diag[s.task].push(ok ? 1 : 0);
+function mark(id, res) { var r = W.run; if (r.res[id] === undefined || RANK[res] > RANK[r.res[id]]) r.res[id] = res; }
+/* A missed word comes back 3 to 5 cards later as a different kind of exercise, up to three times, until it is right. */
+function retryStep(run, s) {
+  var wd = s.wd, has = !!sentenceOf(wd);
+  if (TYPED[s.t] && canMeaning(run, wd)) return { t: 'meaning' };
+  if (has && !(s.t === 'cloze' && s.clue === 'letter')) return { t: 'cloze', clue: 'letter' };
+  if (wd.def && s.t !== 'def') return { t: 'def' };
+  return canMeaning(run, wd) ? { t: 'meaning' } : has ? { t: 'cloze', clue: 'letter' } : null;
+}
+function requeue(s) {
+  var r = W.run, id = s.wd.id;
+  r.tries[id] = (r.tries[id] || 0) + 1;
+  if (r.tries[id] > (r.light ? 1 : 3)) return false;
+  var t = retryStep(r, s); if (!t) return false;
+  t.wd = s.wd; t.retry = true;
+  var end = r.steps.length, at;
+  if (r.steps[end - 1].t === 'use') end--;
+  at = Math.min(end, r.i + 1 + 3 + Math.floor(Math.random() * 3));
+  r.steps.splice(Math.max(at, r.i + 1), 0, t);
+  return true;
 }
 function afterAnswer(ok, fbHtml, cls, sel) {
-  var r = W.run; record(ok);
-  if (r.kind === 'check') return next();
-  r.fb = { cls: cls, html: fbHtml, sel: sel }; draw();
+  var r = W.run, s = r.steps[r.i];
+  if (r.kind === 'check') { r.diag[s.task].push(ok ? 1 : 0); return next(); }
+  tick();
+  var hinted = ok && s.hint > 0, again = false;
+  if (!s.retry) mark(s.wd.id, ok ? (hinted ? 'hint' : 'ok') : 'miss');
+  if (!ok) again = requeue(s);
+  r.fb = { cls: hinted ? 'near' : cls, sel: sel, html: fbHtml + (hinted && !s.retry ? ' You used a hint, so it stays in its box.' : '') + (again ? ' It will come back in a moment.' : '') + relHtml(s.wd) };
+  draw();
+}
+/* Similar and opposite words, from box 3 on (the word is known well enough by then not to mix them up). */
+function relHtml(wd) {
+  var rel = wd.rel; if (!rel || (wd.box || 0) < 3 || W.run.light) return '';
+  var bits = [];
+  if (rel.s && rel.s.length) bits.push('Similar: ' + rel.s.map(function (x) { return '<b>' + esc(x) + '</b>'; }).join(', '));
+  if (rel.a && rel.a.length) bits.push('Opposite: ' + rel.a.map(function (x) { return '<b>' + esc(x) + '</b>'; }).join(', '));
+  return bits.length ? '<div class="rel-line">' + bits.join(' <span class="muted">·</span> ') + (rel.n ? '<div class="tiny muted" style="margin-top:4px">' + esc(rel.n) + '</div>' : '') + '</div>' : '';
 }
 function pickOpt(i) {
   var r = W.run, s = r.steps[r.i]; if (r.fb) return;
   var ok = s.opts[i].ok, wd = s.wd, right = s.opts.filter(function (o) { return o.ok; })[0].t;
-  afterAnswer(ok, ok ? '<b>Right.</b> ' + esc(wd.w) + ': ' + esc(wd.def) + '.' : '<b>Not quite.</b> The answer is: ' + esc(right) + '.', ok ? 'ok' : 'no', i);
+  var rightLine = s.t === 'syn' ? esc(wd.w) + ' is close to ' + esc(right) + '.' : s.t === 'ant' ? esc(wd.w) + ' is the opposite of ' + esc(right) + '.' : esc(wd.w) + ': ' + esc(dot(wd.def));
+  afterAnswer(ok, ok ? '<b>Right.</b> ' + rightLine : '<b>Not quite.</b> The answer is: ' + esc(right) + '.' + (s.t === 'syn' || s.t === 'ant' ? ' ' + esc(wd.w) + ': ' + esc(dot(wd.def)) : ''), ok ? 'ok' : 'no', i);
 }
+function dot(t) { t = String(t || '').trim(); return /[.!?]$/.test(t) ? t : t + '.'; }
+function meaningLine(wd) { return esc(wd.w) + (wd.def ? ': ' + esc(dot(wd.def)) : '.'); }
 function submitTyped() {
   var r = W.run, s = r.steps[r.i]; if (r.fb) return;
   var inp = $('#wd-input'), wd = s.wd, val = inp ? inp.value : '';
-  if (s.t === 'sentence') {
-    var words = val.trim().split(/\s+/).filter(Boolean).length, stem = wd.w.toLowerCase().replace(/e$/, '').slice(0, Math.max(3, wd.w.length - 3)), has = val.toLowerCase().indexOf(stem) > -1;
-    if (!has || words < 5) return K.toast(!has ? 'Use the word ' + wd.w + ' in your sentence.' : 'Write a full sentence of at least 5 words.');
-    return afterAnswer(true, '<b>Saved.</b> Your sentence uses <b>' + esc(wd.w) + '</b>.', 'ok');
+  if (s.t === 'use') return submitUse(s, val);
+  if (s.t === 'ask') {
+    if (wordCount(val) < 4) return K.toast('Answer in a full sentence.');
+    if (usesWord(val, wd.w)) return afterAnswer(true, '<b>Right.</b> The word is <b>' + esc(wd.w) + '</b>.', 'ok');
+    return afterAnswer(false, '<b>Not quite.</b> The word was <b>' + esc(wd.w) + '</b>: ' + esc(dot(wd.def)), 'no');
   }
-  var form = parts(wd.ex, wd.w).form, accepted = s.t === 'cloze' ? [form, wd.w] : [wd.w], g = gradeTyped(val, accepted);
+  var ans = answerOf(s), accepted = s.t === 'cloze' ? [ans, wd.w] : [wd.w], g = gradeTyped(val, accepted);
   if (g.empty) return K.toast('Type your answer first.');
   if (g.ok && g.near) return afterAnswer(true, '<b>Nearly.</b> Check the spelling: <b>' + esc(g.near) + '</b>.', 'near');
-  if (g.ok) return afterAnswer(true, '<b>Right.</b> ' + esc(wd.w) + ': ' + esc(wd.def) + '.', 'ok');
-  afterAnswer(false, '<b>Not quite.</b> The answer is <b>' + esc(s.t === 'cloze' ? form : wd.w) + '</b>.', 'no');
+  if (g.ok) return afterAnswer(true, '<b>Right.</b> ' + meaningLine(wd), 'ok');
+  afterAnswer(false, '<b>Not quite.</b> The answer is <b>' + esc(ans) + '</b>' + (wd.def && s.t !== 'def' && !(s.t === 'cloze' && s.clue === 'def') ? ': ' + esc(dot(wd.def)) : '.'), 'no');
+}
+/* "Use it": checked here for the words and the length; then a short AI note is added when one is available. Never graded. */
+function submitUse(s, val) {
+  var r = W.run, targets = [s.wd].concat(s.also), used = targets.filter(function (c) { return usesWord(val, c.w); });
+  if (wordCount(val) < 5) return K.toast('Write a full sentence of at least 5 words.');
+  if (!used.length) return K.toast('Use ' + (targets.length > 1 ? 'at least one of the words' : 'the word ' + s.wd.w) + ' in your sentence.');
+  tick();
+  var base = '<b>Saved.</b> You used ' + used.map(function (c) { return '<b>' + esc(c.w) + '</b>'; }).join(', ') + '.';
+  r.fb = { cls: 'ok', html: base + (LIVE ? ' <span class="muted" id="wd-ai">Checking your sentence…</span>' : '') };
+  draw();
+  if (!LIVE) return;
+  K.Api.call('wordsSentence', { text: val, words: used.map(function (c) { return c.w; }), question: s.wd.q || '' }).then(function (res) {
+    if (W.run !== r || r.steps[r.i] !== s || !r.fb) return;
+    var note = '';
+    if (res && res.ai) {
+      var bad = (res.words || []).filter(function (x) { return !x.ok; }).map(function (x) { return esc(x.w); });
+      note = (res.good ? ' It is correct and natural.' : (res.better ? '<div class="better"><span class="tiny muted">A more natural way</span><div class="cap">' + esc(res.better) + '</div></div>' : '')) +
+        (bad.length ? '<div class="small" style="margin-top:6px">Check how you used: ' + bad.join(', ') + '.</div>' : '') + (res.note ? '<div class="small" style="margin-top:6px">' + esc(res.note) + '</div>' : '');
+      r.fb.cls = res.good ? 'ok' : 'near';
+    } else if (res && res.reason === 'limit') note = ' <span class="muted">Today\'s AI notes are used up, so this one was checked for the words only.</span>';
+    r.fb.html = base + note;
+    var box = $('#wd-fb'); if (box) { box.className = 'fbk ' + r.fb.cls; box.innerHTML = r.fb.html; }
+  }).catch(function () { var el = $('#wd-ai'); if (el) el.textContent = ''; if (r.fb) r.fb.html = base; });
 }
 function next() {
-  var r = W.run; r.fb = null; r.i++;
+  var r = W.run; if (!r) return;
+  tick(); r.fb = null; r.i++;
+  step();
+}
+/* Shows the card at r.i, skipping a "use it" card that has no word left, or finishes. */
+function step() {
+  var r = W.run;
+  while (r.i < r.steps.length) { var s = r.steps[r.i]; if (s.t !== 'use') break; s.ready = false; prep(s); if (!s.dead) break; r.i++; }
   if (r.i >= r.steps.length) return finish();
   draw();
 }
@@ -2547,31 +2837,23 @@ function next() {
 function finish() {
   var r = W.run;
   if (r.kind === 'session') {
-    var ids = {}, bankRes = [], savedRes = [], secs = Math.round((Date.now() - r.started) / 1000);
+    tick();
+    var ids = {}, results = [];
     r.steps.forEach(function (s) {
-      if (s.t === 'sentence' || ids[s.wd.id] || r.skip[s.wd.id]) return; ids[s.wd.id] = 1;
-      (s.wd.saved ? savedRes : bankRes).push({ id: s.wd.id, ok: !r.miss[s.wd.id] });
+      if (s.t === 'use' || ids[s.wd.id] || r.skip[s.wd.id]) return; ids[s.wd.id] = 1;
+      results.push({ id: s.wd.id, r: r.res[s.wd.id] || 'ok' });
     });
-    if (!bankRes.length && !savedRes.length) { W.t = null; K.loadOverview(true); r.summary = { kind: 'session', up: 0, back: 0, list: [], note: '' }; return drawSummary(); }
+    W.t = null; W.sv = null; W.items = null;
+    if (!results.length) { K.loadOverview(true); r.summary = { kind: 'session', up: 0, back: 0, same: 0, list: [], goal: null }; return drawSummary(); }
     r.saving = true; draw();
-    var got = { list: [], up: 0, back: 0 }, errors = [];
-    function job(fn, payload) {
-      return function () {
-        return K.Api.call(fn, payload).then(function (res) { got.list = got.list.concat(res.list); got.up += res.up; got.back += res.back; })
-          .catch(function (e) { errors.push(e); });
-      };
-    }
-    var chain = Promise.resolve();
-    if (bankRes.length) chain = chain.then(job('wordsSubmit', { results: bankRes, seconds: secs }));
-    if (savedRes.length) chain = chain.then(job('savedSubmit', { results: savedRes, seconds: bankRes.length ? 0 : secs }));
-    return chain.then(function () {
-      r.saving = false; W.t = null; W.sv = null; K.loadOverview(true);
-      if (got.list.length) {
-        r.summary = { kind: 'session', up: got.up, back: got.back, list: got.list, note: errors.length ? 'Part of the session could not be saved. Open Words again to see what is left.' : '' };
-      } else {
-        var e0 = errors[0], already = e0 && /already saved/i.test(e0.message || '');
-        r.summary = { kind: 'error', message: already ? 'These words were already saved today. Your boxes are up to date.' : ((e0 && e0.message) || 'Could not save your session.') + ' Your answers were not saved. Please try the session again.' };
-      }
+    return K.Api.call('wordsSubmit', { results: results, seconds: Math.round(r.secs / 1000) }).then(function (res) {
+      r.saving = false; K.loadOverview(true);
+      r.summary = { kind: 'session', up: res.up, back: res.back, same: res.same || 0, list: res.list, goal: res.goal || null };
+      drawSummary();
+    }).catch(function (e) {
+      r.saving = false;
+      var already = /already saved/i.test((e && e.message) || '');
+      r.summary = { kind: 'error', message: already ? 'These words were already saved today. Your boxes are up to date.' : ((e && e.message) || 'Could not save your session.') + ' Your answers were not saved. Please try again.', retry: !already };
       drawSummary();
     });
   }
@@ -2582,14 +2864,31 @@ function finish() {
   }).catch(function (e) { r.saving = false; r.summary = { kind: 'error', message: (e && e.message) || 'Could not save your check.', retry: false }; drawSummary(); });
 }
 function drawSummary() {
-  var r = W.run, s = r.summary, h;
+  var r = W.run, s = r.summary, h, btns = '<button class="btn btn-primary" data-action="wd-exit">' + (r.where === 'quick' ? 'Done' : 'Back to Words') + '</button>';
   if (s.kind === 'session') {
-    h = '<h2 style="font-size:22px">' + (r.where === 'quick' ? 'Nice, done' : 'Session complete') + '</h2><p class="muted" style="margin:6px 0 18px">' + (s.list.length ? s.up + ' moved up, ' + s.back + ' back to box 1. Your next reviews are scheduled.' : 'The words you marked as known will not come back.') + '</p>' + (s.note ? '<div class="form-banner show" role="alert" style="margin-bottom:12px">' + esc(s.note) + '</div>' : '') +
-      s.list.map(function (x) { return '<div class="wrow" style="grid-template-columns:minmax(0,1fr) auto auto"><div><div class="w">' + esc(x.w) + '</div><div class="p">' + (x.fresh ? 'New word' : 'Review') + '</div></div>' + boxes(x.box) + '<span class="due" style="min-width:90px">' + (x.miss ? 'Back to box 1, ' : '') + dueLabel(x.days, 'learning').toLowerCase() + '</span></div>'; }).join('');
+    var g = s.goal, bits = [];
+    if (s.up) bits.push(s.up + ' moved up');
+    if (s.same) bits.push(s.same + ' stay in their box (hint)');
+    if (s.back) bits.push(s.back + ' back to box 1');
+    h = '<h2 style="font-size:22px">' + (r.where === 'quick' ? 'Nice, done' : r.mode === 'review' ? 'Reviews done' : 'Round complete') + '</h2><p class="muted" style="margin:6px 0 14px">' + (s.list.length ? bits.join(', ') + '. Your next reviews are scheduled.' : 'The words you marked as known will not come back.') + '</p>';
+    if (g) {
+      h += goalHtml(g);
+      if (g.tomorrow) h += '<div class="wd-note ' + (g.tomorrow > g.reduceAt ? 'stop' : g.tomorrow >= g.warnAt ? 'warn' : 'plain') + '" role="status">By tomorrow: about <b>' + g.tomorrow + ' ' + (g.tomorrow === 1 ? 'review' : 'reviews') + '</b> (' + g.tomorrowMin + ' min).' + (g.tomorrow >= g.warnAt ? ' That is a large share of your ' + g.minutes + '-minute goal. Review before you learn more.' : '') + '</div>';
+    }
+    h += '<div style="margin-top:14px">' + s.list.map(function (x) { return '<div class="wrow" style="grid-template-columns:minmax(0,1fr) auto auto"><div><div class="w">' + esc(x.w) + '</div><div class="p">' + (x.fresh ? 'New word' : 'Review') + '</div></div>' + boxes(x.box) + '<span class="due" style="min-width:90px">' + (x.miss ? 'Back to box 1, ' : x.hint ? 'Same box, ' : '') + dueLabel(x.days, 'learning').toLowerCase() + '</span></div>'; }).join('') + '</div>';
+    if (r.where !== 'quick' && g) {
+      var n = g.reduced ? Math.min(g.reducedRound + g.savedFresh, g.round) : g.round, urgent = g.state !== 'ok' && g.due > 0;
+      var learn = '<button class="btn ' + (urgent ? 'btn-soft' : 'btn-primary') + '" data-action="wd-more-round">Learn ' + n + ' more</button>';
+      var rev = g.due ? '<button class="btn ' + (urgent ? 'btn-primary' : 'btn-soft') + '" data-action="wd-more-review">Review now (' + g.due + ' waiting)</button>' : '';
+      btns = '<button class="btn btn-ghost" data-action="wd-exit">Back to Words</button>' + (urgent ? learn + rev : rev + learn);
+    }
   } else if (s.kind === 'check') {
     h = '<h2 style="font-size:22px">Your vocabulary profile</h2><div style="margin-top:10px">' + profileHtml(W.profile).replace(/<button class="btn btn-ghost btn-sm mt"[^>]*>Retake the check<\/button>/, '') + '</div>';
-  } else h = '<h2 style="font-size:22px">Not saved</h2><p class="muted" style="margin-top:8px">' + esc(s.message) + '</p>';
-  root().innerHTML = '<div class="test-shell sk-words"><article class="card">' + h + '<div class="row-between mt"><span></span><button class="btn btn-primary" data-action="wd-exit">' + (r.where === 'quick' ? 'Done' : 'Back to Words') + '</button></div></article></div>';
+  } else {
+    h = '<h2 style="font-size:22px">Not saved</h2><p class="muted" style="margin-top:8px">' + esc(s.message) + '</p>';
+    if (s.retry) btns = '<button class="btn btn-ghost" data-action="wd-exit">' + (r.where === 'quick' ? 'Close' : 'Back to Words') + '</button><button class="btn btn-primary" data-action="wd-resave">Try again</button>';
+  }
+  root().innerHTML = '<div class="test-shell sk-words"><article class="card">' + h + '<div class="row-between mt"><span></span><div class="row-btns">' + btns + '</div></div></article></div>';
 }
 
 /* ---------- dashboard and mobile hub ---------- */
@@ -2598,13 +2897,18 @@ function dashCard() {
   var el = $('#dash-words'); if (!el) return;
   var w = planWords();
   if (!w) { el.innerHTML = ''; return; }
-  if (!w.ready) { el.innerHTML = '<article class="card sk-words"><div class="card-head"><h2>Words</h2><span class="pill warn">Preparing</span></div><p class="small muted">The word bank is still being prepared.</p></article>'; return; }
-  el.innerHTML = '<article class="card sk-words"><div class="card-head"><h2>Words</h2><span class="pill">' + w.known + ' known</span></div><div class="wd-stats" style="margin:0 0 14px"><div class="wd-stat"><b class="num">' + w.due + '</b><span class="small muted">to review</span></div><div class="wd-stat"><b class="num">' + w.fresh + '</b><span class="small muted">new today</span></div></div>' + (w.savedDue ? '<p class="small muted" style="margin:-6px 0 12px">Plus ' + w.savedDue + ' saved ' + (w.savedDue === 1 ? 'word' : 'words') + ' to review.</p>' : '') + '<button class="btn btn-soft btn-sm" data-go="words">' + (w.due + w.fresh + (w.savedDue || 0) ? 'Start today\'s session' : 'Open Words') + '</button></article>';
+  var g = w.goal, due = (w.ready ? w.due : 0) + (w.savedDue || 0);
+  if (!w.ready && !due && !w.fresh) { el.innerHTML = '<article class="card sk-words"><div class="card-head"><h2>Words</h2><span class="pill warn">Preparing</span></div><p class="small muted">The word bank is still being prepared.</p></article>'; return; }
+  var done = g && g.doneSec >= g.minutes * 60;
+  el.innerHTML = '<article class="card sk-words"><div class="card-head"><h2>Words</h2><span class="pill' + (done ? ' ok-pill' : '') + '">' + (done ? 'Goal reached' : w.known + ' known') + '</span></div>' +
+    '<div class="wd-stats" style="margin:0 0 14px"><div class="wd-stat"><b class="num">' + (g ? mins(g.doneSec) : 0) + '<span class="of"> / ' + (g ? g.minutes : 30) + '</span></b><span class="small muted">minutes today</span></div><div class="wd-stat"><b class="num">' + due + '</b><span class="small muted">to review</span></div></div>' +
+    (g && g.state !== 'ok' ? '<p class="small" style="margin:-6px 0 12px;color:#92400E">Many reviews are waiting, about ' + g.dueMin + ' min. Review first.</p>' : w.fresh ? '<p class="small muted" style="margin:-6px 0 12px">' + nWords(w.fresh) + ' you saved ' + (w.fresh === 1 ? 'is' : 'are') + ' waiting to be learned.</p>' : '') +
+    '<button class="btn btn-soft btn-sm" data-go="words">' + (due ? 'Review now' : 'Learn new words') + '</button></article>';
   maybeRemind('dashboard');
 }
 function hubCard() {
-  var w = planWords(), due = w ? (w.ready ? w.due : 0) + (w.savedDue || 0) : 0;
-  return '<article class="card skill-card sk-words"><div class="hd"><span class="tint">' + ic('i-cards') + '</span><span class="nm">Words</span><span class="pill lvl">' + due + ' due</span></div><div class="tiny muted">Daily review and new words, about 10 minutes.</div><div class="row-between"><span class="tiny muted">Spaced review</span><button class="btn btn-skill btn-sm" data-go="words">Start words</button></div></article>';
+  var w = planWords(), due = w ? (w.ready ? w.due : 0) + (w.savedDue || 0) : 0, g = w && w.goal;
+  return '<article class="card skill-card sk-words"><div class="hd"><span class="tint">' + ic('i-cards') + '</span><span class="nm">Words</span><span class="pill lvl">' + due + ' due</span></div><div class="tiny muted">' + (g ? mins(g.doneSec) + ' of ' + g.minutes + ' min today. Reviews and new words.' : 'Reviews and new words.') + '</div><div class="row-between"><span class="tiny muted">Spaced review</span><button class="btn btn-skill btn-sm" data-go="words">Start words</button></div></article>';
 }
 
 /* ---------- saving words while practising ---------- */
@@ -2661,15 +2965,23 @@ function capSave() {
 document.addEventListener('pointerup', function () { setTimeout(function () { capPress = false; }, 400); });
 
 
+
 /* ---------- Quick words: the popup when you open Kelvin, then a reminder in the corner now and then ---------- */
-/* Rules: the centre popup shows once when you open the app (if words are waiting). After that, a corner reminder may show
+/* Rules: the centre popup shows once when you open the app (while today's goal is open). After that, a corner reminder may show
    when you come back to the Dashboard or finish a practice, at most every 20 minutes, never during an exercise, and never once
-   today's words are done. Words you saved in a practice are offered right after it. Settings > Word reminders turns it off. */
+   today's goal is reached. Words you saved in a practice are offered right after it. Settings > Word reminders turns it off. */
 var QW = { el: null, mode: null }, welcomed = false, REMIND_GAP = 20 * 60 * 1000;
 function lastShown() { try { return Number(localStorage.getItem('kelvin_qw_at')) || 0; } catch (e) { return 0; } }
 function markShown() { try { localStorage.setItem('kelvin_qw_at', String(Date.now())); } catch (e) {} }
 function remindOn() { return K.state.settings.quickWords !== false; }
-function waiting(w) { return w ? (w.ready ? w.due : 0) + (w.fresh || 0) + (w.savedDue || 0) : 0; }
+function dueOf(w) { return w ? (w.ready ? w.due : 0) + (w.savedDue || 0) : 0; }
+/* Something to do in Words today: reviews or saved words are waiting, or the daily time is not reached yet. */
+function waiting(w) {
+  if (!w) return 0;
+  var g = w.goal, open = g ? g.doneSec < g.minutes * 60 : true;
+  if (!open) return 0;
+  return dueOf(w) + (w.fresh || 0) || (w.ready ? 1 : 0);
+}
 function qwBody() { return $('#qw-body'); }
 function qwOpen(mode, html) {
   if (!QW.el) { QW.el = document.createElement('div'); QW.el.id = 'qw'; QW.el.setAttribute('role', 'dialog'); QW.el.setAttribute('aria-label', 'Quick words'); document.body.appendChild(QW.el); }
@@ -2683,14 +2995,15 @@ function closeQuick() {
   if (W.run && W.run.where === 'quick') W.run = null;
   QW.mode = null; if (QW.el) { QW.el.className = 'qw'; QW.el.innerHTML = ''; }
 }
-function nWords(n) { return n + (n === 1 ? ' word' : ' words'); }
+function todayLine(w) { var g = w.goal; return g ? 'Today: ' + mins(g.doneSec) + ' of ' + g.minutes + ' min.' : ''; }
 function showWelcome(w) {
-  var g = w.goal || { target: 4, done: 0 }, parts = [];
-  if (w.due + (w.savedDue || 0)) parts.push(nWords(w.due + (w.savedDue || 0)) + ' to review');
-  if (w.fresh) parts.push(nWords(w.fresh) + ' to learn' + (w.savedFresh ? ' (' + w.savedFresh + ' you saved)' : ''));
+  var parts = [], due = dueOf(w);
+  if (due) parts.push(nWords(due) + ' to review');
+  if (w.fresh) parts.push(nWords(w.fresh) + ' you saved to learn');
+  if (!parts.length) parts.push('New words are ready');
   qwOpen('welcome', '<div class="qw-head"><span class="qw-tag">' + ic('i-cards', 'ic-sm') + 'Words</span><button class="iconbtn" data-action="qw-later" aria-label="Close">' + ic('i-x') + '</button></div>' +
-    '<h2 style="font-size:22px">Ready for today\'s words?</h2><p class="muted" style="margin:8px 0 6px">' + esc(parts.join(', ')) + '. About ' + (w.minutes || 5) + ' minutes.</p>' +
-    '<p class="small muted">New words today: ' + g.done + ' of ' + g.target + '.</p>' +
+    '<h2 style="font-size:22px">Ready for today\'s words?</h2><p class="muted" style="margin:8px 0 6px">' + esc(parts.join(', ')) + '.</p>' +
+    '<p class="small muted">' + esc(todayLine(w)) + '</p>' +
     '<div class="row-btns mt" style="justify-content:flex-end"><button class="btn btn-ghost" data-action="qw-later">Later</button><button class="btn btn-primary" data-action="qw-start" data-focus>Start</button></div>');
 }
 function showRemind(w, ids) {
@@ -2699,8 +3012,8 @@ function showRemind(w, ids) {
     body = '<h3 class="qw-t">Learn the ' + (ids.length === 1 ? 'word' : nWords(ids.length)) + ' you just saved</h3><p class="small muted" style="margin:6px 0 14px">One quick look and one check each. It takes about a minute, while the sentence is still fresh.</p>' +
       '<div class="row-btns" style="justify-content:flex-end"><button class="btn btn-ghost btn-sm" data-action="qw-close">Not now</button><button class="btn btn-primary btn-sm" data-action="qw-go" data-ids="' + esc(ids.join(',')) + '">Learn now</button></div>';
   } else {
-    var n = waiting(w);
-    body = '<h3 class="qw-t">' + nWords(n) + ' waiting today</h3><p class="small muted" style="margin:6px 0 14px">A quick round of up to 5 words takes about a minute. The rest stays in Words.</p>' +
+    var n = dueOf(w) + (w.fresh || 0);
+    body = '<h3 class="qw-t">' + (n ? nWords(n) + ' waiting' : 'A minute for new words?') + '</h3><p class="small muted" style="margin:6px 0 14px">' + esc(todayLine(w)) + ' A quick round of up to 5 words takes about a minute.</p>' +
       '<div class="row-btns" style="justify-content:flex-end"><button class="btn btn-ghost btn-sm" data-action="qw-close">Not now</button><button class="btn btn-primary btn-sm" data-action="qw-go">Start</button></div>';
   }
   qwOpen('remind', head + body);
@@ -2718,7 +3031,7 @@ function startQuick(ids) {
   qwOpen('run', '<div class="qw-head"><span class="qw-tag">' + ic('i-cards', 'ic-sm') + 'Quick words</span><button class="iconbtn" data-action="qw-close" aria-label="Close">' + ic('i-x') + '</button></div><div id="qw-body"><p class="muted">Getting your words…</p></div>');
   K.Api.call('wordsQuick', ids && ids.length ? { ids: ids } : {}).then(function (r) {
     if (QW.mode !== 'run') return;
-    if (!startSession(r, { where: 'quick', light: true })) { K.toast('Nothing to study right now.'); closeQuick(); }
+    if (!startSession(r, { where: 'quick', light: true, mode: 'quick' })) { K.toast('Nothing to study right now.'); closeQuick(); }
   }).catch(function (e) { K.toast((e && e.message) || 'Could not load your words.'); closeQuick(); });
 }
 K.afterPractice = function () {
@@ -2730,19 +3043,33 @@ if (K.onGo) K.onGo(function (view) { if (QW.mode === 'welcome' || QW.mode === 'r
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && (QW.mode === 'welcome' || QW.mode === 'remind')) closeQuick(); });
 
 /* ---------- wiring ---------- */
-K.register('words', { title: 'Words', render: render });
+/* "I know it" in a list: the row goes at once, saving runs in the background. */
+function knowRow(el) {
+  var id = el.dataset.id, w = el.dataset.w || 'The word', keep = function (x) { return x.id !== id; };
+  if (W.items && W.filter !== 'known' && W.filter !== 'all') { W.items = W.items.filter(keep); W.total = Math.max(0, W.total - 1); }
+  else if (W.items) W.items.forEach(function (x) { if (x.id === id) x.status = 'knew'; });
+  if (W.sv) W.sv.items.forEach(function (x) { if (x.id === id) x.status = 'knew'; });
+  if (W.sv && (W.svFilter === 'due' || W.svFilter === 'new' || W.svFilter === 'learning')) W.sv.items = W.sv.items.filter(keep);
+  if (W.t && W.t.stats) W.t.stats.knew = (W.t.stats.knew || 0) + 1;
+  W.stale = true;
+  K.toast('“' + w + '” marked as known. It will not come back.');
+  draw();
+  K.Api.call('wordsKnow', { id: id }).catch(function (e) { K.toast((e && e.message) || 'Could not save that. Please try again.'); W.t = null; W.items = null; W.sv = null; if (K.state.view === 'words' && !W.run) render(); });
+}
+K.register('words', { title: 'Words', render: function () { if (W.stale) { W.stale = false; W.t = null; } render(); } });
 K.setDash(dashCard);
 K.setHub(hubCard);
 K.actions({
   'cap-save': capSave,
-  'wd-start': function () { startSession(); },
-  'wd-more': function (el) { learnMore(el); },
-  'wd-know': function (el) { knowWord(el); },
-  'wd-know-row': function (el) {
-    el.disabled = true;
-    K.Api.call('wordsKnow', { id: el.dataset.id }).then(function (r) { K.toast('“' + r.w + '” marked as known. It will not come back.'); W.t = null; W.items = null; W.sv = null; load(); })
-      .catch(function (e) { el.disabled = false; K.toast((e && e.message) || 'Could not save that.'); });
-  },
+  'wd-start': function () { startToday(); },
+  'wd-review': function () { if (W.stale) { W.stale = false; return moreReview(); } startReview(); },
+  'wd-learn': function () { if (W.stale) { W.stale = false; return moreRound(); } startRound(); },
+  'wd-more-round': function (el) { moreRound(el); },
+  'wd-more-review': function (el) { moreReview(el); },
+  'wd-resave': function () { var r = W.run; if (!r || !r.summary) return; r.summary = null; finish(); },
+  'wd-know': function () { knowWord(); },
+  'wd-hint': useHint,
+  'wd-know-row': knowRow,
   'wd-again': function (el) {
     el.disabled = true;
     K.Api.call('wordsStudyAgain', { id: el.dataset.id }).then(function () { K.toast('Back in your reviews from today.'); W.t = null; W.items = null; W.sv = null; load(); })
@@ -2760,7 +3087,7 @@ K.actions({
   'wd-filter': function (el) { W.filter = el.dataset.f; W.page = 0; W.items = null; draw(); loadList(); },
   'wd-page': function (el) { W.page = Math.max(0, W.page + parseInt(el.dataset.d, 10)); W.items = null; draw(); loadList(); },
   'wd-vi': function () { W.showVi = !W.showVi; draw(); },
-  'wd-vi-run': function () { W.showVi = true; draw(); },
+  'wd-vi-run': function () { var r = W.run; if (!r || r.summary) return; var s = r.steps[r.i]; s.vi = !s.vi; draw(); },
   'wd-retry': function () { W.err = null; render(); },
   'wd-sfilter': function (el) { W.svFilter = el.dataset.f; W.svPage = 0; W.sv = null; draw(); loadSaved(); },
   'wd-spage': function (el) { W.svPage = Math.max(0, W.svPage + parseInt(el.dataset.d, 10)); W.sv = null; draw(); loadSaved(); },
@@ -2768,15 +3095,25 @@ K.actions({
     el.disabled = true;
     K.Api.call('savedRemove', { id: el.dataset.id }).then(function () { K.toast('Removed.'); W.t = null; load(); }).catch(function (e) { el.disabled = false; K.toast((e && e.message) || 'Could not remove it.'); });
   },
-  'wd-exit': function () { K.stopSpeech(); if (W.run && W.run.where === 'quick') { closeQuick(); W.t = null; return; } W.run = null; W.t = null; render(); }
+  'wd-exit': function () { K.stopSpeech(); if (W.run && W.run.where === 'quick') { closeQuick(); W.t = null; return; } W.run = null; W.t = null; W.stale = false; render(); }
+});
+document.addEventListener('change', function (e) {
+  if (!e.target || e.target.id !== 'wd-size') return;
+  var n = parseInt(e.target.value, 10);
+  K.state.settings.wordsRound = n; K.persist();
+  K.Api.call('saveSettings', { wordsRound: n }).then(function () { W.t = null; if (K.state.view === 'words' && !W.run) render(); }).catch(function () { K.toast('Could not save the round size.'); });
 });
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter' && e.target && e.target.id === 'wd-input' && e.target.tagName === 'INPUT' && W.run && !W.run.summary) { e.preventDefault(); submitTyped(); }
+  if (e.key !== 'Enter' || !W.run || W.run.summary || W.run.saving || e.isComposing) return;
+  var el = e.target, r = W.run;
+  if (r.fb) { if (el && el.tagName === 'BUTTON' && el.id !== 'wd-go') return; e.preventDefault(); return next(); }
+  if (el && el.id === 'wd-input' && el.tagName === 'INPUT') { e.preventDefault(); submitTyped(); }
 });
 /* read-only helper used by the automated check of this module */
-K.words = { gradeTyped: gradeTyped, highlight: highlight, shuffle: shuffle, speak: speak, redraw: function () { if (K.state.view === 'words') { W.t ? draw() : render(); } }, reload: function () { W.t = null; render(); }, remind: maybeRemind, quickMode: function () { return QW.mode; }, peek: function () {
+K.words = { gradeTyped: gradeTyped, highlight: highlight, shuffle: shuffle, speak: speak, pattern: pattern, redraw: function () { if (K.state.view === 'words') { W.t ? draw() : render(); } }, reload: function () { W.t = null; render(); }, remind: maybeRemind, quickMode: function () { return QW.mode; }, peek: function () {
   var r = W.run; if (!r || r.summary || r.saving) return null; var s = r.steps[r.i]; prep(s);
-  return { t: s.t, w: s.wd.w, correct: s.opts ? s.opts.map(function (o) { return o.ok; }).indexOf(true) : null, typed: s.t === 'cloze' ? parts(s.wd.ex, s.wd.w).form : s.wd.w };
+  return { t: s.t, w: s.wd.w, id: s.wd.id, box: s.wd.box || 0, clue: s.clue || '', retry: !!s.retry, fb: !!r.fb, hints: s.hints ? s.hints.length : 0, also: s.also ? s.also.map(function (c) { return c.w; }) : [],
+    correct: s.opts ? s.opts.map(function (o) { return o.ok; }).indexOf(true) : null, typed: TYPED[s.t] && s.t !== 'ask' ? answerOf(s) : s.wd.w };
 }, state: W };
 
 })();

@@ -884,8 +884,8 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
 }
 /* hero: keep the flow low and calm so the text and rings stay readable */
 .dash-hero.bg-navy-flow{background:
-  var(--deco-contour-navy) right bottom/48% 36% no-repeat,
-  var(--deco-flow-navy) right bottom/48% 36% no-repeat,
+  var(--deco-contour-navy) right bottom/38% auto no-repeat,
+  var(--deco-flow-navy) right bottom/38% auto no-repeat,
   radial-gradient(70% 90% at 0% 0%,rgba(40,100,232,.28),rgba(40,100,232,0) 70%),
   linear-gradient(158deg,#132B63 0%,#10234F 45%,#0C1C44 100%)}
 .dh-lab{text-shadow:0 1px 6px rgba(8,20,48,.55)}
@@ -897,6 +897,61 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
     var(--glow-royal),var(--surface-navy)}
 }
 
+/* ===== skill tiles: Learn page and Home (phones). Everything visible at once, no sideways scrolling ===== */
+.hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.hub-tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:16px;border-radius:18px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow-1);font:inherit;text-align:left;cursor:pointer;min-width:0;transition:transform .15s var(--ease),box-shadow .15s var(--ease),border-color .15s}
+.hub-tile:hover{border-color:color-mix(in srgb,var(--c,var(--primary)) 45%,#fff);box-shadow:var(--shadow-2);transform:translateY(-1px)}
+.hub-tile:active{transform:scale(.98)}
+.hub-tile .ht-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;margin-bottom:6px}
+.ht-name{font-family:var(--head);font-weight:700;font-size:15.5px;color:var(--ink);line-height:1.2}
+.ht-sub{font-size:12.5px;color:var(--muted);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ht-sub b{display:inline;font-size:inherit;color:var(--text);font-weight:650;line-height:inherit}
+.ht-bar{width:100%;height:5px;margin-top:8px}
+.hub-tile .ht-bar i{background:var(--c,var(--primary))}
+#view-practice .sec-title{margin:0 0 12px}
+#practice-study>.card{margin-top:18px}
+.dash-tiles{display:none}
+@media (max-width:760px){
+  .dash-tiles{display:block}
+  .hub-grid{gap:10px}
+  .hub-grid.compact .hub-tile{padding:12px 10px;border-radius:16px;gap:2px}
+  .hub-grid.compact .ht-ico{width:32px;height:32px;border-radius:10px;margin-bottom:4px}
+  .hub-grid.compact .ht-name{font-size:14px}
+  .hub-grid.compact .ht-sub{font-size:11.5px}
+  .hub-grid.compact .ht-bar{height:4px;margin-top:6px}
+  .hub-grid:not(.compact) .hub-tile{padding:14px 12px}
+  .ht-to{display:none}
+}
+
+/* ===== fixes found while testing on phones ===== */
+@media (max-width:760px){
+  /* Practise your words (Words page): the note and the language picker stack */
+  .study-card .row-between.mt{flex-direction:column;align-items:stretch;gap:10px}
+  /* Settings: text on top, the control underneath, so descriptions are not squeezed to one word per line */
+  .set-row:not(:has(> .switch)){flex-direction:column;align-items:stretch;gap:10px}
+  .set-row:not(:has(> .switch))>select.input{width:100%!important}
+  .set-row:not(:has(> .switch))>div:last-child:not(:first-child){display:flex;gap:8px;align-items:center}
+  .set-row:not(:has(> .switch))>div:last-child:not(:first-child) select{flex:1;width:auto!important}
+  .set-row:not(:has(> .switch))>.btn{align-self:flex-start}
+  /* Onboarding header: logo only, so the steps and Sign out fit */
+  .ob-top{padding:12px 16px;gap:8px}
+  .ob-top .brand .bt{display:none}
+  .ob-top .btn{padding:0 10px;white-space:nowrap}
+  /* History filters wrap instead of hiding off screen */
+  .hx-filters{flex-wrap:wrap;overflow:visible}
+  /* skill pages: the start button is full width and never breaks over two lines */
+  .row-between:has(> #pr-start){flex-direction:column;align-items:stretch;gap:10px}
+  #pr-start{width:100%;justify-content:center;white-space:nowrap}
+  /* Progress: legend under the title, practice days fill the card */
+  .card-head:has(> .legend){flex-direction:column;align-items:flex-start;gap:8px}
+  .heat{grid-template-rows:repeat(7,auto);grid-auto-columns:minmax(0,1fr);gap:3px;overflow:visible}
+  .heat i{aspect-ratio:1}
+  /* My profile: who you are first, then the menu */
+  #view-profile:not([hidden]){display:flex;flex-direction:column}
+  #view-profile .you-menu{order:2;margin:14px 0 0}
+  #view-profile>:not(.you-menu){order:1}
+}
+
 </style>
 
 <style>
@@ -906,10 +961,10 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
    Backgrounds and decoration only. Layout, cards, type, buttons and navigation are untouched. */
 :root{
   --deco-flow-light:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMaxYMax slice'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23FFFFFF' stop-opacity='0'/%3E%3Cstop offset='.3' stop-color='%23FFFFFF' stop-opacity='.9'/%3E%3Cstop offset='1' stop-color='%23EAF2FF' stop-opacity='.3'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23DCE9FF' stop-opacity='.5'/%3E%3Cstop offset='.55' stop-color='%23C2D8FF' stop-opacity='.9'/%3E%3Cstop offset='1' stop-color='%23A9C8FF' stop-opacity='.85'/%3E%3C/linearGradient%3E%3ClinearGradient id='c' x1='0' y1='1' x2='1' y2='.2'%3E%3Cstop offset='0' stop-color='%23A7C6FF' stop-opacity='.35'/%3E%3Cstop offset='.55' stop-color='%2386AEF8' stop-opacity='.85'/%3E%3Cstop offset='1' stop-color='%236A9BF4' stop-opacity='.9'/%3E%3C/linearGradient%3E%3ClinearGradient id='d' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%235B8FF0' stop-opacity='.15'/%3E%3Cstop offset='.5' stop-color='%234C86F2' stop-opacity='.7'/%3E%3Cstop offset='1' stop-color='%233A7BF0' stop-opacity='.75'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 400C210 470 470 610 760 760C900 832 1010 880 1080 900H0Z' fill='url(%23a)'/%3E%3Cpath d='M520 900C800 836 990 680 1150 510C1290 362 1430 250 1600 214V900Z' fill='url(%23b)'/%3E%3Cpath d='M300 900C690 836 1060 690 1290 596C1420 546 1520 520 1600 514V900Z' fill='url(%23c)'/%3E%3Cpath d='M900 900C1090 790 1290 720 1600 700V900Z' fill='url(%23d)'/%3E%3C/svg%3E");
-  --deco-flow-navy:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMaxYMax slice'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231A3F96' stop-opacity='.55'/%3E%3Cstop offset='.6' stop-color='%231E50C8' stop-opacity='.85'/%3E%3Cstop offset='1' stop-color='%232864E8' stop-opacity='.8'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231F6BEA' stop-opacity='.6'/%3E%3Cstop offset='.42' stop-color='%2322B8F5' stop-opacity='.95'/%3E%3Cstop offset='1' stop-color='%232A72F0' stop-opacity='.9'/%3E%3C/linearGradient%3E%3ClinearGradient id='c' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231C4FD0' stop-opacity='.4'/%3E%3Cstop offset='1' stop-color='%231F5BDB' stop-opacity='.85'/%3E%3C/linearGradient%3E%3CradialGradient id='g' cx='.6' cy='.82' r='.3'%3E%3Cstop offset='0' stop-color='%2300BFEA' stop-opacity='.25'/%3E%3Cstop offset='1' stop-color='%2300BFEA' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='1600' height='900' fill='url(%23g)'/%3E%3Cpath d='M0 846C380 800 760 704 1100 566C1300 486 1460 430 1600 412V900H0Z' fill='url(%23a)'/%3E%3Cpath d='M640 900C880 780 1080 600 1290 470C1420 390 1520 352 1600 344V900Z' fill='url(%23b)'/%3E%3Cpath d='M1040 900C1220 826 1400 772 1600 744V900Z' fill='url(%23c)'/%3E%3C/svg%3E");
+  --deco-flow-navy:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMaxYMax slice'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231A3F96' stop-opacity='.55'/%3E%3Cstop offset='.6' stop-color='%231E50C8' stop-opacity='.85'/%3E%3Cstop offset='1' stop-color='%232864E8' stop-opacity='.8'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231F6BEA' stop-opacity='.6'/%3E%3Cstop offset='.42' stop-color='%2322B8F5' stop-opacity='.95'/%3E%3Cstop offset='1' stop-color='%232A72F0' stop-opacity='.9'/%3E%3C/linearGradient%3E%3ClinearGradient id='c' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231C4FD0' stop-opacity='.4'/%3E%3Cstop offset='1' stop-color='%231F5BDB' stop-opacity='.85'/%3E%3C/linearGradient%3E%3CradialGradient id='g' cx='.6' cy='.82' r='.3'%3E%3Cstop offset='0' stop-color='%2300BFEA' stop-opacity='.25'/%3E%3Cstop offset='1' stop-color='%2300BFEA' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='1600' height='900' fill='url(%23g)'/%3E%3Cpath d='M0 900C380 832 760 712 1100 566C1300 486 1460 430 1600 412V900Z' fill='url(%23a)'/%3E%3Cpath d='M640 900C880 780 1080 600 1290 470C1420 390 1520 352 1600 344V900Z' fill='url(%23b)'/%3E%3Cpath d='M1040 900C1220 826 1400 772 1600 744V900Z' fill='url(%23c)'/%3E%3C/svg%3E");
   --deco-flow-banner:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 240' preserveAspectRatio='xMaxYMax slice'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231D4FC0' stop-opacity='.4'/%3E%3Cstop offset='1' stop-color='%232864E8' stop-opacity='.8'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%231F6BEA' stop-opacity='.5'/%3E%3Cstop offset='.5' stop-color='%2322B8F5' stop-opacity='.9'/%3E%3Cstop offset='1' stop-color='%232A72F0' stop-opacity='.85'/%3E%3C/linearGradient%3E%3CradialGradient id='g' cx='.72' cy='.9' r='.4'%3E%3Cstop offset='0' stop-color='%2300BFEA' stop-opacity='.18'/%3E%3Cstop offset='1' stop-color='%2300BFEA' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='800' height='240' fill='url(%23g)'/%3E%3Cpath d='M300 240C470 210 600 150 700 92C740 68 772 56 800 52V240Z' fill='url(%23a)'/%3E%3Cpath d='M470 240C560 196 650 128 730 104C760 95 784 92 800 92V240Z' fill='url(%23b)'/%3E%3Cpath d='M610 240C680 214 740 200 800 196V240Z' fill='%231F5BDB' fill-opacity='.7'/%3E%3Cpath d='M600 0H660L560 240H500Z' fill='%23FFFFFF' fill-opacity='.035'/%3E%3Cg fill='none' stroke='%2300BFEA' stroke-linecap='round'%3E%3Cpath vector-effect='non-scaling-stroke' d='M460 240C552 194 646 124 728 98C760 88 784 85 800 85' stroke-opacity='.5' stroke-width='1.1'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M220 240C420 214 590 150 700 84C744 58 776 46 800 44' stroke-opacity='.2' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
   --deco-contour-light:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMaxYMax slice'%3E%3Cg fill='none' stroke='%232864E8' stroke-linecap='round'%3E%3Cpath vector-effect='non-scaling-stroke' d='M610 900C860 830 1030 688 1186 520C1320 376 1450 290 1600 262' stroke-opacity='.22' stroke-width='1.4'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M120 900C520 860 900 760 1210 640C1380 574 1500 548 1600 544' stroke-opacity='.14' stroke-width='1'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M240 560C440 640 620 730 820 820' stroke='%2300BFEA' stroke-opacity='.2' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
-  --deco-contour-navy:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMaxYMax slice'%3E%3Cg fill='none' stroke='%2300BFEA' stroke-linecap='round'%3E%3Cpath vector-effect='non-scaling-stroke' d='M600 900C860 770 1068 586 1284 452C1414 372 1516 334 1600 326' stroke-opacity='.5' stroke-width='1.2'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M0 812C420 768 800 664 1130 524C1320 444 1470 398 1600 384' stroke-opacity='.22' stroke-width='1'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M880 900C1040 800 1180 720 1340 664' stroke-opacity='.18' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
+  --deco-contour-navy:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMaxYMax slice'%3E%3Cg fill='none' stroke='%2300BFEA' stroke-linecap='round'%3E%3Cpath vector-effect='non-scaling-stroke' d='M600 900C860 770 1068 586 1284 452C1414 372 1516 334 1600 326' stroke-opacity='.5' stroke-width='1.2'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M0 900C420 800 800 676 1130 524C1320 444 1470 398 1600 384' stroke-opacity='.22' stroke-width='1'/%3E%3Cpath vector-effect='non-scaling-stroke' d='M880 900C1040 800 1180 720 1340 664' stroke-opacity='.18' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E");
   --deco-dots:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 220'%3E%3Cdefs%3E%3Cpattern id='p' width='16' height='16' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='2' cy='2' r='1.2' fill='%232864E8'/%3E%3C/pattern%3E%3CradialGradient id='f' cx='.72' cy='.3' r='.7'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.5'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/radialGradient%3E%3Cmask id='m'%3E%3Crect width='320' height='220' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='320' height='220' fill='url(%23p)' mask='url(%23m)'/%3E%3C/svg%3E");
   --deco-dots-navy:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 220'%3E%3Cdefs%3E%3Cpattern id='p' width='16' height='16' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='2' cy='2' r='1.2' fill='%23FFFFFF'/%3E%3C/pattern%3E%3CradialGradient id='f' cx='.72' cy='.3' r='.7'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.32'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/radialGradient%3E%3Cmask id='m'%3E%3Crect width='320' height='220' fill='url(%23f)'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='320' height='220' fill='url(%23p)' mask='url(%23m)'/%3E%3C/svg%3E");
   --deco-facets:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 360'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232864E8' stop-opacity='.07'/%3E%3Cstop offset='.7' stop-color='%2300BFEA' stop-opacity='.02'/%3E%3Cstop offset='1' stop-color='%2300BFEA' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232864E8' stop-opacity='.05'/%3E%3Cstop offset='1' stop-color='%232864E8' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M300 0H420L230 360H110Z' fill='url(%23a)'/%3E%3Cpath d='M444 0H484L294 360H254Z' fill='url(%23b)'/%3E%3C/svg%3E");
@@ -947,7 +1002,8 @@ body{background:var(--surface-light) fixed,var(--bg)}
     radial-gradient(60vw 50vh at 18% -10%,rgba(40,100,232,.09),rgba(40,100,232,0) 70%)}
 /* app shell, bottom layer: the blue flow rising to the bottom right, behind the cards */
 .app::after{content:"";position:fixed;right:0;bottom:0;width:min(1180px,86vw);height:min(560px,56vh);pointer-events:none;z-index:0;
-  background:var(--deco-contour-light) right bottom/cover no-repeat,var(--deco-flow-light) right bottom/cover no-repeat}
+  background:var(--deco-contour-light) right bottom/cover no-repeat,var(--deco-flow-light) right bottom/cover no-repeat;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 38%);mask-image:linear-gradient(to bottom,transparent 0,#000 38%)}
 .app>.main{position:relative;z-index:1}.app>.side{z-index:2}
 /* sign-in: light side carries a low flow, the navy side the full navy treatment */
 .auth{background:var(--deco-flow-light) left bottom/100% 38% no-repeat,var(--surface-light)}
@@ -1166,7 +1222,7 @@ body.in-session .app::after,body.in-test .app::after{opacity:.45}
   <div class="dash-stats d-o7" id="dash-stats"></div>
 </div>
 
-<div class="skill-row mobile-only d-o2" id="dash-skillrow" aria-label="Your skills"></div>
+<div class="dash-tiles d-o2" id="dash-skillrow" aria-label="Your skills"></div>
 
 <div class="dash-cols">
   <div class="dash-col">
@@ -1218,7 +1274,7 @@ body.in-session .app::after,body.in-test .app::after{opacity:.45}
 </section>
         <section id="view-learning" class="view" hidden><div id="learning-root"></div>
 </section>
-        <section id="view-practice" class="view" hidden><div id="practice-study"></div><div class="g-4 grid" id="practice-hub"></div></section>
+        <section id="view-practice" class="view" hidden><div id="practice-hub"></div><div id="practice-study"></div></section>
         <section id="view-words" class="view" hidden><div id="words-root"></div>
 </section>
         <section id="view-grammar" class="view" hidden><div id="grammar-root"></div></section>
@@ -1682,7 +1738,7 @@ function obNext() {
 }
 
 /* ---------- router ---------- */
-var TITLES = { history: 'History', words: 'Words', grammar: 'Grammar', dashboard: 'Dashboard', assessment: 'Placement test', practice: 'Practice', progress: 'My progress', profile: 'My profile', settings: 'Settings' };
+var TITLES = { history: 'History', words: 'Words', grammar: 'Grammar', dashboard: 'Dashboard', assessment: 'Placement test', practice: 'Learn', progress: 'My progress', profile: 'My profile', settings: 'Settings' };
 function enterApp(view) {
   showScreen('app');
   $('#side-avatar').textContent = $('#top-avatar').textContent = initials(state.user.name);
@@ -1744,6 +1800,15 @@ function skillCard(k) {
     '<div><div class="prog"><span>' + (next ? 'Toward ' + next : 'Top level') + '</span><b class="num">' + s.progress + '%</b></div><div class="bar"><i style="width:' + s.progress + '%"></i></div></div>' +
     '<div class="row-between"><span class="tiny muted">' + (s.measured ? 'Measured' : 'Estimate') + '</span><button class="btn btn-skill btn-sm" data-go="' + k + '">Start practice</button></div></article>';
 }
+/* one tile per area: the four skills, then Grammar and Words (Home on phones, and the Learn page) */
+function skillTile(k) {
+  var s = state.skills[k], p = s.progress || 0, next = LV[li(s.level) + 1];
+  return '<button class="hub-tile sk-' + k + '" data-go="' + k + '"><span class="tint ht-ico">' + ic(SK[k].icon, 'ic-sm') + '</span><span class="ht-name">' + SK[k].label + '</span>' +
+    '<span class="ht-sub"><b>' + s.level + '</b>' + (next ? ' · ' + p + '%<span class="ht-to"> to ' + next + '</span>' : ' · top') + '</span><span class="bar ht-bar"><i style="width:' + p + '%"></i></span></button>';
+}
+function hubTiles(extra) {
+  return '<div class="hub-grid' + (extra ? ' ' + extra : '') + '">' + SKILLS.map(skillTile).join('') + REG.hub.slice().reverse().map(function (fn) { try { return fn(); } catch (e) { return ''; } }).join('') + '</div>';
+}
 function sortedByScore() { return SKILLS.slice().sort(function (a, b) { return skillScore(a) - skillScore(b); }); }
 function renderDashboard() {
   var ord = sortedByScore(), weak = ord[0], strong = ord[3], levels = {};
@@ -1757,15 +1822,12 @@ function renderDashboard() {
   $('#welcome-cta').innerHTML = state.hasTest
     ? '<button class="btn btn-primary" data-go="' + weak + '">Practice ' + weak + '</button><button class="btn btn-soft" data-go="progress">View progress</button>'
     : '<button class="btn btn-primary" data-go="assessment">Take the placement test</button><button class="btn btn-soft" data-go="speaking">Try a practice session</button>';
-  $('#dash-banner').innerHTML = state.hasTest ? '' :
-    '<div class="callout"><span class="ico">' + ic('i-target') + '</span><div class="grow"><b>Your levels are still estimates</b><div class="small muted">Take the 20-minute placement test so Kelvin can measure each skill and build your plan.</div></div><button class="btn btn-primary btn-sm" data-go="assessment">Start test</button></div>';
+  $('#dash-banner').innerHTML = '';
   $('#radar-state').textContent = state.hasTest ? 'Measured' : 'Your estimate';
   $('#radar-state').className = 'pill ' + (state.hasTest ? 'ok' : 'warn');
   rxRender(levels);
   var sr = $('#dash-skillrow');
-  if (sr) sr.innerHTML = SKILLS.map(function (k) { return '<button class="sk-' + k + '" data-go="' + k + '"><span class="tint">' + ic(SK[k].icon, 'ic-sm') + '</span><span><b>' + SK[k].label + '</b><small>' + state.skills[k].level + ' · ' + (state.skills[k].progress || 0) + '%</small></span></button>'; }).join('') +
-    '<button data-go="grammar" style="--c:#0A9BD4"><span class="tint">' + ic('i-spell', 'ic-sm') + '</span><span><b>Grammar</b><small>Lessons</small></span></button>' +
-    '<button data-go="words" style="--c:var(--primary)"><span class="tint">' + ic('i-cards', 'ic-sm') + '</span><span><b>Words</b><small>Review</small></span></button>';
+  if (sr) sr.innerHTML = hubTiles('compact');
   var t = state.totals;
   $('#dash-stats').innerHTML = [
     { i: 'i-layers', v: overallLevel(), k: 'Current level' },
@@ -1950,8 +2012,8 @@ function progressReal() {
 /* ---------- practice hub (mobile entry) ---------- */
 function renderPractice() {
   var ps = $('#practice-study'), kw = window.Kelvin.words;
+  $('#practice-hub').innerHTML = '<h2 class="sec-title">Choose what to practise</h2>' + hubTiles();
   if (ps) ps.innerHTML = kw && kw.studyMini ? kw.studyMini('practice') : '';
-  $('#practice-hub').innerHTML = SKILLS.map(skillCard).join('') + REG.hub.map(function (fn) { try { return fn(); } catch (e) { return ''; } }).join('');
 }
 
 /* ---------- speech helpers ---------- */
@@ -3904,8 +3966,9 @@ function studyMini(where) {
 }
 function dashStudy() { var el = $('#dash-study'); if (el) el.innerHTML = studyMini('dashboard'); }
 function hubCard() {
-  var w = planWords(), due = w ? (w.ready ? w.due : 0) + (w.savedDue || 0) : 0, g = w && w.goal;
-  return '<article class="card skill-card sk-words"><div class="hd"><span class="tint">' + ic('i-cards') + '</span><span class="nm">Words</span><span class="pill lvl">' + due + ' due</span></div><div class="tiny muted">' + (g ? mins(g.doneSec) + ' of ' + g.minutes + ' min today. Reviews and new words.' : 'Reviews and new words.') + '</div><div class="row-between"><span class="tiny muted">Spaced review</span><button class="btn btn-skill btn-sm" data-go="words">Start words</button></div></article>';
+  var w = planWords(), due = w ? (w.ready ? w.due : 0) + (w.savedDue || 0) : 0, g = w && w.goal, pct = g ? Math.min(100, Math.round(g.doneSec / 60 / g.minutes * 100)) : 0;
+  return '<button class="hub-tile sk-words" data-go="words"><span class="tint ht-ico">' + ic('i-cards', 'ic-sm') + '</span><span class="ht-name">Words</span>' +
+    '<span class="ht-sub">' + (due ? '<b>' + due + '</b> to review' : 'Up to date') + '</span><span class="bar ht-bar"><i style="width:' + pct + '%"></i></span></button>';
 }
 
 /* ---------- saving words while practising ---------- */
@@ -4184,7 +4247,7 @@ function card(t, where) {
   where = where || 'words';
   var n = (t && t.sets) || {}; S.set = autoSet(n);
   var full = where === 'words';
-  return '<article class="card sk-words study-card' + (where === 'dashboard' ? ' mt' : '') + '"' + (full ? ' id="study-card"' : '') + '><div class="card-head"><h2>' + ic('i-repeat', 'ic-sm') + 'Practise your words</h2><span class="pill plain">Your review schedule stays the same</span></div>' +
+  return '<article class="card sk-words study-card' + (where === 'dashboard' ? ' mt' : '') + '"' + (full ? ' id="study-card"' : '') + '><div class="card-head st-head"><div><h2>' + ic('i-repeat', 'ic-sm') + 'Practise your words</h2><div class="tiny muted" style="margin-top:2px">Free practice. Your review schedule stays the same.</div></div></div>' +
     chips(n) + modes(full ? '' : where) +
     (full ? '<div class="row-between mt" style="gap:10px"><p class="tiny muted" style="margin:0">Only words you have already met. Missed today: wrong or with a hint today. Hard words: the ones you keep missing; they leave once you get them right.</p>' +
       '<label class="small muted" style="display:flex;gap:8px;align-items:center">Meanings in <select class="input st-lang" style="width:auto;height:32px"><option value="vi"' + (lang() === 'vi' ? ' selected' : '') + '>Vietnamese</option><option value="en"' + (lang() === 'en' ? ' selected' : '') + '>English</option></select></label></div>'
@@ -4839,7 +4902,9 @@ function dashCard() {
 }
 function hubCard() {
   var g = sum();
-  return '<article class="card skill-card sk-grammar"><div class="hd"><span class="tint">' + ic('i-spell') + '</span><span class="nm">Grammar</span><span class="pill lvl">' + (g ? g.due : 0) + ' due</span></div><div class="tiny muted">' + (g && g.open ? g.open + ' open ' + (g.open === 1 ? 'mistake' : 'mistakes') + '. ' : '') + 'Lessons built around your own mistakes.</div><div class="row-between"><span class="tiny muted">Write to learn</span><button class="btn btn-skill btn-sm" data-go="grammar">Start grammar</button></div></article>';
+  var sub = g && g.due ? '<b>' + g.due + '</b> to review' : g && g.open ? '<b>' + g.open + '</b> open ' + (g.open === 1 ? 'mistake' : 'mistakes') : 'Lessons';
+  return '<button class="hub-tile sk-grammar" data-go="grammar"><span class="tint ht-ico">' + ic('i-spell', 'ic-sm') + '</span><span class="ht-name">Grammar</span>' +
+    '<span class="ht-sub">' + sub + '</span><span class="bar ht-bar" style="visibility:hidden"><i></i></span></button>';
 }
 function progressCard() {
   var p = $('#progress-root'), g = sum(); if (!p || !g || !g.byTopic || !g.byTopic.length || $('#prog-grammar')) return;

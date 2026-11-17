@@ -596,8 +596,11 @@ function submitTyped() {
     if (usesWord(val, wd.w)) return afterAnswer(true, '<b>Right.</b> The word is <b>' + esc(wd.w) + '</b>.', 'ok');
     return afterAnswer(false, '<b>Not quite.</b> The word was <b>' + esc(wd.w) + '</b>: ' + esc(dot(wd.def)), 'no');
   }
-  var ans = answerOf(s), accepted = s.t === 'cloze' ? [ans, wd.w] : [wd.w], g = gradeTyped(val, accepted);
+  var ans = answerOf(s), g = gradeTyped(val, [ans]);
   if (g.empty) return K.toast('Type your answer first.');
+  /* fill-in-the-blank: the base word in a sentence that needs another form (mean -> means) knows the word but not the form */
+  if (!g.ok && s.t === 'cloze' && ans.toLowerCase() !== wd.w.toLowerCase() && gradeTyped(val, [wd.w]).ok)
+    return afterAnswer(true, '<b>Almost.</b> You know the word, but this sentence needs <b>' + esc(ans) + '</b>, not <b>' + esc(val.trim()) + '</b>.', 'near');
   if (g.ok && g.near) return afterAnswer(true, '<b>Nearly.</b> Check the spelling: <b>' + esc(g.near) + '</b>.', 'near');
   if (g.ok) return afterAnswer(true, '<b>Right.</b> ' + meaningLine(wd), 'ok');
   afterAnswer(false, '<b>Not quite.</b> The answer is <b>' + esc(ans) + '</b>' + (wd.def && s.t !== 'def' && !(s.t === 'cloze' && s.clue === 'def') ? ': ' + esc(dot(wd.def)) : '.'), 'no');

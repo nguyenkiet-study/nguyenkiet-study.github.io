@@ -604,6 +604,17 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
   .pg-mx{grid-template-columns:78px minmax(0,1fr) 52px 32px;gap:8px}
   .pg-chip{padding:5px 10px;font-size:12px}
 }
+
+/* Kelvin stickers placed on screens */
+.stk{display:block;user-select:none;-webkit-user-drag:none}
+.bolt-hero:has(.hero-stk){min-height:128px}
+.bolt-hero .hero-stk{position:absolute;right:18px;bottom:8px;width:104px;height:104px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.25));animation:stk-pop .5s cubic-bezier(.2,1.4,.4,1) both}
+.empty-stk{width:104px;height:104px;margin:0 auto 10px;animation:stk-pop .5s cubic-bezier(.2,1.4,.4,1) both}
+.pg-hstk{width:34px;height:34px;flex:none;margin:-6px 0 -6px -2px}
+.pg-note.pg-win{color:var(--ink);font-weight:600}
+.pg-cstk{width:44px;height:44px;margin:-10px 0 -10px}
+@keyframes stk-pop{from{transform:scale(.6) translateY(8px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:760px){.bolt-hero:has(.hero-stk){min-height:104px}.bolt-hero .hero-stk{width:76px;height:76px;right:10px;bottom:6px}.empty-stk{width:88px;height:88px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
 /* saving words while practising */

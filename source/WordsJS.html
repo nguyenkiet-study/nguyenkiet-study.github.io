@@ -691,7 +691,7 @@ function drawSummary() {
     if (s.up) bits.push(s.up + ' moved up');
     if (s.same) bits.push(s.same + ' stay in their box (hint)');
     if (s.back) bits.push(s.back + ' back to box 1');
-    h = '<div class="bolt-hero"><h2>' + (r.where === 'quick' ? 'Nice, done' : r.mode === 'review' ? 'Reviews done' : 'Round complete') + '</h2><p style="margin:6px 0 0">' + (s.list.length ? bits.join(', ') + '. Your next reviews are scheduled.' : 'The words you marked as known will not come back.') + '</p></div>';
+    h = '<div class="bolt-hero">' + K.stk(r.where === 'quick' ? 'kel-thumbs-up' : r.mode === 'review' ? 'kel-yay' : 'kel-party', 'hero-stk') + '<h2>' + (r.where === 'quick' ? 'Nice, done' : r.mode === 'review' ? 'Reviews done' : 'Round complete') + '</h2><p style="margin:6px 0 0">' + (s.list.length ? bits.join(', ') + '. Your next reviews are scheduled.' : 'The words you marked as known will not come back.') + '</p></div>';
     if (g) {
       h += goalHtml(g);
       if (g.tomorrow) h += '<div class="wd-note ' + (g.tomorrow > g.reduceAt ? 'stop' : g.tomorrow >= g.warnAt ? 'warn' : 'plain') + '" role="status">By tomorrow: about <b>' + g.tomorrow + ' ' + (g.tomorrow === 1 ? 'review' : 'reviews') + '</b> (' + g.tomorrowMin + ' min).' + (g.tomorrow >= g.warnAt ? ' That is a large share of your ' + g.minutes + '-minute goal. Review before you learn more.' : '') + '</div>';

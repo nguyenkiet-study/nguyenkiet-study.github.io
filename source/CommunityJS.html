@@ -311,7 +311,7 @@ function drawThreads() {
   var r = msgRoot(), t = S.threads;
   var top = '<div class="row-between cm-bar"><p class="small muted">Chat with anyone in the group. English is encouraged.</p><button class="btn btn-primary btn-sm" data-action="ms-new">' + ic('i-plus', 'ic-sm') + 'New message</button></div>';
   if (!t) { r.innerHTML = top + '<div class="card"><p class="small muted">Loading…</p></div>'; return; }
-  if (!t.length) { r.innerHTML = top + '<div class="card cm-empty">' + ic('i-message', 'ic-lg') + '<h2>No messages yet</h2><p class="small muted">Say hello to someone, or tag friends in a Writing answer.</p><button class="btn btn-soft" data-action="ms-new">Start a chat</button></div>'; return; }
+  if (!t.length) { r.innerHTML = top + '<div class="card cm-empty">' + K.stk('kel-wave', 'empty-stk') + '<h2>No messages yet</h2><p class="small muted">Say hello to someone, or tag friends in a Writing answer.</p><button class="btn btn-soft" data-action="ms-new">Start a chat</button></div>'; return; }
   r.innerHTML = top + '<div class="card ms-list">' + t.map(function (x) {
     return '<button class="ms-row' + (x.unread ? ' unread' : '') + '" data-action="ms-open" data-id="' + esc(x.with.id) + '" data-n="' + esc(x.with.name) + '">' + av(x.with) +
       '<span class="ms-mid"><span class="ms-n">' + esc(x.with.name) + '</span><span class="ms-l">' + (x.last.mine ? 'You: ' : '') + esc(x.last.text) + '</span></span>' +
@@ -521,7 +521,7 @@ function drawFeed() {
     '<div class="cm-tools"><button class="iconbtn cm-bell" data-action="cm-notifs" aria-label="Notifications">' + ic('i-bell') + '<i class="cm-dot" hidden></i></button><button class="btn btn-primary btn-sm" data-action="cm-new">' + ic('i-plus', 'ic-sm') + 'Post</button></div></div>';
   if (!f) { r.innerHTML = h + (S.err ? '<div class="card cm-empty"><p>' + esc(S.err) + '</p><button class="btn btn-soft" data-action="cm-reload">Try again</button></div>' : '<div class="card"><p class="small muted">Loading the group…</p></div>'); setDots(); return; }
   if (S.filter === 'all') h += (f.pinned ? pinCard(f.pinned) : '') + (f.topic ? topicCard(f.topic, f.admin) : '') + (f.wotd ? wotdCard(f.wotd) : '');
-  h += f.posts.length ? f.posts.map(postCard).join('') : '<div class="card cm-empty">' + ic('i-users', 'ic-lg') + '<h2>' + (S.filter === 'all' ? 'Be the first to post' : 'Nothing here yet') + '</h2><p class="small muted">Ask a question, share a word list, or ask friends to correct a sentence.</p><button class="btn btn-soft" data-action="cm-new">Write a post</button></div>';
+  h += f.posts.length ? f.posts.map(postCard).join('') : '<div class="card cm-empty">' + K.stk('kel-team', 'empty-stk') + '<h2>' + (S.filter === 'all' ? 'Be the first to post' : 'Nothing here yet') + '</h2><p class="small muted">Ask a question, share a word list, or ask friends to correct a sentence.</p><button class="btn btn-soft" data-action="cm-new">Write a post</button></div>';
   if (f.more) h += '<div class="cm-more"><button class="btn btn-ghost" data-action="cm-more"' + (S.loading ? ' disabled' : '') + '>' + (S.loading ? 'Loading…' : 'Show older posts') + '</button></div>';
   r.innerHTML = h; setDots();
 }

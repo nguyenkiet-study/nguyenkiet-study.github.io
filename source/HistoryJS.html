@@ -74,7 +74,7 @@ function draw() {
   var body;
   if (HX.err) body = '<article class="card empty"><h3>Could not load your history</h3><p class="small">' + esc(HX.err) + '</p><button class="btn btn-soft mt" data-action="hx-reload">Try again</button></article>';
   else if (!HX.items) body = '<article class="card">' + [1, 2, 3, 4].map(function () { return '<div class="skel" style="height:54px;margin:10px 0"></div>'; }).join('') + '</article>';
-  else if (!HX.items.length) body = '<article class="card empty"><div class="ico">' + ic('i-history') + '</div><h3>' + (HX.filter === 'all' ? 'Your history starts with your first session' : 'Nothing here yet') + '</h3><p class="small">Finish a lesson, a practice set or a word session and it shows up here, with every question to look back at.</p><button class="btn btn-primary mt" data-go="practice">Start learning</button></article>';
+  else if (!HX.items.length) body = '<article class="card empty">' + K.stk('kel-reading', 'empty-stk') + '<h3>' + (HX.filter === 'all' ? 'Your history starts with your first session' : 'Nothing here yet') + '</h3><p class="small">Finish a lesson, a practice set or a word session and it shows up here, with every question to look back at.</p><button class="btn btn-primary mt" data-go="practice">Start learning</button></article>';
   else {
     var groups = [], cur = null;
     HX.items.forEach(function (x) { if (!cur || cur.day !== x.day) { cur = { day: x.day, list: [] }; groups.push(cur); } cur.list.push(x); });

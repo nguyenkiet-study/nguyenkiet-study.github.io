@@ -137,7 +137,7 @@ function backLabel() { return S.from === 'dashboard' ? 'Back to Home' : S.from =
 function done(title, statsHtml, buttons) {
   report();
   var cut = statsHtml.indexOf('</h2>');   // the result line sits on the brand background
-  if (cut > -1) statsHtml = '<div class="bolt-hero">' + statsHtml.slice(0, cut + 5).replace(' style="font-size:22px"', '') + '</div>' + statsHtml.slice(cut + 5);
+  if (cut > -1) statsHtml = '<div class="bolt-hero">' + K.stk('kel-star-eyes', 'hero-stk') + statsHtml.slice(0, cut + 5).replace(' style="font-size:22px"', '') + '</div>' + statsHtml.slice(cut + 5);
   shell(title, '', statsHtml + '<div class="row-btns mt" style="justify-content:flex-end">' + buttons + '<button class="btn btn-primary" data-action="st-exit">' + backLabel() + '</button></div>');
 }
 

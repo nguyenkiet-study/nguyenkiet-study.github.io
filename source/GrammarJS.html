@@ -487,18 +487,9 @@ function hubCard() {
   return '<button class="hub-tile sk-grammar" data-go="grammar"><span class="tint ht-ico">' + ic('i-spell', 'ic-sm') + '</span><span class="ht-name">Grammar</span>' +
     '<span class="ht-sub">' + sub + '</span><span class="bar ht-bar" style="visibility:hidden"><i></i></span></button>';
 }
-function progressCard() {
-  var p = $('#progress-root'), g = sum(); if (!p || !g || !g.byTopic || !g.byTopic.length || $('#prog-grammar')) return;
-  var mx = g.byTopic.reduce(function (m, x) { return Math.max(m, x.n); }, 1);
-  p.insertAdjacentHTML('beforeend', '<article class="card mt" id="prog-grammar"><div class="card-head"><h2>Grammar mistakes by topic</h2><span class="pill plain">' + g.open + ' open</span></div><div class="gr-bars">' + g.byTopic.map(function (b) {
-    return '<div class="r"><span class="lb">' + esc(b.title) + '</span><div class="t"><i class="o" style="width:' + b.open / mx * 100 + '%"></i><i class="f" style="width:' + (b.n - b.open) / mx * 100 + '%"></i></div><span class="muted num">' + b.n + '</span></div>';
-  }).join('') + '</div><div class="legend" style="margin-top:8px"><span><i style="border-color:var(--primary)"></i>Open</span><span><i style="border-color:#B5CEFF"></i>Fixed</span></div></article>');
-}
-
 K.register('grammar', { title: 'Grammar', render: render, refresh: function () { if (!G.run && !G.home) render(); } });
 K.setDash(dashCard);
 K.setHub(hubCard);
-K.onGo(function (v) { if (v === 'progress') setTimeout(progressCard, 0); });
 K.actions({
   'gr-reload': function () { G.home = null; load(true); },
   'gr-start': function (el) { start(el.dataset.t, el); },

@@ -25,7 +25,7 @@
   --bg:#F4F7FC; --surface:#FFFFFF; --text:#14213D; --ink:#10234F; --accent:#00BFEA; --muted:#687795; --faint:#94A3B8;
   --line:#DFE8F7; --line-2:#EDF3FF; --line-strong:#C8D9F5;
   --success:#12A594; --warning:#F59E0B; --error:#E45B87;
-  --c-speaking:#2864E8; --c-listening:#00A3D4; --c-reading:#3B82F6; --c-writing:#7C5CF0;
+  --c-speaking:#F2711C; --c-listening:#0FA37F; --c-reading:#2864E8; --c-writing:#8B5CF6;
   --gradient-primary:linear-gradient(135deg,#2864E8 0%,#2A7BEE 58%,#14A4EC 100%);
   --gradient-navy:linear-gradient(145deg,#10234F 0%,#173D7A 100%);
   --gradient-background:linear-gradient(135deg,#F4F7FC 0%,#EAF2FF 100%);
@@ -543,6 +543,84 @@ select.input{appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmln
 }
 @media (max-width:420px){.lvl-grid,.goal-grid{grid-template-columns:1fr}}
 body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition:none!important}
+
+/* ---------- My progress ---------- */
+.pg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.pg-kpi{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-1);border-radius:18px;padding:16px 18px;display:grid;gap:2px;position:relative;overflow:hidden}
+.pg-kpi::after{content:"";position:absolute;right:-22px;top:-22px;width:80px;height:80px;border-radius:50%;background:var(--k);opacity:.08}
+.pg-kpi.k-level{--k:#2864E8}.pg-kpi.k-streak{--k:#F2711C}.pg-kpi.k-time{--k:#0FA37F}.pg-kpi.k-days{--k:#8B5CF6}
+.pg-kic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--k);background:color-mix(in srgb,var(--k) 13%,transparent);margin-bottom:6px}
+.pg-kv{font:700 26px/1.1 var(--head);color:var(--ink)}.pg-kv small{font-size:13px;font-weight:600;color:var(--muted)}
+.pg-kl{font-weight:600;font-size:13.5px;color:var(--ink)}.pg-ks{font-size:12.5px;color:var(--muted)}
+.pg-ks .up,.pg-tr.up{color:#0B8F5C}.pg-ks .down,.pg-tr.down{color:#D64545}
+.pg-hint,.pg-note{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin:10px 0 0;line-height:1.45}
+.pg-hint{background:color-mix(in srgb,var(--primary) 7%,transparent);border-radius:12px;padding:10px 12px;margin:0 0 6px;color:var(--ink)}
+.pg-hint .ic,.pg-note .ic{flex:none;margin-top:1px;color:var(--primary)}
+.pg-note.warn .ic{color:#E07B12}
+.pg-sks{display:grid}
+.pg-sk{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 0;border-top:1px solid var(--line-2)}
+.pg-sk:first-child{border-top:0}
+.pg-skic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent)}
+.pg-sktop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pg-lv{font-weight:700;font-size:12.5px;color:#fff;background:var(--c);border-radius:7px;padding:1px 7px}
+.pg-focus{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#B4530A;background:#FFF1E2;border-radius:999px;padding:2px 8px}
+.pg-tr{margin-left:auto;font-size:12px;font-weight:700}.pg-tr.flat{color:var(--faint);font-weight:600}
+.pg-bar{height:8px;border-radius:99px;background:var(--line-2);margin:8px 0 6px;overflow:hidden}
+.pg-bar i{display:block;height:100%;border-radius:inherit;background:var(--c,var(--primary));transition:width .6s ease}
+.pg-bar.sm{height:6px;margin:6px 0 0}
+.pg-skmeta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.pg-skmeta b{color:var(--ink)}.pg-skmeta .warn{color:#C2620C;font-weight:600}
+.pg-sk.is-focus .pg-skic{box-shadow:0 0 0 2px var(--c)}
+.pg-chips{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 10px}
+.pg-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 12px;font:600 12.5px var(--font);color:var(--muted);cursor:pointer}
+.pg-chip i{width:10px;height:10px;border-radius:50%;background:var(--c,var(--ink))}
+.pg-chip:not(.sk-speaking):not(.sk-listening):not(.sk-reading):not(.sk-writing) i{background:conic-gradient(var(--c-speaking) 0 25%,var(--c-listening) 0 50%,var(--c-reading) 0 75%,var(--c-writing) 0)}
+.pg-chip[aria-pressed="true"]{border-color:var(--c,var(--ink));color:var(--ink);background:color-mix(in srgb,var(--c,var(--ink)) 9%,transparent)}
+.pg-chart{width:100%;height:auto;display:block}
+.pg-chart .gl{stroke:var(--line-2)}.pg-chart text{font-size:11px;fill:var(--faint);font-family:var(--font)}.pg-chart text.band{font-weight:600}
+.pg-line path{fill:none;stroke:var(--c);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transition:opacity .25s}
+.pg-line circle{fill:var(--c);transition:opacity .25s}.pg-line circle.end{stroke:#fff;stroke-width:2.5}
+.pg-line.on path{stroke-width:4}.pg-line.dim{opacity:.12}
+.pg-wks,.pg-mxs{display:grid;gap:10px}
+.pg-wk{display:grid;grid-template-columns:86px minmax(0,1fr) 64px 78px;gap:10px;align-items:center;font-size:12.5px}
+.pg-wl{color:var(--muted)}.pg-wk.cur .pg-wl{color:var(--ink);font-weight:700}
+.pg-wt{position:relative;height:10px;border-radius:99px;background:var(--line-2)}
+.pg-wt i{position:absolute;left:0;top:0;bottom:0;border-radius:inherit;background:#9DB8F2}
+.pg-wk.ok .pg-wt i{background:#0FA37F}.pg-wk.cur:not(.ok) .pg-wt i{background:var(--primary)}
+.pg-wt .pg-gm{position:absolute;top:-4px;bottom:-4px;width:2px;height:auto;padding:0;margin:0;background:var(--ink);opacity:.45;border-radius:2px}
+.pg-wv{text-align:right;font-weight:700;color:var(--ink)}.pg-wv small{font-weight:500;color:var(--faint)}
+.pg-wd{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}.pg-wd .ic{color:#0FA37F}
+.pg-mx{display:grid;grid-template-columns:96px minmax(0,1fr) 58px 38px;gap:10px;align-items:center;font-size:12.5px}
+.pg-ml{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pg-mt{height:10px;border-radius:99px;background:var(--line-2);overflow:hidden}.pg-mt i{display:block;height:100%;border-radius:inherit}
+.pg-mv{text-align:right;font-weight:600}.pg-mp{text-align:right}
+.pg-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pg-nums>div{background:var(--wash,#F3F7FF);border-radius:14px;padding:12px;text-align:center;display:grid;gap:2px}
+.pg-nums b{font:700 22px/1.1 var(--head);color:var(--ink)}.pg-nums span{font-size:12px;color:var(--muted)}
+.pg-sub{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:16px 0 8px}
+.pg-goals{display:grid;gap:14px}
+.pg-since{display:grid;gap:8px;margin-top:4px}
+.pg-sn{display:grid;grid-template-columns:120px auto auto auto 1fr;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--wash-2);font-size:13px;transition:opacity .25s}
+.pg-sn.dim{opacity:.3}
+.pg-snl{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--ink)}.pg-snl i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.pg-lvp{font-weight:700;font-size:12.5px;color:var(--c);border:1.5px solid var(--c);border-radius:7px;padding:0 6px}.pg-arr{color:var(--faint)}
+.pg-sn .pg-tr{justify-self:end}
+.pg-goal{display:grid;grid-template-columns:36px minmax(0,1fr) 44px;gap:12px;align-items:center}
+.pg-gic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary)}
+.pg-gtop{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;flex-wrap:wrap}
+.pg-gp{text-align:right;font-weight:700;font-size:13px;color:var(--primary)}
+.pg-got{display:flex;flex-wrap:wrap;gap:8px}
+.pg-got span{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:#0B8F5C;background:#E6F7EF;border-radius:999px;padding:5px 11px}
+@media (max-width:900px){.pg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){
+  .pg-kpis{gap:10px}.pg-kpi{padding:13px 14px;border-radius:16px}.pg-kv{font-size:22px}
+  .pg-sk{grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:start}.pg-skic{width:34px;height:34px;border-radius:10px}
+  .pg-sk>.btn{padding:0 11px;height:30px;font-size:12.5px;margin-top:-2px}
+  .pg-tr{margin-left:0}
+  .pg-wk{grid-template-columns:74px minmax(0,1fr) 58px;row-gap:2px}.pg-wd{grid-column:2/4;font-size:11.5px}
+  .pg-mx{grid-template-columns:78px minmax(0,1fr) 52px 32px;gap:8px}
+  .pg-chip{padding:5px 10px;font-size:12px}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
 /* saving words while practising */
@@ -2087,28 +2165,6 @@ function ladder(level, selfLevel) {
     return '<span class="rung ' + (i <= li(level) ? 'on ' : '') + (l === level ? 'cur ' : '') + (selfLevel && l === selfLevel && selfLevel !== level ? 'self' : '') + '">' + l + '</span>';
   }).join('') + '</div>';
 }
-function lineChart() {
-  var W = 640, H = 250, pl = 34, pr = 12, pt = 12, pb = 28, n = 8, i, k, out;
-  function x(i) { return pl + i * (W - pl - pr) / (n - 1); }
-  function y(v) { return pt + (H - pt - pb) * (1 - v / 6); }
-  out = '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Skill progress over eight weeks">';
-  for (k = 0; k <= 5; k++) out += '<line class="grid-l" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(k) + '" y2="' + y(k) + '"/><text x="0" y="' + (y(k) + 4) + '">' + LV[k] + '</text>';
-  for (i = 0; i < n; i++) out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + (i === n - 1 ? 'Now' : 'W-' + (n - 1 - i)) + '</text>';
-  SKILLS.forEach(function (s, j) {
-    var now = skillScore(s), d = [0.09, 0.08, 0.07, 0.1][j], r = seeded(j + 7), pts = [];
-    for (i = 0; i < n; i++) { var v = Math.max(0.1, now - d * (n - 1 - i) + (i === n - 1 ? 0 : (r() - 0.5) * 0.12)); pts.push([x(i), y(v)]); }
-    var path = pts.map(function (p, q) { return (q ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
-    out += '<path d="' + path + '" fill="none" stroke="var(--c-' + s + ')" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
-    var last = pts[n - 1]; out += '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="4.5" fill="var(--c-' + s + ')" stroke="#fff" stroke-width="2"/>';
-  });
-  return out + '</svg>';
-}
-function heatmap() {
-  var r = seeded(42), out = '<div class="heat" role="img" aria-label="Daily practice over the last 12 weeks">', i;
-  for (i = 0; i < 84; i++) { var v = BACKEND_READY ? 0 : r(); var l = v < 0.38 ? 0 : v < 0.62 ? 1 : v < 0.8 ? 2 : v < 0.93 ? 3 : 4; out += '<i data-l="' + l + '"></i>'; }
-  return out + '</div>';
-}
-
 /* ---------- API layer ---------- */
 var Api = {
   call: function (fn, payload) {
@@ -2348,6 +2404,7 @@ function go(view) {
   if (view === 'progress' || view === 'settings' || view === 'assessment' || view === 'history') { $$('#bottom-nav [data-go]').forEach(function (b) { if (b.dataset.go === 'profile') b.setAttribute('aria-current', 'page'); }); }
   window.scrollTo(0, 0);
   ({ dashboard: renderDashboard, assessment: renderAssessment, practice: renderPractice, progress: renderProgress, profile: renderProfile, settings: renderSettings }[view] || function () { if (REG.views[view]) REG.views[view].render(); else renderLearning(view); })();
+  if (view === 'progress' && BACKEND_READY && state.ov && Date.now() - (state.ovAt || 0) > 60000) loadOverview(true);
 }
 
 /* ---------- dashboard ---------- */
@@ -2501,7 +2558,7 @@ function rerender() {
 function loadOverview(quiet) {
   if (!BACKEND_READY) return Promise.resolve();
   return Api.call('overview').then(function (ov) {
-    state.ov = ov; state.totals = ov.totals; state.weekly = ov.weekly; state.recent = ov.recent;
+    state.ov = ov; state.ovAt = Date.now(); state.totals = ov.totals; state.weekly = ov.weekly; state.recent = ov.recent;
     $('#top-streak').textContent = ov.totals.streak;
     rerender();
     if (state.hasTest && ov.plan && ov.plan.enriched === false && !state.enriching) {
@@ -2533,40 +2590,6 @@ function dashReal() {
     (pl.vocabulary && pl.vocabulary.length ? '<p class="tiny muted" style="margin:12px 0 0">Word themes: ' + pl.vocabulary.map(esc).join(', ') + '</p>' : '');
   $('#week-total').textContent = weekTotal() + ' of ' + pl.goalMinutes + ' min this week';
 }
-function lineChartReal(hist) {
-  var W = 640, H = 250, pl = 34, pr = 12, pt = 12, pb = 28, n = 8, i, k, out;
-  function x(i) { return pl + i * (W - pl - pr) / (n - 1); }
-  function y(v) { return pt + (H - pt - pb) * (1 - v / 6); }
-  out = '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Skill level over eight weeks">';
-  for (k = 0; k <= 5; k++) out += '<line class="grid-l" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(k) + '" y2="' + y(k) + '"/><text x="0" y="' + (y(k) + 4) + '">' + LV[k] + '</text>';
-  for (i = 0; i < n; i++) out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + (i === n - 1 ? 'Now' : 'W-' + (n - 1 - i)) + '</text>';
-  SKILLS.forEach(function (s) {
-    var vals = (hist && hist[s]) || [], d = '', last = null, pen = false;
-    for (i = 0; i < n; i++) {
-      var v = vals[i]; if (v === null || v === undefined) { pen = false; continue; }
-      d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; pen = true; last = [x(i), y(v)];
-    }
-    if (!last) return;
-    out += '<path d="' + d + '" fill="none" stroke="var(--c-' + s + ')" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="' + last[0] + '" cy="' + last[1] + '" r="4.5" fill="var(--c-' + s + ')" stroke="#fff" stroke-width="2"/>';
-  });
-  return out + '</svg>';
-}
-function heatReal(heat) {
-  var out = '<div class="heat" role="img" aria-label="Daily practice over the last 12 weeks">', i;
-  for (i = 0; i < 84; i++) { var m = heat[i] || 0, l = m <= 0 ? 0 : m < 10 ? 1 : m < 20 ? 2 : m < 35 ? 3 : 4; out += '<i data-l="' + l + '" title="' + m + ' min"></i>'; }
-  return out + '</div>';
-}
-function progressReal() {
-  var ov = state.ov, tiles = SKILLS.map(function (k) { var s = state.skills[k]; return '<div class="card stat sk-' + k + '"><span class="ico tint">' + ic(SK[k].icon) + '</span><div><div class="v">' + s.level + '</div><div class="k">' + SK[k].label + '</div></div></div>'; }).join('');
-  var hist = ov && ov.history, any = hist && SKILLS.some(function (k) { return (hist[k] || []).some(function (v) { return v !== null && v !== undefined; }); });
-  var ms = ov && ov.milestones && ov.milestones.length ? ov.milestones.map(function (m) { return '<div class="act"><span class="dot tint" style="--c:var(--primary)">' + ic('i-check', 'ic-sm') + '</span><div><div class="t">' + esc(m.title) + '</div><div class="m">' + esc(m.meta) + '</div></div></div>'; }).join('') : '<p class="muted">Milestones appear as you learn.</p>';
-  $('#progress-root').innerHTML = '<div class="grid g-4 stats">' + tiles + '</div>' +
-    '<article class="card mt"><div class="card-head"><h2>Level over the last 8 weeks</h2><div class="legend">' + SKILLS.map(function (k) { return '<span><i style="border-color:var(--c-' + k + ')"></i>' + SK[k].label + '</span>'; }).join('') + '</div></div>' +
-    (!ov ? '<p class="muted">Loading…</p>' : any ? lineChartReal(hist) : '<p class="muted">' + (state.hasTest ? 'Your line grows as you practise and retake the test.' : 'Your line starts after your first placement test.') + '</p>') + '</article>' +
-    '<div class="grid g-7-5 mt"><article class="card"><div class="card-head"><h2>Practice days</h2><span class="small muted">Last 12 weeks</span></div>' + (ov ? heatReal(ov.heat) : '<p class="muted">Loading…</p>') + '</article>' +
-    '<article class="card"><div class="card-head"><h2>Milestones</h2></div>' + ms + '</article></div>';
-}
-
 /* ---------- practice hub (mobile entry) ---------- */
 function renderPractice() {
   var ps = $('#practice-study'), kw = window.Kelvin.words;
@@ -3203,14 +3226,214 @@ function ptDone(result) {
   window.scrollTo(0, 0);
 }
 
-/* ---------- progress ---------- */
+/* ---------- My progress ----------
+   One page that answers: where am I, am I moving, am I keeping the habit, what should I do next.
+   1. Four numbers: overall level, streak, minutes in the last 30 days (against the 30 before), active days.
+   2. Your skills: level, % to the next level, change over 4 weeks, minutes, average score, last practised, a Practise button.
+      The skill that most needs time is marked Focus.
+   3. Level trend: one line per skill in its own colour; tap a skill chip to show that line alone.
+   4. Weekly goal (last 4 weeks against the goal) and Time by skill (last 30 days).
+   5. Words and Grammar at a glance. 6. Next goals with how far along each one is, then what was reached. */
+var PG = { sel: 'all' };
+var PG_AREAS = SKILLS.concat(['words', 'grammar']);
+var PG_COL = { speaking: 'var(--c-speaking)', listening: 'var(--c-listening)', reading: 'var(--c-reading)', writing: 'var(--c-writing)', words: '#10234F', grammar: '#0A9BD4' };
+function pgDemo() {
+  if (state._pgDemo) return state._pgDemo;
+  var r = seeded(9), bySkill = {}, weeks = [], i;
+  PG_AREAS.forEach(function (k, j) { var m = [42, 66, 88, 30, 120, 36][j]; bySkill[k] = { min: m, prev: Math.round(m * (0.6 + r() * 0.7)), sessions: Math.round(m / 9), acc: 55 + Math.round(r() * 35), last: [3, 1, 0, 9, 0, 2][j] }; });
+  for (i = 0; i < 4; i++) weeks.push({ start: '', min: [95, 140, 160, 70][i], days: [3, 5, 6, 3][i] });
+  var hist = {}; SKILLS.forEach(function (k, j) { var now = rxScore(k); hist[k] = [null, null, null, null].concat([0.3, 0.2, 0.1, 0].map(function (d) { return Math.max(0.1, now - d * [1, 0.6, 0.8, 1.2][j]); })); });
+  return (state._pgDemo = { stats: { goal: 150, best: 9, weeks: weeks, month: { min: 382, days: 17 }, prev: { min: 300, days: 13 }, bySkill: bySkill, weekday: todayIdx() },
+    history: hist, words: { known: 186, due: 14, saved: 23 }, grammar: { studied: 6, open: 4, due: 2, byTopic: [{ title: 'Present perfect', n: 5, open: 2 }, { title: 'Articles', n: 4, open: 1 }, { title: 'Prepositions of time', n: 2, open: 1 }] } });
+}
+function pgData() {
+  if (!BACKEND_READY) return pgDemo();
+  var ov = state.ov; if (!ov) return null;
+  return { stats: ov.stats || null, history: ov.history || null, words: (ov.plan && ov.plan.words) || null, grammar: ov.grammar || null, milestones: ov.milestones || [] };
+}
+function pgLabel(k) { return SK[k] ? SK[k].label : k; }
+function pgAgo(n) { return n === null || n === undefined ? 'Not practised yet' : n === 0 ? 'Practised today' : n === 1 ? 'Practised yesterday' : 'Last practised ' + n + ' days ago'; }
+/* level change over the last 4 weeks, in levels (1 = a whole CEFR level), from the weekly history */
+function pgChange(hist, k) {
+  var h = hist && hist[k]; if (!h) return null;
+  var now = rxScore(k), old = null, i;
+  for (i = 3; i >= 0; i--) { var v = h[i]; if (v !== null && v !== undefined && isFinite(v)) { old = v; break; } }
+  if (old === null) for (i = 4; i < h.length - 1; i++) { var w = h[i]; if (w !== null && w !== undefined && isFinite(w)) { old = w; break; } }
+  return old === null ? null : Math.round((now - old) * 100) / 100;
+}
+function pgTrend(d) {
+  if (d === null) return '';
+  var pct = Math.round(d * 100);
+  if (Math.abs(pct) < 3) return '<span class="pg-tr flat">Steady</span>';
+  var a = Math.abs(d), txt = a >= 1 ? (Math.round(a * 10) / 10) + (a >= 1.05 ? ' levels' : ' level') : Math.abs(pct) + '%';
+  return '<span class="pg-tr ' + (pct > 0 ? 'up' : 'down') + '" title="Change over the last 4 weeks' + (a < 1 ? ', as a share of one level' : '') + '">' + (pct > 0 ? '▲ +' : '▼ −') + txt + '</span>';
+}
+function pgFocus(st) {
+  var b = st && st.bySkill, w = rxWeak(), best = null, bestScore = -1;
+  SKILLS.forEach(function (k) {
+    var x = b ? b[k] : null, idle = x ? (x.last === null ? 30 : x.last) : 0, mins = x ? x.min : 0;
+    var s = (k === w ? 2 : 0) + Math.min(idle, 21) / 7 + (mins < 20 ? 1 : 0);
+    if (s > bestScore) { bestScore = s; best = k; }
+  });
+  return best || w;
+}
+function pgKpis(D) {
+  var st = D.stats, lv = overallLevel(), nx = LV[li(lv) + 1], op = overallPct(), streak = state.totals.streak || 0;
+  var m = st ? st.month.min : 0, p = st ? st.prev.min : 0, delta = p > 0 ? Math.round((m - p) / p * 100) : null;
+  function tile(cls, icon, val, lab, sub) { return '<div class="pg-kpi ' + cls + '"><span class="pg-kic">' + ic(icon, 'ic-sm') + '</span><div class="pg-kv num">' + val + '</div><div class="pg-kl">' + lab + '</div><div class="pg-ks">' + sub + '</div></div>'; }
+  return '<div class="pg-kpis">' +
+    tile('k-level', 'i-target', lv, 'Overall level', nx ? op + '% of the way to ' + nx : 'Top level reached') +
+    tile('k-streak', 'i-flame', streak + '<small> ' + (streak === 1 ? 'day' : 'days') + '</small>', 'Streak', (function (b) { return 'Best ' + b + (b === 1 ? ' day' : ' days'); })(st ? Math.max(st.best, streak) : streak)) +
+    tile('k-time', 'i-clock', m + '<small> min</small>', 'Last 30 days', delta === null ? (m ? 'First month of practice' : 'No practice yet') : '<b class="' + (delta >= 0 ? 'up' : 'down') + '">' + (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta) + '%</b> vs the 30 days before') +
+    tile('k-days', 'i-history', (st ? st.month.days : 0) + '<small>/30</small>', 'Active days', st && st.month.days >= 20 ? 'A strong habit' : st && st.month.days >= 10 ? 'Good. Aim for 20+' : 'Short sessions count too') +
+  '</div>';
+}
+function pgSkills(D) {
+  var st = D.stats, b = st && st.bySkill, focus = pgFocus(st);
+  var rows = SKILLS.map(function (k) {
+    var s = state.skills[k], nx = LV[li(s.level) + 1], pct = Math.round(s.progress || 0), x = b ? b[k] : null, ch = pgChange(D.history, k);
+    var idle = x && (x.last === null || x.last >= 7);
+    var meta = [];
+    if (x) { meta.push('<span><b class="num">' + x.min + '</b> min · ' + x.sessions + ' ' + (x.sessions === 1 ? 'session' : 'sessions') + '</span>'); if (x.acc !== null) meta.push('<span>Avg score <b class="num">' + x.acc + '%</b></span>'); }
+    meta.push('<span class="' + (idle ? 'warn' : '') + '">' + pgAgo(x ? x.last : null) + '</span>');
+    return '<div class="pg-sk sk-' + k + (k === focus ? ' is-focus' : '') + '">' +
+      '<span class="pg-skic">' + ic(SK[k].icon, 'ic-sm') + '</span>' +
+      '<div class="pg-skmain"><div class="pg-sktop"><b>' + SK[k].label + '</b><span class="pg-lv">' + s.level + '</span><span class="tiny muted pg-lvn">' + (LV_NAME[s.level] || '') + '</span>' + (k === focus ? '<span class="pg-focus">Focus</span>' : '') + pgTrend(ch) + '</div>' +
+      '<div class="pg-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="pg-skmeta"><span>' + (nx ? '<b class="num">' + pct + '%</b> to ' + nx : 'Top level') + '</span>' + meta.join('') + '</div></div>' +
+      '<button class="btn btn-sm ' + (k === focus ? 'btn-primary' : 'btn-soft') + '" data-go="' + k + '">Practise</button></div>';
+  }).join('');
+  var hint = st ? '<p class="pg-hint">' + ic('i-bulb', 'ic-sm') + '<span><b>' + SK[focus].label + '</b> needs you most: ' + (focus === rxWeak() ? 'it is your lowest skill' : 'it has had the least practice lately') + '. Ten minutes today moves it.</span></p>' : '';
+  return '<article class="card mt"><div class="card-head"><h2>Your skills</h2><span class="small muted">Last 30 days</span></div>' + hint + '<div class="pg-sks">' + rows + '</div></article>';
+}
+function pgChart(hist) {
+  var sm = window.innerWidth < 760, W = sm ? 360 : 640, H = sm ? 210 : 230, pl = sm ? 26 : 30, pr = sm ? 10 : 14, pt = 10, pb = 26, n = 8, sel = PG.sel, i;
+  var lo = 6, hi = 0, first = n;
+  SKILLS.forEach(function (k) {
+    (hist[k] || []).forEach(function (v, j) { if (j >= n - 1 || v === null || v === undefined || !isFinite(v)) return; lo = Math.min(lo, v); hi = Math.max(hi, v); first = Math.min(first, j); });
+    var c = rxScore(k); lo = Math.min(lo, c); hi = Math.max(hi, c);
+  });
+  if (first >= n) return '';
+  first = Math.min(first, n - 2);
+  var a = Math.max(0, Math.floor(lo) - (lo % 1 < 0.25 ? 1 : 0)), z = Math.min(6, Math.ceil(hi) + (hi % 1 > 0.75 ? 1 : 0)); if (z - a < 2) { if (z < 6) z++; else a--; }
+  var cols = n - first;
+  function x(j) { return pl + (j - first) * (W - pl - pr) / Math.max(1, cols - 1); }
+  function y(v) { return pt + (H - pt - pb) * (1 - (v - a) / (z - a)); }
+  var out = '<svg class="pg-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Level by skill over the last weeks">';
+  for (var L = a; L <= z; L++) out += '<line class="gl" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(L) + '" y2="' + y(L) + '"/>' + (L < 6 ? '<text x="0" y="' + (y(L + 0.5) + 4) + '" class="band">' + LV[L] + '</text>' : '');
+  for (i = first; i < n; i++) out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + (i === n - 1 ? 'Now' : (n - 1 - i) + (sm ? 'w' : 'w ago')) + '</text>';
+  var order = SKILLS.slice().sort(function (p, q) { return (p === sel) - (q === sel); });
+  order.forEach(function (k) {
+    var h = hist[k] || [], d = '', pen = false, last = null, dots = '';
+    for (i = first; i < n; i++) {
+      var v = i === n - 1 ? rxScore(k) : h[i]; if (v === null || v === undefined || !isFinite(v)) { pen = false; continue; }
+      d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; pen = true; last = [x(i), y(v)];
+      dots += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="3"/>';
+    }
+    if (!last) return;
+    var dim = sel !== 'all' && sel !== k;
+    out += '<g class="pg-line' + (dim ? ' dim' : '') + (sel === k ? ' on' : '') + '" style="--c:' + PG_COL[k] + '"><path d="' + d + '"/>' + dots + '<circle class="end" cx="' + last[0] + '" cy="' + last[1] + '" r="5.5"/></g>';
+  });
+  return out + '</svg>';
+}
+/* fewer than 3 weekly points: a line says little, so show each skill from its first estimate to now */
+function pgSince(hist) {
+  return '<div class="pg-since">' + SKILLS.map(function (k) {
+    var h = hist[k] || [], old = null; for (var i = 0; i < 7; i++) if (h[i] !== null && h[i] !== undefined && isFinite(h[i])) { old = h[i]; break; }
+    var now = rxScore(k), d = old === null ? 0 : Math.round((now - old) * 100), ol = old === null ? state.skills[k].level : LV[Math.max(0, Math.min(5, Math.floor(old)))];
+    return '<div class="pg-sn sk-' + k + '"><span class="pg-snl"><i></i>' + SK[k].label + '</span><span class="pg-lvp">' + ol + '</span><span class="pg-arr">→</span><span class="pg-lv">' + state.skills[k].level + '</span>' +
+      '<span class="pg-tr ' + (d >= 3 ? 'up' : d <= -3 ? 'down' : 'flat') + '">' + (d >= 3 ? '▲ +' + d + '%' : d <= -3 ? '▼ ' + d + '%' : 'Steady') + '</span></div>';
+  }).join('') + '</div><p class="pg-note">' + ic('i-chart', 'ic-sm') + '<span>Your weekly lines appear after three weeks of practice.</span></p>';
+}
+function pgTrendCard(D) {
+  var hist = D.history, chips = '<div class="pg-chips">' + [['all', 'All']].concat(SKILLS.map(function (k) { return [k, SK[k].label]; })).map(function (c) {
+    return '<button class="pg-chip' + (c[0] === 'all' ? '' : ' sk-' + c[0]) + '" data-action="pg-sel" data-k="' + c[0] + '" aria-pressed="' + (PG.sel === c[0]) + '"><i></i>' + c[1] + '</button>';
+  }).join('') + '</div>';
+  var pts = 0; if (hist) SKILLS.forEach(function (k) { pts = Math.max(pts, (hist[k] || []).slice(0, 7).filter(function (v) { return v !== null && v !== undefined && isFinite(v); }).length + 1); });
+  var body = hist && pts >= 3 ? pgChart(hist) : hist && pts === 2 ? pgSince(hist) : '';
+  if (!body) body = '<p class="muted small" style="margin:6px 0 0">' + (state.hasTest ? 'Your lines grow as you practise and retake the test.' : 'Your lines start after your first placement test.') + '</p>';
+  var sum = '';
+  if (hist) {
+    var best = null, bestD = 0;
+    SKILLS.forEach(function (k) { var c = pgChange(hist, k); if (c !== null && c > bestD) { bestD = c; best = k; } });
+    if (best && bestD >= 0.03) sum = '<p class="pg-note">' + ic('i-chart', 'ic-sm') + '<span><b>' + SK[best].label + '</b> grew the most: <b>+' + Math.round(bestD * 100) + '%</b> of a level in 4 weeks.</span></p>';
+  }
+  return '<article class="card mt"><div class="card-head"><h2>Level trend</h2><span class="small muted">Weekly, by skill</span></div>' + chips + body + sum + '</article>';
+}
+function pgWeeks(D) {
+  var st = D.stats; if (!st) return '<article class="card"><div class="card-head"><h2>Weekly goal</h2></div><p class="muted">Loading…</p></article>';
+  var g = st.goal || weekGoal(), mx = Math.max(g, st.weeks.reduce(function (m, w) { return Math.max(m, w.min); }, 0));
+  var met = 0, rows = st.weeks.map(function (w, i) {
+    var cur = i === st.weeks.length - 1, ok = w.min >= g; if (ok) met++;
+    var lab = cur ? 'This week' : i === st.weeks.length - 2 ? 'Last week' : (st.weeks.length - 1 - i) + ' weeks ago';
+    return '<div class="pg-wk' + (cur ? ' cur' : '') + (ok ? ' ok' : '') + '"><span class="pg-wl">' + lab + '</span><div class="pg-wt"><i style="width:' + Math.min(100, w.min / mx * 100) + '%"></i><b class="pg-gm" style="left:' + (g / mx * 100) + '%"></b></div>' +
+      '<span class="pg-wv num">' + w.min + '<small>/' + g + '</small></span><span class="pg-wd">' + (ok ? ic('i-check', 'ic-sm') : '') + w.days + '/7 days</span></div>';
+  }).join('');
+  var cw = st.weeks[st.weeks.length - 1], left = Math.max(0, g - cw.min), daysLeft = 7 - (st.weekday || 0);
+  var tip = left <= 0 ? 'Goal reached this week. Anything more is a bonus.' : 'About <b class="num">' + Math.ceil(left / Math.max(1, daysLeft)) + ' min</b> a day for the next ' + daysLeft + ' ' + (daysLeft === 1 ? 'day' : 'days') + ' reaches this week\'s goal.';
+  return '<article class="card"><div class="card-head"><h2>Weekly goal</h2><span class="pill plain">' + met + ' of 4 met</span></div><div class="pg-wks">' + rows + '</div><p class="pg-note">' + ic('i-clock', 'ic-sm') + '<span>' + tip + '</span></p></article>';
+}
+function pgMix(D) {
+  var st = D.stats; if (!st) return '<article class="card"><div class="card-head"><h2>Time by skill</h2></div><p class="muted">Loading…</p></article>';
+  var b = st.bySkill, tot = PG_AREAS.reduce(function (s, k) { return s + (b[k] ? b[k].min : 0); }, 0);
+  if (!tot) return '<article class="card"><div class="card-head"><h2>Time by skill</h2><span class="small muted">Last 30 days</span></div><p class="muted small">No practice in the last 30 days yet. Your time will be split by skill here.</p></article>';
+  var mx = PG_AREAS.reduce(function (m, k) { return Math.max(m, b[k] ? b[k].min : 0); }, 1);
+  var rows = PG_AREAS.slice().sort(function (p, q) { return (b[q] ? b[q].min : 0) - (b[p] ? b[p].min : 0); }).map(function (k) {
+    var m = b[k] ? b[k].min : 0;
+    return '<div class="pg-mx"><span class="pg-ml">' + pgLabel(k) + '</span><div class="pg-mt"><i style="width:' + (m / mx * 100) + '%;background:' + PG_COL[k] + '"></i></div><span class="pg-mv num">' + m + ' min</span><span class="pg-mp num muted">' + Math.round(m / tot * 100) + '%</span></div>';
+  }).join('');
+  var low = SKILLS.slice().sort(function (p, q) { return b[p].min - b[q].min; })[0], share = Math.round(b[low].min / tot * 100);
+  var note = share < 12 ? '<p class="pg-note warn">' + ic('i-bulb', 'ic-sm') + '<span><b>' + SK[low].label + '</b> got only ' + share + '% of your time. A short session or two this week keeps your skills even.</span></p>' : '<p class="pg-note">' + ic('i-check', 'ic-sm') + '<span>Your time is well spread across the four skills.</span></p>';
+  return '<article class="card"><div class="card-head"><h2>Time by skill</h2><span class="small muted">' + tot + ' min, last 30 days</span></div><div class="pg-mxs">' + rows + '</div>' + note + '</article>';
+}
+function pgWords(D) {
+  var w = D.words;
+  var body = !w ? '<p class="muted">Loading…</p>' : '<div class="pg-nums"><div><b class="num">' + (w.known || 0) + '</b><span>Known</span></div><div><b class="num">' + (w.due || 0) + '</b><span>To review</span></div><div><b class="num">' + (w.saved || 0) + '</b><span>Saved</span></div></div>' +
+    '<p class="pg-note">' + ic(w.due ? 'i-clock' : 'i-check', 'ic-sm') + '<span>' + (w.due ? '<b class="num">' + w.due + '</b> ' + (w.due === 1 ? 'word is' : 'words are') + ' waiting for review. Reviews keep words from slipping away.' : 'No reviews waiting. Learn a few new words.') + '</span></p>';
+  return '<article class="card sk-words"><div class="card-head"><h2>Words</h2><button class="btn btn-sm btn-soft" data-go="words">Open Words</button></div>' + body + '</article>';
+}
+function pgGrammar(D) {
+  var g = D.grammar, body;
+  if (!g) body = '<p class="muted small">' + (BACKEND_READY && !state.ov ? 'Loading…' : 'Grammar lessons appear here as you learn.') + '</p>';
+  else {
+    var top = (g.byTopic || []).slice(0, 3), mx = top.reduce(function (m, t) { return Math.max(m, t.n); }, 1);
+    body = '<div class="pg-nums"><div><b class="num">' + (g.studied || 0) + '</b><span>Topics studied</span></div><div><b class="num">' + (g.open || 0) + '</b><span>Open mistakes</span></div><div><b class="num">' + (g.due || 0) + '</b><span>To review</span></div></div>' +
+      (top.length ? '<div class="pg-sub">Most frequent mistakes</div><div class="pg-mxs">' + top.map(function (t) {
+        return '<div class="pg-mx"><span class="pg-ml">' + esc(t.title) + '</span><div class="pg-mt"><i style="width:' + (t.n / mx * 100) + '%;background:' + PG_COL.grammar + '"></i></div><span class="pg-mv num">' + t.n + '×</span><span class="pg-mp num muted">' + (t.open ? t.open + ' open' : 'fixed') + '</span></div>';
+      }).join('') + '</div>' : '');
+  }
+  return '<article class="card sk-grammar"><div class="card-head"><h2>Grammar</h2><button class="btn btn-sm btn-soft" data-go="grammar">Open Grammar</button></div>' + body + '</article>';
+}
+function pgGoals(D) {
+  var st = D.stats, streak = state.totals.streak || 0, lessons = state.totals.lessons || 0, known = (D.words && D.words.known) || 0;
+  function next(v, steps) { for (var i = 0; i < steps.length; i++) if (v < steps[i]) return [steps[i], i ? steps[i - 1] : 0]; return null; }
+  var goals = [], s = next(streak, [3, 7, 14, 30, 60, 100, 365]), w = next(known, [25, 100, 250, 500, 1000, 2000, 3000]), l = next(lessons, [10, 25, 50, 100, 200, 500]);
+  if (s) goals.push(['i-flame', s[0] + '-day streak', streak, s[0], (s[0] - streak) + ' more ' + (s[0] - streak === 1 ? 'day' : 'days') + ' in a row']);
+  if (w) goals.push(['i-cards', w[0] + ' words known', known, w[0], (w[0] - known) + ' words to go']);
+  if (l) goals.push(['i-check', l[0] + ' lessons completed', lessons, l[0], (l[0] - lessons) + ' lessons to go']);
+  var up = SKILLS.slice().sort(function (p, q) { return (state.skills[q].progress || 0) - (state.skills[p].progress || 0); })[0], us = state.skills[up], un = LV[li(us.level) + 1];
+  if (un) goals.push([SK[up].icon, SK[up].label + ' reaches ' + un, Math.round(us.progress || 0), 100, 'Your closest level-up']);
+  var list = goals.map(function (gq) {
+    var pct = Math.min(100, Math.round(gq[2] / gq[3] * 100));
+    return '<div class="pg-goal"><span class="pg-gic">' + ic(gq[0], 'ic-sm') + '</span><div class="grow"><div class="pg-gtop"><b>' + gq[1] + '</b><span class="tiny muted">' + gq[4] + '</span></div><div class="pg-bar sm"><i style="width:' + pct + '%"></i></div></div><span class="num pg-gp">' + pct + '%</span></div>';
+  }).join('');
+  var done = (D.milestones || []).slice(0, 6);
+  if (!BACKEND_READY && !done.length) done = [{ title: 'Reading reached B2', meta: 'Placement test' }, { title: '7-day streak', meta: 'Reached' }];
+  var got = done.length ? '<div class="pg-sub">Reached</div><div class="pg-got">' + done.map(function (m) { return '<span title="' + esc(m.meta || '') + '">' + ic('i-check', 'ic-sm') + esc(m.title) + '</span>'; }).join('') + '</div>' : '';
+  return '<article class="card mt"><div class="card-head"><h2>Next goals</h2></div><div class="pg-goals">' + list + '</div>' + got + '</article>';
+}
 function renderProgress() {
-  if (BACKEND_READY) return progressReal();
-  var tiles = SKILLS.map(function (k) { var s = state.skills[k]; return '<div class="card stat sk-' + k + '"><span class="ico tint">' + ic(SK[k].icon) + '</span><div><div class="v">' + s.level + '</div><div class="k">' + SK[k].label + '</div></div></div>'; }).join('');
-  $('#progress-root').innerHTML = '<div class="grid g-4 stats">' + tiles + '</div>' +
-    '<article class="card mt"><div class="card-head"><h2>Level over the last 8 weeks</h2><div class="legend">' + SKILLS.map(function (k) { return '<span><i style="border-color:var(--c-' + k + ')"></i>' + SK[k].label + '</span>'; }).join('') + '</div></div>' + (state.hasTest && !BACKEND_READY ? lineChart() : '<p class="muted">' + (state.hasTest ? 'Your progress line grows as you practise and retake the test.' : 'Your progress line starts after your first placement test.') + '</p>') + '</article>' +
-    '<div class="grid g-7-5 mt"><article class="card"><div class="card-head"><h2>Practice days</h2><span class="small muted">Last 12 weeks</span></div>' + heatmap() + '</article>' +
-    '<article class="card"><div class="card-head"><h2>Milestones</h2></div>' + (state.hasTest && !BACKEND_READY ? [['Reading reached B2', 'Placement test'], ['Six-day streak', 'Current'], ['40 lessons completed', 'Last week']].map(function (m) { return '<div class="act"><span class="dot tint" style="--c:var(--primary)">' + ic('i-check', 'ic-sm') + '</span><div><div class="t">' + m[0] + '</div><div class="m">' + m[1] + '</div></div></div>'; }).join('') : '<p class="muted">Milestones appear as you learn.</p>') + '</article></div>';
+  var root = $('#progress-root'); if (!root) return;
+  var D = pgData();
+  if (!D) { root.innerHTML = '<div class="card"><p class="muted">Loading your progress…</p></div>'; return; }
+  root.innerHTML = pgKpis(D) + pgSkills(D) + pgTrendCard(D) +
+    '<div class="grid g-2 mt pg-two">' + pgWeeks(D) + pgMix(D) + '</div>' +
+    '<div class="grid g-2 mt pg-two">' + pgWords(D) + pgGrammar(D) + '</div>' + pgGoals(D);
+}
+function pgSelect(k) {
+  PG.sel = PG.sel === k ? 'all' : k;
+  var c = $('#progress-root .pg-chart'), D = pgData(); if (!c) { $$('#progress-root .pg-chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.k === PG.sel)); }); $$('#progress-root .pg-sn').forEach(function (r) { r.classList.toggle('dim', PG.sel !== 'all' && !r.classList.contains('sk-' + PG.sel)); }); return; }
+  if (c && D && D.history) { c.outerHTML = pgChart(D.history); $$('#progress-root .pg-chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.k === PG.sel)); }); }
 }
 
 /* ---------- profile & settings ---------- */
@@ -3305,6 +3528,7 @@ document.addEventListener('click', function (ev) {
     case 'ob-next': return obNext();
     case 'rx-pick': RX.sel = el.dataset.k; return rxRedraw();
     case 'cal-move': CAL.off += +el.dataset.d; return calRender();
+    case 'pg-sel': return pgSelect(el.dataset.k);
     case 'rx-layer':
       if (el.dataset.empty) return toast('Last month will show once you have a month of results.');
       RX.layers[el.dataset.l] = !RX.layers[el.dataset.l];
@@ -5705,18 +5929,9 @@ function hubCard() {
   return '<button class="hub-tile sk-grammar" data-go="grammar"><span class="tint ht-ico">' + ic('i-spell', 'ic-sm') + '</span><span class="ht-name">Grammar</span>' +
     '<span class="ht-sub">' + sub + '</span><span class="bar ht-bar" style="visibility:hidden"><i></i></span></button>';
 }
-function progressCard() {
-  var p = $('#progress-root'), g = sum(); if (!p || !g || !g.byTopic || !g.byTopic.length || $('#prog-grammar')) return;
-  var mx = g.byTopic.reduce(function (m, x) { return Math.max(m, x.n); }, 1);
-  p.insertAdjacentHTML('beforeend', '<article class="card mt" id="prog-grammar"><div class="card-head"><h2>Grammar mistakes by topic</h2><span class="pill plain">' + g.open + ' open</span></div><div class="gr-bars">' + g.byTopic.map(function (b) {
-    return '<div class="r"><span class="lb">' + esc(b.title) + '</span><div class="t"><i class="o" style="width:' + b.open / mx * 100 + '%"></i><i class="f" style="width:' + (b.n - b.open) / mx * 100 + '%"></i></div><span class="muted num">' + b.n + '</span></div>';
-  }).join('') + '</div><div class="legend" style="margin-top:8px"><span><i style="border-color:var(--primary)"></i>Open</span><span><i style="border-color:#B5CEFF"></i>Fixed</span></div></article>');
-}
-
 K.register('grammar', { title: 'Grammar', render: render, refresh: function () { if (!G.run && !G.home) render(); } });
 K.setDash(dashCard);
 K.setHub(hubCard);
-K.onGo(function (v) { if (v === 'progress') setTimeout(progressCard, 0); });
 K.actions({
   'gr-reload': function () { G.home = null; load(true); },
   'gr-start': function (el) { start(el.dataset.t, el); },

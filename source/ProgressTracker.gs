@@ -130,12 +130,48 @@ var Progress = (function () {
     recent.sort(function (a, b) { return b.at.localeCompare(a.at); });
     recent = recent.slice(0, 8).map(function (r) { return { skill: r.skill, title: r.title, meta: r.meta, when: r.when }; });
 
-    var plan = Plan.current(user, prog), hist = history(uid, today);
+    var plan = Plan.current(user, prog), hist = history(uid, today), longest = longestStreak(byDay);
     return {
       totals: { hours: Math.round(minutes / 6) / 10, lessons: lessons, streak: streakOf(byDay, today) },
       weekly: weekly, heat: heat, recent: recent, history: hist.values,
-      milestones: milestones(hist, longestStreak(byDay), lessons, plan.words.known || 0),
-      plan: plan, today: today, grammar: Grammar.summary(user)
+      milestones: milestones(hist, longest, lessons, plan.words.known || 0),
+      plan: plan, today: today, grammar: Grammar.summary(user), stats: stats(uid, prog, byDay, today, longest, plan.goalMinutes)
+    };
+  }
+
+  /**
+   * The numbers behind the My progress page.
+   *  - weeks: the last 4 weeks (oldest first, this week last): minutes and days practised, against the weekly goal
+   *  - month / prev: minutes and active days in the last 30 days and the 30 days before
+   *  - bySkill: for each area (four skills, words, grammar): minutes in the last 30 days and the 30 before, sessions,
+   *    average score of the scored sessions (0-100, null when none) and days since it was last practised (null = never)
+   */
+  var AREAS = SKILLS.concat(['words', 'grammar']);
+  function stats(uid, prog, byDay, today, longest, goal) {
+    var from30 = Day.add(today, -29), from60 = Day.add(today, -59), bySkill = {};
+    AREAS.forEach(function (k) { bySkill[k] = { min: 0, prev: 0, sessions: 0, acc: null, last: null }; });
+    prog.forEach(function (r) {
+      var b = bySkill[r.Skill], d = Day.norm(r.Date), m = Number(r.Minutes) || 0; if (!b || d > today) return;
+      if (d >= from30) b.min += m; else if (d >= from60) b.prev += m;
+      if (m > 0) { var ago = Day.diff(d, today); if (b.last === null || ago < b.last) b.last = ago; }
+    });
+    var sum = {}, cnt = {};
+    Db.filter(CONFIG.SHEETS.LEARNING_ACTIVITIES, function (r) { return String(r.UserID) === uid && r.Status === 'completed'; }).forEach(function (r) {
+      var b = bySkill[r.Skill], d = Day.ofIso(r.CompletedAt); if (!b || d < from30 || d > today) return;
+      b.sessions++;
+      if (r.Score !== '' && r.Score !== null && isFinite(Number(r.Score))) { sum[r.Skill] = (sum[r.Skill] || 0) + Number(r.Score); cnt[r.Skill] = (cnt[r.Skill] || 0) + 1; }
+    });
+    AREAS.forEach(function (k) { if (cnt[k]) bySkill[k].acc = Math.round(sum[k] / cnt[k]); });
+    function span(a, b) {
+      var min = 0, days = 0;
+      for (var d = a; d <= b && d <= today; d = Day.add(d, 1)) { var m = byDay[d] || 0; min += m; if (m > 0) days++; }
+      return { min: min, days: days };
+    }
+    var wk = Day.weekStart(today), weeks = [];
+    for (var i = 3; i >= 0; i--) { var st = Day.add(wk, -7 * i), w = span(st, Day.add(st, 6)); weeks.push({ start: st, min: w.min, days: w.days }); }
+    return {
+      goal: goal, best: longest, weeks: weeks, month: span(from30, today), prev: span(from60, Day.add(from30, -1)),
+      bySkill: bySkill, weekday: Day.weekday(today)
     };
   }
 

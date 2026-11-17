@@ -384,6 +384,9 @@ t('practice rejects an unknown skill',!api('practiceStart',{token:tokB,skill:'co
   api('wordsPractice',{token:tok,mode:'learn',seconds:5,results:[1,2,3,4,5].map(()=>({id:target.id,ok:true}))});
   t('right answers in practice take it out of Hard words again',!api('wordsDeck',{token:tok,set:'hard'}).data.items.some(i=>i.id===target.id));
   t('practice time is logged to progress',api('overview',{token:tok}).data.recent.some(r=>/Words practice: Match/.test(r.title)));
+  { const st=api('overview',{token:tok}).data.stats;
+    t('progress stats: 4 weeks, 30-day totals and every area',st&&st.weeks.length===4&&st.month.min>0&&st.month.days>=1&&['speaking','listening','reading','writing','words','grammar'].every(k=>st.bySkill[k]&&typeof st.bySkill[k].min==='number'));
+    t('progress stats: words practised today, with sessions and a score',st.bySkill.words.last===0&&st.bySkill.words.sessions>0&&st.bySkill.words.acc!==null&&st.weeks[3].min>0); }
   t('today counts for each set come back with today',(()=>{const s=today(tok).sets;return s&&['missed','hard','today','learned','saved'].every(k=>typeof s[k]==='number')&&s.learned>=5})());
   // more example sentences and a question
   { const bid=m.data.fresh.map(i=>i.id),sv0=td.round.saved.items[0].id,WBH=wb.rows[0];G.extraCalls=0;

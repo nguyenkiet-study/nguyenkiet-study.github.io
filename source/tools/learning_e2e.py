@@ -181,7 +181,21 @@ async def main():
             print(name,'| overflow dashboard:',await pg.evaluate("[document.documentElement.scrollWidth,innerWidth]"))
             await pg.screenshot(path=f'/home/claude/logo_work/pr_dash_{name}.png',full_page=True)
             await pg.evaluate("document.querySelector('[data-go=progress]').click()"); await pg.wait_for_timeout(900)
-            pr=await pg.inner_text('#progress-root'); print(name,'| progress milestones real:','Milestones' in pr,'| heat cells:',len(await pg.query_selector_all('.heat i')),'| line chart:',bool(await pg.query_selector('.linechart')))
+            pr=await pg.inner_text('#progress-root'); print(name,'| progress sections:',all(x in pr for x in ['Your skills','Level trend','Weekly goal','Time by skill','Words','Grammar','Next goals']),'| skill rows:',len(await pg.query_selector_all('.pg-sk')),'| one focus:',len(await pg.query_selector_all('.pg-sk.is-focus'))==1,'| 4 weeks:',len(await pg.query_selector_all('.pg-wk'))==4,'| no old heatmap:',not await pg.query_selector('.heat'))
+            if await pg.query_selector('.pg-chart'):
+                await pg.click('.pg-chip.sk-reading'); await pg.wait_for_timeout(300)
+                print(name,'| chip shows one line:',len(await pg.query_selector_all('.pg-line.dim'))>=1 and bool(await pg.query_selector('.pg-line.on')))
+            await pg.screenshot(path=f'/home/claude/logo_work/pr_prog_{name}.png',full_page=True)
+            # three weeks of level history: the weekly lines appear
+            code=("var u=Db.find(CONFIG.SHEETS.USERS,function(r){return r.Username==='"+user+"'});var T=Day.today();"
+                  "[['reading',21,0.2],['reading',14,0.5],['speaking',21,-0.6],['speaking',8,-0.3],['listening',15,0.1],['writing',20,-0.5],['writing',9,-0.2]].forEach(function(e){"
+                  "Db.insert(CONFIG.SHEETS.ACTIVITY_LOGS,{LogID:Db.newId('log'),UserID:u.UserID,Event:'skill_update',Detail:JSON.stringify({skill:e[0],theta:e[2]}),CreatedAt:Day.add(T,-e[1])+'T09:00:00Z'})});1")
+            await pg.evaluate("c=>__call('__eval',{code:c})",code)
+            await pg.reload(); await pg.wait_for_timeout(2500)
+            await pg.evaluate("document.querySelector('[data-go=progress]').click()"); await pg.wait_for_timeout(1500)
+            print(name,'| weekly lines drawn:',len(await pg.query_selector_all('.pg-line'))==4)
+            await pg.click('.pg-chip.sk-speaking'); await pg.wait_for_timeout(300)
+            await pg.screenshot(path=f'/home/claude/logo_work/pr_prog2_{name}.png',full_page=True)
             print(name,'| overflow progress:',await pg.evaluate("[document.documentElement.scrollWidth,innerWidth]"))
             await ctxb.close()
         await b.close()

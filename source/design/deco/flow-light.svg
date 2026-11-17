@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMaxYMax slice">
+<defs>
+<linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/><stop offset=".3" stop-color="#FFFFFF" stop-opacity=".9"/><stop offset="1" stop-color="#EAF2FF" stop-opacity=".3"/></linearGradient>
+<linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#DCE9FF" stop-opacity=".5"/><stop offset=".55" stop-color="#C2D8FF" stop-opacity=".9"/><stop offset="1" stop-color="#A9C8FF" stop-opacity=".85"/></linearGradient>
+<linearGradient id="c" x1="0" y1="1" x2="1" y2=".2"><stop offset="0" stop-color="#A7C6FF" stop-opacity=".35"/><stop offset=".55" stop-color="#86AEF8" stop-opacity=".85"/><stop offset="1" stop-color="#6A9BF4" stop-opacity=".9"/></linearGradient>
+<linearGradient id="d" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#5B8FF0" stop-opacity=".15"/><stop offset=".5" stop-color="#4C86F2" stop-opacity=".7"/><stop offset="1" stop-color="#3A7BF0" stop-opacity=".75"/></linearGradient>
+</defs>
+<path d="M0 400C210 470 470 610 760 760C900 832 1010 880 1080 900H0Z" fill="url(#a)"/>
+<path d="M520 900C800 836 990 680 1150 510C1290 362 1430 250 1600 214V900Z" fill="url(#b)"/>
+<path d="M300 900C690 836 1060 690 1290 596C1420 546 1520 520 1600 514V900Z" fill="url(#c)"/>
+<path d="M900 900C1090 790 1290 720 1600 700V900Z" fill="url(#d)"/>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" preserveAspectRatio="xMaxYMax slice">
+<defs>
+<linearGradient id="a" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1D4FC0" stop-opacity=".4"/><stop offset="1" stop-color="#2864E8" stop-opacity=".8"/></linearGradient>
+<linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1F6BEA" stop-opacity=".5"/><stop offset=".5" stop-color="#22B8F5" stop-opacity=".9"/><stop offset="1" stop-color="#2A72F0" stop-opacity=".85"/></linearGradient>
+<radialGradient id="g" cx=".72" cy=".9" r=".4"><stop offset="0" stop-color="#00BFEA" stop-opacity=".18"/><stop offset="1" stop-color="#00BFEA" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="800" height="240" fill="url(#g)"/>
+<path d="M300 240C470 210 600 150 700 92C740 68 772 56 800 52V240Z" fill="url(#a)"/>
+<path d="M470 240C560 196 650 128 730 104C760 95 784 92 800 92V240Z" fill="url(#b)"/>
+<path d="M610 240C680 214 740 200 800 196V240Z" fill="#1F5BDB" fill-opacity=".7"/>
+<path d="M600 0H660L560 240H500Z" fill="#FFFFFF" fill-opacity=".035"/>
+<g fill="none" stroke="#00BFEA" stroke-linecap="round">
+<path d="M460 240C552 194 646 124 728 98C760 88 784 85 800 85" stroke-opacity=".5" stroke-width="1.1"/>
+<path d="M220 240C420 214 590 150 700 84C744 58 776 46 800 44" stroke-opacity=".2" stroke-width="1"/>
+</g>
+</svg>

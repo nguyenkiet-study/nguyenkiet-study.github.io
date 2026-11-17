@@ -1,0 +1,875 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Community, Messages and tags
+   - Community: the 3-day topic, the Christmas question (1 Dec to 6 Jan), the word of the day and the board
+     (posts, "Correct me", polls, word lists, shared answers). Hearts, comments, Save to Words. The admin can hide or delete.
+   - Messages: 1-to-1 chats with any member, reactions, and the answers friends tagged you in. While a chat is open
+     it checks for new messages every 8 seconds; elsewhere the red dot is refreshed when you change page.
+   - Tags: K.social.tagBox(key) puts "Tag friends" under an answer box (Writing, the Words sentence, Grammar free writing);
+     K.social.after(key, ctx) sends the answer to the tagged friends after the answer is checked and offers "Share to Community".
+   - Other members are shown by name only. Usernames never leave the server.
+   ===================================================================== */
+
+var K = window.Kelvin, $ = K.$, $$ = K.$$, esc = K.esc, ic = K.ic;
+var EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+var POLL_MS = 8000, BADGE_GAP = 15000, MEMBERS_GAP = 5 * 60 * 1000;
+var S = {
+  members: null, membersAt: 0, badge: { messages: 0, notifications: 0 }, badgeAt: 0,
+  tags: {}, shares: [], picker: null, at: null,
+  feed: null, filter: 'all', loading: false, err: '', posts: {},
+  threads: null, thread: null, with: null, sig: '', re: '', sending: false, rxFor: null
+};
+var KIND = { correct: ['Correct me', 'i-spell'], poll: ['Poll', 'i-chart'], words: ['Word list', 'i-cards'], writing: ['Shared answer', 'i-pen'], wotd: ['Word of the day', 'i-bulb'], free: ['Post', 'i-message'], topic: ['Topic', 'i-users'], pinned: ['Christmas', 'i-gift'] };
+/* Stickers: pictures in the website's stickers/ folder, sent as the text "[[sticker:id]]". */
+var STK_BASE = location.protocol === 'file:' ? 'web/stickers/' : /github\.io$/.test(location.hostname) ? 'stickers/' : 'https://nguyenkiet-study.github.io/stickers/';
+var PACKS = [
+  { id: 'kel', name: 'Kelvin', ext: 'webp', items: ['wave', 'laugh', 'yay', 'thumbs-up', 'love', 'star-eyes', 'cool', 'party', 'thinking', 'surprised', 'shocked', 'calm', 'sleepy', 'worried', 'sad', 'angry',
+    'grandpa', 'grandma', 'dad', 'mom', 'brother', 'sister', 'son', 'daughter', 'young-man', 'young-woman', 'boss', 'manager', 'teacher', 'doctor', 'engineer', 'developer', 'designer', 'student', 'chef', 'pilot', 'police',
+    'reading', 'writing', 'listening', 'speaking', 'exam', 'travel', 'shopping', 'exercise', 'cooking', 'relax', 'sleep'] },
+  { id: 'badge', name: 'Badges', ext: 'webp', items: ['fire', 'trophy', 'medal', 'star', 'check', 'yes', 'no', 'idea', 'rocket', 'goal', 'gift', 'bell', 'target', 'bullseye', 'growth', 'progress', 'calendar', 'headphones', 'microphone', 'book', 'notes', 'words', 'layers', 'info'] },
+  { id: 'doodle', name: 'Doodles', ext: 'webp', items: ['doodle-grin', 'doodle-peace', 'doodle-please', 'doodle-point', 'doodle-shout', 'doodle-cry', 'doodle-cool', 'doodle-smug', 'doodle-dog', 'doodle-buddies', 'money'] },
+  { id: 'bull', name: 'Niu Lai', ext: 'webp', items: ['bull-whatever', 'bull-shock', 'bull-cry', 'bull-side-eye', 'bull-arms-crossed', 'bull-nose', 'bull-doubt'] }
+];
+var STK = {};
+PACKS.forEach(function (p) { p.items.forEach(function (it) { var id = p.id === 'kel' ? 'kel-' + it : p.id === 'badge' ? 'badge-' + it : it; STK[id] = { file: STK_BASE + id + '.' + p.ext, alt: it.replace(/^(kel|badge|doodle|bull)-/, '').replace(/-/g, ' ') }; }); });
+function stickerId(t) { var m = /^\[\[sticker:([a-z0-9-]{2,40})\]\]$/.exec(String(t || '').trim()); return m ? m[1] : ''; }
+function stickerImg(id, cls) { var k = STK[id]; return k ? '<img class="stk ' + (cls || '') + '" src="' + k.file + '" alt="Sticker: ' + esc(k.alt) + '" loading="lazy" draggable="false">' : '<span class="small muted">[Sticker]</span>'; }
+var EMO = [
+  ['Smileys', '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😛 😜 🤪 😎 🤓 🥳 🤩 😏 😌 😴 🤔 🤨 😐 😶 🙄 😬 😮 😯 😲 🥺 😢 😭 😤 😡 🤯 😳 🥵 🥶 😱 🤗 🤭 🫡 😷 🤒'],
+  ['Hands', '👍 👎 👏 🙌 🙏 🤝 👋 ✌️ 🤞 🤟 👌 👊 💪 ✍️ 👀 🫶'],
+  ['Hearts', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💖 💯 ✨ 🔥 ⭐ 🌟'],
+  ['Study and work', '📚 📖 ✏️ 📝 💡 🎯 ✅ ❌ ❓ ❗ 💼 💻 📅 ⏰ 🏆 🎓 🧠 🗣️ 🎧 📣'],
+  ['Food and fun', '☕ 🍵 🧋 🍜 🍕 🍔 🍰 🍉 ⚽ 🏸 🎮 🎬 🎵 ✈️ 🏖️ 🚗'],
+  ['Celebrate', '🎄 🎅 🎁 ❄️ ⛄ 🔔 🎉 🎊 🎆 🧧 🌸 🎂']
+];
+var SHARE_LABEL = { writing: 'Writing', words: 'Words sentence', grammar: 'Grammar', speaking: 'Speaking' };
+var COLORS = ['#10234F', '#2864E8', '#0A9BD4', '#1D4ED8', '#0E7490', '#3B5BDB'];
+
+/* ---------- helpers ---------- */
+function api(fn, p) { return K.Api.call(fn, p || {}); }
+function hl(t, w) {
+  var stem = String(w || '').replace(/e$/, '').replace(/[^a-z' -]/gi, ''); if (!stem) return txt(t);
+  var re = new RegExp('(\\b' + stem.replace(/[-' ]/g, '.') + '\\w*)', 'i'), m = String(t).match(re);
+  if (!m) return txt(t);
+  var i = String(t).search(re); return txt(t.slice(0, i)) + '<mark>' + esc(m[1]) + '</mark>' + txt(t.slice(i + m[1].length));
+}
+function txt(s) { return esc(s).replace(/\n/g, '<br>'); }
+function hue(id) { var h = 0, s = String(id || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; }
+function initials(n) { var p = String(n || '?').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
+function av(person, cls) {
+  if (person && person.bot) return '<span class="cm-av bot ' + (cls || '') + '"><svg><use href="#logo"/></svg></span>';
+  return '<span class="cm-av ' + (cls || '') + '" style="background:' + hue(person && person.id) + '">' + esc(initials(person && person.name)) + '</span>';
+}
+function when(iso) {
+  var t = new Date(iso).getTime(); if (!t) return '';
+  var d = (Date.now() - t) / 1000;
+  if (d < 60) return 'now'; if (d < 3600) return Math.floor(d / 60) + 'm'; if (d < 86400) return Math.floor(d / 3600) + 'h';
+  var dt = new Date(t); if (d < 6 * 86400) return dt.toLocaleDateString('en-GB', { weekday: 'short' });
+  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+function clock(iso) { var d = new Date(iso); return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+function left(iso) {
+  var d = (new Date(iso).getTime() - Date.now()) / 3600000; if (!(d > 0)) return 'ending now';
+  return d >= 24 ? Math.round(d / 24) + (Math.round(d / 24) === 1 ? ' day left' : ' days left') : Math.ceil(d) + (Math.ceil(d) === 1 ? ' hour left' : ' hours left');
+}
+function isTouch() { return window.matchMedia && window.matchMedia('(pointer:coarse)').matches; }
+function sheet(id, html, label) {
+  var el = $('#' + id);
+  if (!el) { document.body.insertAdjacentHTML('beforeend', '<div class="qw center cm-qw" id="' + id + '" role="dialog" aria-modal="true" aria-label="' + esc(label || 'Community') + '"></div>'); el = $('#' + id); }
+  document.body.appendChild(el); // the newest sheet sits on top
+  el.innerHTML = '<div class="qw-in cm-sheet">' + html + '</div>'; el.className = 'qw center cm-qw on';
+  return el;
+}
+function closeSheet(id) { var el = $('#' + id); if (el) el.className = 'qw center cm-qw'; }
+function head(title, id) { return '<div class="qw-head"><h2 class="qw-t">' + title + '</h2><button class="iconbtn" data-action="cm-close" data-s="' + id + '" aria-label="Close">' + ic('i-x') + '</button></div>'; }
+function offline() { return '<div class="card cm-empty">' + ic('i-users', 'ic-lg') + '<h2>Community needs the server</h2><p class="small muted">Open Kelvin from its web address to see the group, the topic and your messages.</p></div>'; }
+
+/* ---------- badge: red dot on Messages and Community ---------- */
+function setDots() {
+  var m = S.badge.messages || 0, n = S.badge.notifications || 0;
+  $$('.msg-dot').forEach(function (d) { d.hidden = !m; d.textContent = m > 9 ? '9+' : m || ''; });
+  $$('.cm-dot').forEach(function (d) { d.hidden = !n; });
+}
+function refreshBadge(force) {
+  if (!K.live || !K.state.token) return;
+  if (!force && Date.now() - S.badgeAt < BADGE_GAP) return setDots();
+  S.badgeAt = Date.now();
+  api('socialBadge').then(function (b) { S.badge = b; setDots(); }).catch(function () {});
+}
+
+/* ---------- members (for tags and new chats) ---------- */
+function members() {
+  if (S.members && Date.now() - S.membersAt < MEMBERS_GAP) return Promise.resolve(S.members);
+  return api('members').then(function (r) { S.members = r.members; S.membersAt = Date.now(); return S.members; });
+}
+
+/* =====================================================================
+   Tags
+   ===================================================================== */
+/* Mentions inside the answer box: type "@" and pick a friend from the list under the box.
+   The name goes into the text as "@Full Name" and is shown on a blue background. Deleting the name from the text untags them. */
+function norm(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
+function reEsc(t) { return String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function mentionRe(name) { try { return new RegExp('@' + reEsc(name) + '(?![\\p{L}\\p{N}])', 'gu'); } catch (e) { return new RegExp('@' + reEsc(name) + '(?![A-Za-z0-9])', 'g'); } }
+function tagNote(key) {
+  var t = S.tags[key] || [];
+  if (!t.length) return 'Type @ in your answer to tag friends. They get your answer in Messages.';
+  var n = t.map(function (m) { return m.name; });
+  return 'Tagging ' + (n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : n[0]) + '. They get your answer in Messages.';
+}
+function tagBox(key) {
+  if (!K.live) return '';
+  setTimeout(wireAll, 0);
+  return '<div class="tagbox" data-k="' + key + '"><button type="button" class="linkbtn" data-action="tg-open" data-k="' + key + '">' + ic('i-at', 'ic-sm') + 'Tag friends</button>' +
+    '<span class="tiny muted tg-note">' + esc(tagNote(key)) + '</span></div>';
+}
+function redrawTags(key) { $$('.tagbox[data-k="' + key + '"] .tg-note').forEach(function (n) { n.textContent = tagNote(key); }); }
+/* Finds the answer box that belongs to each tag box and adds the highlight layer and the friend list. */
+function wireAll() {
+  $$('.tagbox').forEach(function (tb) {
+    var root = tb.closest('.card, .test-shell, .gr-run, #practice-card, article, section') || tb.parentElement;
+    var ta = root && root.querySelector('textarea'); if (!ta || ta.dataset.mn) return;
+    wire(ta, tb.dataset.k);
+  });
+}
+var STYLE_KEYS = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing', 'lineHeight', 'textTransform', 'wordSpacing', 'textIndent', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderRadius', 'boxSizing'];
+var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function wire(ta, key) {
+  ta.dataset.mn = key;
+  var cs = getComputedStyle(ta), w = document.createElement('div'), bd = document.createElement('div'), ls = document.createElement('div');
+  w.className = 'mn-wrap'; w.style.marginTop = cs.marginTop; w.style.marginBottom = cs.marginBottom; ta.style.marginTop = '0'; ta.style.marginBottom = '0';
+  bd.className = 'mn-back'; bd.setAttribute('aria-hidden', 'true');
+  ls.className = 'mn-list'; ls.hidden = true; ls.setAttribute('role', 'listbox');
+  var had = document.activeElement === ta, sel = [ta.selectionStart, ta.selectionEnd];
+  ta.parentNode.insertBefore(w, ta); w.appendChild(bd); w.appendChild(ta); w.appendChild(ls);
+  if (had) { ta.focus(); try { ta.setSelectionRange(sel[0], sel[1]); } catch (e) {} }
+  STYLE_KEYS.forEach(function (k) { bd.style[k] = cs[k]; });
+  if (IOS) { bd.style.paddingLeft = (parseFloat(cs.paddingLeft) + 3) + 'px'; bd.style.paddingRight = (parseFloat(cs.paddingRight) + 3) + 'px'; } // iPhone draws textarea text 3px further in
+  ta.setAttribute('autocomplete', 'off');
+  var st = { ta: ta, bd: bd, ls: ls, key: key, open: false, at: -1, q: '', hits: [], i: 0 };
+  ta._mn = st;
+  members().then(function () { sync(st); }).catch(function () {});
+  ta.addEventListener('input', function () { sync(st); look(st); });
+  ta.addEventListener('scroll', function () { bd.scrollTop = ta.scrollTop; });
+  ta.addEventListener('click', function () { look(st); });
+  ta.addEventListener('keyup', function (ev) { if (/Arrow(Left|Right)|Home|End/.test(ev.key)) look(st); });
+  ta.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== ta) close(st); }, 150); });
+  ta.addEventListener('keydown', function (ev) {
+    if (!st.open || !st.hits.length) return;
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); st.i = (st.i + (ev.key === 'ArrowDown' ? 1 : st.hits.length - 1)) % st.hits.length; drawList(st); }
+    else if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); ev.stopPropagation(); choose(st, st.hits[st.i]); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); close(st); }
+  }, true);
+  /* pointerdown keeps the keyboard open while choosing */
+  ls.addEventListener('pointerdown', function (ev) {
+    var row = ev.target.closest('[data-id]'); ev.preventDefault(); if (!row) return;
+    var m = (S.members || []).filter(function (x) { return x.id === row.dataset.id; })[0]; if (m) choose(st, m);
+  });
+  if (window.ResizeObserver) new ResizeObserver(function () { bd.scrollTop = ta.scrollTop; }).observe(ta);
+  sync(st);
+}
+/* Tags = the friends whose "@Name" is in the text. Redraws the blue highlights. */
+function sync(st) {
+  var v = st.ta.value, ms = (S.members || []).slice().sort(function (a, b) { return b.name.length - a.name.length; });
+  var marks = [], tagged = [];
+  ms.forEach(function (m) {
+    var re = mentionRe(m.name), r, hit = false;
+    while ((r = re.exec(v))) {
+      var a = r.index, b = a + r[0].length;
+      if (marks.some(function (x) { return a < x[1] && b > x[0]; })) continue;
+      marks.push([a, b]); hit = true;
+    }
+    if (hit) tagged.push(m);
+  });
+  marks.sort(function (x, y) { return x[0] - y[0]; });
+  var h = '', at = 0;
+  marks.forEach(function (x) { h += esc(v.slice(at, x[0])) + '<mark>' + esc(v.slice(x[0], x[1])) + '</mark>'; at = x[1]; });
+  st.bd.innerHTML = h + esc(v.slice(at)) + '\n​';
+  st.bd.scrollTop = st.ta.scrollTop;
+  S.tags[st.key] = tagged.sort(function (a, b) { return v.indexOf('@' + a.name) - v.indexOf('@' + b.name); });
+  redrawTags(st.key);
+}
+/* Is the cursor right after "@" plus a few letters? Then show matching friends. */
+function look(st) {
+  var v = st.ta.value, pos = st.ta.selectionStart, from = v.lastIndexOf('@', pos - 1);
+  if (from < 0 || (from > 0 && !/\s|[(“"'‘]/.test(v.charAt(from - 1)))) return close(st);
+  var q = v.slice(from + 1, pos);
+  if (q.length > 30 || /\n|\s\s|^\s/.test(q)) return close(st);
+  if (!S.members) { members().then(function () { look(st); }); return; }
+  // A finished mention ("@Lan Tran and …") is not a search any more.
+  if (S.members.some(function (m) { return q.indexOf(m.name) === 0 && (q.length === m.name.length ? false : !/[\p{L}\p{N}]/u.test(q.charAt(m.name.length))); })) return close(st);
+  var nq = norm(q);
+  var hits = S.members.filter(function (m) { var n = norm(m.name); return !nq || n.indexOf(nq) === 0 || n.indexOf(' ' + nq) > -1; }).slice(0, 6);
+  if (q && hits.length === 1 && q === hits[0].name) return close(st);
+  if (!hits.length && /\s/.test(q)) return close(st);
+  st.open = true; st.at = from; st.q = q; st.hits = hits; st.i = 0; drawList(st);
+}
+function drawList(st) {
+  st.ls.hidden = false;
+  st.ls.innerHTML = st.hits.length ? st.hits.map(function (m, i) {
+    return '<div class="mn-row' + (i === st.i ? ' on' : '') + '" role="option" aria-selected="' + (i === st.i) + '" data-id="' + esc(m.id) + '">' + av(m, 'sm') + '<span>' + esc(m.name) + '</span></div>';
+  }).join('') : '<div class="mn-none">' + (S.members && S.members.length ? 'No friend called “' + esc(st.q) + '”.' : 'No other members yet.') + '</div>';
+  try { st.ls.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+}
+function close(st) { st.open = false; st.ls.hidden = true; st.hits = []; }
+function choose(st, m) {
+  var ta = st.ta, v = ta.value, pos = ta.selectionStart, end = pos;
+  var put = '@' + m.name + ' ';
+  if (v.charAt(end) === ' ') put = '@' + m.name;
+  ta.value = v.slice(0, st.at) + put + v.slice(end);
+  var c = st.at + put.length + (v.charAt(end) === ' ' ? 1 : 0);
+  ta.focus(); try { ta.setSelectionRange(c, c); } catch (e) {}
+  close(st); sync(st);
+  try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+}
+/* "Tag friends" button: puts "@" at the cursor and opens the list. */
+function startTag(key) {
+  var ta = $$('textarea').filter(function (t) { return t.dataset.mn === key; })[0];
+  if (!ta) { wireAll(); ta = $$('textarea').filter(function (t) { return t.dataset.mn === key; })[0]; }
+  if (!ta) return;
+  var v = ta.value, pos = document.activeElement === ta ? ta.selectionStart : v.length;
+  var lead = pos > 0 && !/\s/.test(v.charAt(pos - 1)) ? ' ' : '';
+  ta.value = v.slice(0, pos) + lead + '@' + v.slice(pos);
+  var c = pos + lead.length + 1; ta.focus(); try { ta.setSelectionRange(c, c); } catch (e) {}
+  sync(ta._mn); look(ta._mn);
+  try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+}
+function openPicker(mode, key) {
+  S.picker = { mode: mode, key: key, q: '' };
+  sheet('cm-pick', head(mode === 'chat' ? 'New message' : 'Tag friends', 'cm-pick') + '<input class="input" id="pk-q" placeholder="Search by name" autocomplete="off"><div class="pk-list" id="pk-list"><p class="small muted">Loading…</p></div>' +
+    (mode === 'tag' ? '<div class="row-between mt"><span class="tiny muted">No limit. Each person gets your answer as a message.</span><button class="btn btn-primary" data-action="cm-close" data-s="cm-pick">Done</button></div>' : ''), 'Pick members');
+  members().then(drawPicker).catch(function (e) { $('#pk-list').innerHTML = '<p class="small muted">' + esc((e && e.message) || 'Could not load the members.') + '</p>'; });
+  setTimeout(function () { var q = $('#pk-q'); if (q && !isTouch()) q.focus(); }, 60);
+}
+function drawPicker() {
+  var p = S.picker, list = $('#pk-list'); if (!p || !list || !S.members) return;
+  var q = p.q.toLowerCase(), sel = (S.tags[p.key] || []).map(function (m) { return m.id; });
+  var ms = S.members.filter(function (m) { return !q || m.name.toLowerCase().indexOf(q) > -1; });
+  list.innerHTML = ms.length ? ms.map(function (m) {
+    var on = sel.indexOf(m.id) > -1;
+    return '<button type="button" class="pk-row' + (on ? ' on' : '') + '" data-action="pk-pick" data-id="' + esc(m.id) + '">' + av(m) + '<span class="pk-n">' + esc(m.name) + '</span>' + (p.mode === 'tag' ? '<span class="pk-box">' + (on ? ic('i-check', 'ic-sm') : '') + '</span>' : ic('i-arrow', 'ic-sm')) + '</button>';
+  }).join('') : '<p class="small muted">' + (S.members.length ? 'No one with that name.' : 'No other members yet. Invite friends to Kelvin first.') + '</p>';
+}
+function pick(id) {
+  var p = S.picker, m = (S.members || []).filter(function (x) { return x.id === id; })[0]; if (!p || !m) return;
+  closeSheet('cm-pick'); openChat(m.id, m.name);
+}
+/* After an answer is checked: send it to the tagged friends and offer "Share to Community".
+   ctx: { skill, title, question, answer }. Returns a number for view(n), which gives the HTML to show under the feedback. */
+function after(key, ctx) {
+  if (!K.live || !ctx || !ctx.answer) return -1;
+  var n = S.shares.length, tags = (S.tags[key] || []).slice(); S.tags[key] = [];
+  var sh = { ctx: ctx, done: false, status: tags.length ? 'Sending to ' + tags.map(function (m) { return m.name.split(/\s+/)[0]; }).join(', ') + '…' : '', ok: false };
+  S.shares.push(sh);
+  if (tags.length) {
+    api('tagSend', { to: tags.map(function (m) { return m.id; }), skill: ctx.skill, title: ctx.title, question: ctx.question, answer: ctx.answer })
+      .then(function (r) { sh.ok = true; sh.status = 'Sent to ' + r.names.join(', ') + ' in Messages.'; paint(n); })
+      .catch(function (e) { sh.status = (e && e.message) || 'Could not send it to your friends.'; paint(n); });
+  }
+  return n;
+}
+function view(n) {
+  var sh = S.shares[n]; if (!sh) return '';
+  return '<div class="soc-after" id="soc-' + n + '"><span class="small muted soc-st">' + (sh.ok ? ic('i-check', 'ic-sm') : '') + esc(sh.status) + '</span>' +
+    (sh.done ? '<button type="button" class="btn btn-ghost btn-sm" data-go="community">' + ic('i-check', 'ic-sm') + 'Shared · Open</button>'
+      : '<button type="button" class="btn btn-soft btn-sm" data-action="cm-share" data-s="' + n + '">' + ic('i-users', 'ic-sm') + 'Share to Community</button>') + '</div>';
+}
+function paint(n) { var el = $('#soc-' + n); if (el) el.outerHTML = view(n); }
+function clearTags(key) { S.tags[key] = []; }
+function shareSheet(n) {
+  var s = S.shares[n]; if (!s) return;
+  sheet('cm-share', head('Share to Community', 'cm-share') + '<p class="small muted">Everyone in Kelvin will see your answer. You can delete it later.</p>' +
+    (s.ctx.question ? '<div class="cm-q"><span class="tiny muted">' + esc(SHARE_LABEL[s.ctx.skill] || 'Question') + '</span><div class="cap">' + txt(s.ctx.question) + '</div></div>' : '') +
+    '<div class="cm-body cap" style="margin-top:10px">' + txt(s.ctx.answer) + '</div>' +
+    '<div class="row-between mt"><button class="btn btn-ghost" data-action="cm-close" data-s="cm-share">Cancel</button><button class="btn btn-primary" data-action="cm-share-go" data-s="' + n + '">Share</button></div>', 'Share');
+}
+function shareGo(n, btn) {
+  var s = S.shares[n]; if (!s || s.done) return;
+  btn.disabled = true; btn.textContent = 'Sharing…';
+  api('cmCreate', { kind: 'writing', text: s.ctx.answer, extra: { skill: s.ctx.skill, title: s.ctx.title, question: s.ctx.question } }).then(function () {
+    s.done = true; S.feed = null; closeSheet('cm-share'); K.toast('Shared to Community.'); paint(n);
+  }).catch(function (e) { btn.disabled = false; btn.textContent = 'Share'; K.toast((e && e.message) || 'Could not share it.'); });
+}
+
+/* =====================================================================
+   Messages
+   ===================================================================== */
+function msgRoot() { return $('#messages-root'); }
+function renderMessages() {
+  var r = msgRoot(); if (!r) return;
+  if (!K.live) { r.innerHTML = offline(); return; }
+  if (S.with) return drawChat(true);
+  document.body.classList.remove('in-chat');
+  drawThreads();
+  api('msgThreads').then(function (d) { S.threads = d.threads; S.badge.messages = d.unread; setDots(); if (K.state.view === 'messages' && !S.with) drawThreads(); })
+    .catch(function (e) { if (!S.threads) r.innerHTML = '<div class="card cm-empty"><p>' + esc((e && e.message) || 'Could not load your messages.') + '</p><button class="btn btn-soft" data-action="ms-reload">Try again</button></div>'; });
+}
+function drawThreads() {
+  var r = msgRoot(), t = S.threads;
+  var top = '<div class="row-between cm-bar"><p class="small muted">Chat with anyone in the group. English is encouraged.</p><button class="btn btn-primary btn-sm" data-action="ms-new">' + ic('i-plus', 'ic-sm') + 'New message</button></div>';
+  if (!t) { r.innerHTML = top + '<div class="card"><p class="small muted">Loading…</p></div>'; return; }
+  if (!t.length) { r.innerHTML = top + '<div class="card cm-empty">' + ic('i-message', 'ic-lg') + '<h2>No messages yet</h2><p class="small muted">Say hello to someone, or tag friends in a Writing answer.</p><button class="btn btn-soft" data-action="ms-new">Start a chat</button></div>'; return; }
+  r.innerHTML = top + '<div class="card ms-list">' + t.map(function (x) {
+    return '<button class="ms-row' + (x.unread ? ' unread' : '') + '" data-action="ms-open" data-id="' + esc(x.with.id) + '" data-n="' + esc(x.with.name) + '">' + av(x.with) +
+      '<span class="ms-mid"><span class="ms-n">' + esc(x.with.name) + '</span><span class="ms-l">' + (x.last.mine ? 'You: ' : '') + esc(x.last.text) + '</span></span>' +
+      '<span class="ms-r"><span class="tiny muted">' + when(x.last.at) + '</span>' + (x.unread ? '<span class="ms-badge">' + x.unread + '</span>' : '') + '</span></button>';
+  }).join('') + '</div>';
+}
+function openChat(id, name, re) {
+  S.with = { id: id, name: name || '' }; S.thread = null; S.sig = ''; S.re = re || ''; S.rxFor = null;
+  if (K.state.view !== 'messages') K.go('messages'); else drawChat(true);
+}
+/* ---------- replies: quote one message or comment, or the words selected in it ---------- */
+function replyQuote(r, action) {
+  if (!r || !r.text) return '';
+  return '<button class="ms-quote rp" data-action="' + action + '" data-id="' + esc(r.id) + '">' + ic('i-reply', 'ic-sm') + '<span><b>' + esc(r.name || '') + '</b> ' + esc(r.text) + '</span></button>';
+}
+function replyBar(r, xAction) {
+  return '<div class="ms-re rp">' + ic('i-reply', 'ic-sm') + '<span>Replying to <b>' + esc(r.name) + '</b>: “' + esc(r.quote || r.text) + '”</span><button class="iconbtn" data-action="' + xAction + '" aria-label="Cancel reply">' + ic('i-x', 'ic-sm') + '</button></div>';
+}
+function startReply(kind, id, name, quote, full) {
+  var q = String(quote || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (kind === 'chat') { S.reply = { id: id, name: name, quote: q, text: q || String(full || '').slice(0, 160) }; S.rxFor = null; drawChat(false); var i = $('#ms-input'); if (i) i.focus(); return; }
+  var d = S.curPost; if (!d) return;
+  S.creply = { post: d.post.id, id: id, name: name, quote: q, text: q || String(full || '').slice(0, 160) };
+  drawPost(d); var c = $('#cmp-input'); if (c) { c.focus(); try { c.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+}
+function flash(el) { if (!el) return; try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 1400); }
+/* select a few words in a message, comment or post: a small "Reply" button appears next to them */
+var QB = null, qbTimer = null;
+function selInfo() {
+  var sel = window.getSelection && window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  var t = sel.toString().replace(/\s+/g, ' ').trim(); if (t.length < 2 || t.length > 300) return null;
+  var n = sel.anchorNode; n = n && n.nodeType === 3 ? n.parentNode : n;
+  var box = n && n.closest && n.closest('[data-qkind]'); if (!box) return null;
+  var f = sel.focusNode; f = f && f.nodeType === 3 ? f.parentNode : f; if (!f || !box.contains(f)) return null;
+  return { box: box, text: t, rect: sel.getRangeAt(0).getBoundingClientRect() };
+}
+document.addEventListener('selectionchange', function () {
+  clearTimeout(qbTimer);
+  qbTimer = setTimeout(function () {
+    var si = selInfo();
+    if (!si) { if (QB) QB.classList.remove('on'); return; }
+    if (!QB) { QB = document.createElement('button'); QB.className = 'qt-btn'; QB.type = 'button'; QB.setAttribute('data-action', 'qt-reply'); QB.innerHTML = ic('i-reply', 'ic-sm') + 'Reply'; document.body.appendChild(QB); }
+    QB._si = { kind: si.box.dataset.qkind, id: si.box.dataset.qid, name: si.box.dataset.qname, text: si.text };
+    var r = si.rect, top = Math.max(8, r.top - 44), left = Math.min(window.innerWidth - 96, Math.max(8, r.left + r.width / 2 - 40));
+    QB.style.top = top + 'px'; QB.style.left = left + 'px'; QB.classList.add('on');
+  }, 180);
+});
+function bubble(m, prev) {
+  var gap = !prev || prev.mine !== m.mine || (new Date(m.at) - new Date(prev.at)) > 10 * 60000;
+  var reacts = Object.keys(m.reactions || {}).map(function (e) { return '<button class="ms-rx' + (m.my === e ? ' on' : '') + '" data-action="ms-react" data-id="' + m.id + '" data-e="' + e + '">' + e + (m.reactions[e] > 1 ? ' ' + m.reactions[e] : '') + '</button>'; }).join('');
+  var body;
+  if (m.kind === 'tag') {
+    var c = m.ctx || {};
+    body = '<div class="ms-tag"><div class="tiny ms-tag-h">' + ic('i-at', 'ic-sm') + (m.mine ? 'You tagged them' : 'Tagged you') + ' in ' + esc(SHARE_LABEL[c.skill] || c.title || 'an answer') + '</div>' +
+      (c.question ? '<div class="ms-tag-q cap">' + txt(c.question) + '</div>' : '') + '<div class="cap">' + txt(m.text) + '</div>' +
+      (m.mine ? '' : '<button class="btn btn-sm btn-soft ms-reply" data-action="ms-reply" data-q="' + esc(c.question || '') + '">' + ic('i-reply', 'ic-sm') + 'Reply</button>') + '</div>';
+  } else if (stickerId(m.text)) {
+    body = stickerImg(stickerId(m.text));
+  } else {
+    body = (m.ctx && m.ctx.re ? '<div class="ms-quote">' + ic('i-reply', 'ic-sm') + esc(m.ctx.re) + '</div>' : '') + replyQuote(m.ctx && m.ctx.reply, 'ms-goto') + '<div class="cap"><span class="ms-t">' + txt(m.text) + '</span></div>';
+  }
+  return (gap ? '<div class="ms-time">' + esc(when(m.at) === 'now' ? 'now' : clock(m.at) + (when(m.at).match(/[a-z]/i) && when(m.at).length > 3 ? ' · ' + when(m.at) : '')) + '</div>' : '') +
+    '<div class="ms-msg ' + (m.mine ? 'me' : 'them') + (m.kind === 'tag' ? ' is-tag' : '') + (stickerId(m.text) ? ' is-stk' : '') + '" data-id="' + m.id + '"><div class="ms-b" data-id="' + m.id + '" data-qkind="chat" data-qid="' + m.id + '" data-qname="' + esc(m.mine ? 'You' : (S.with && S.with.name) || '') + '">' + body +
+    '<button class="ms-rx-open" data-action="ms-rx-open" data-id="' + m.id + '" aria-label="React">' + ic('i-smile', 'ic-sm') + '</button></div>' +
+    (S.rxFor === m.id ? '<div class="ms-rxbar"><button class="rx-reply" data-action="ms-reply-to" data-id="' + m.id + '" aria-label="Reply">' + ic('i-reply', 'ic-sm') + '</button>' + EMOJI.map(function (e) { return '<button data-action="ms-react" data-id="' + m.id + '" data-e="' + e + '"' + (m.my === e ? ' class="on"' : '') + '>' + e + '</button>'; }).join('') + '<button class="rx-more" data-action="emo-open" data-m="react" data-id="' + m.id + '" aria-label="More emoji">' + ic('i-plus', 'ic-sm') + '</button></div>' : '') +
+    (reacts ? '<div class="ms-rxs">' + reacts + '</div>' : '') + '</div>';
+}
+function drawChat(load) {
+  var r = msgRoot(), w = S.with; if (!r || !w) return;
+  document.body.classList.add('in-chat');
+  var t = S.thread, list = $('#ms-list'), keepScroll = list ? list.scrollHeight - list.scrollTop - list.clientHeight < 80 : true;
+  var draft = $('#ms-input') ? $('#ms-input').value : '';
+  r.innerHTML = '<div class="ms-chat"><div class="ms-head"><button class="iconbtn" data-action="ms-back" aria-label="Back">' + ic('i-back') + '</button>' + av(w) + '<b>' + esc(w.name) + '</b></div>' +
+    '<div class="ms-scroll" id="ms-list">' + (t ? (t.messages.length ? t.messages.map(function (m, i) { return bubble(m, t.messages[i - 1]); }).join('') : '<p class="small muted ms-hello">Say hello to ' + esc(w.name.split(/\s+/)[0]) + '. English is encouraged, not required.</p>') : '<p class="small muted ms-hello">Loading…</p>') + '</div>' +
+    '<div class="ms-compose">' + (S.reply ? replyBar(S.reply, 'ms-reply-x') : '') + (S.re ? '<div class="ms-re">' + ic('i-reply', 'ic-sm') + '<span>Replying about: ' + esc(S.re) + '</span><button class="iconbtn" data-action="ms-re-x" aria-label="Remove">' + ic('i-x', 'ic-sm') + '</button></div>' : '') +
+    '<div class="ms-row-in"><button class="iconbtn emo-btn" data-action="emo-open" data-m="chat" aria-label="Emoji and stickers">' + ic('i-smile') + '</button><textarea class="input" id="ms-input" rows="1" placeholder="Message ' + esc(w.name.split(/\s+/)[0]) + '…" aria-label="Message"></textarea><button class="btn btn-primary ms-send" data-action="ms-send" aria-label="Send"' + (S.sending ? ' disabled' : '') + '>' + ic('i-send') + '</button></div></div></div>';
+  var inp = $('#ms-input'); inp.value = draft; grow(inp); fitChat();
+  list = $('#ms-list'); if (keepScroll) list.scrollTop = list.scrollHeight;
+  if (load) { fetchChat(); startPoll(); }
+}
+/* iPhone: keep the message box above the keyboard by sizing the chat to the visible area. */
+function fitChat() {
+  var c = $('.ms-chat'), vv = window.visualViewport; if (!c) return;
+  if (!vv || window.innerWidth > 760 || !document.body.classList.contains('in-chat')) { c.style.height = ''; c.style.top = ''; return; }
+  c.style.height = vv.height + 'px'; c.style.top = vv.offsetTop + 'px';
+}
+if (window.visualViewport) ['resize', 'scroll'].forEach(function (n) { window.visualViewport.addEventListener(n, function () { fitChat(); var l = $('#ms-list'); if (l && n === 'resize') l.scrollTop = l.scrollHeight; }); });
+function grow(el) { el.style.height = 'auto'; el.style.height = Math.min(120, el.scrollHeight) + 'px'; }
+function fetchChat() {
+  var w = S.with; if (!w) return;
+  api('msgThread', { with: w.id }).then(function (d) {
+    if (!S.with || S.with.id !== w.id) return;
+    S.with.name = d.with.name;
+    var sig = JSON.stringify(d.messages.map(function (m) { return [m.id, m.my, m.reactions, m.seen]; }));
+    if (sig !== S.sig || !S.thread) { S.thread = d; S.sig = sig; if (K.state.view === 'messages') drawChat(false); }
+    refreshBadge(true);
+  }).catch(function (e) { if (!S.thread) K.toast((e && e.message) || 'Could not open the chat.'); });
+}
+function startPoll() {
+  var t = setInterval(function () {
+    if (K.state.view !== 'messages' || !S.with) return clearInterval(t);
+    if (document.hidden || S.sending) return;
+    fetchChat();
+  }, POLL_MS);
+  K.timers(t);
+}
+function sendMsg() {
+  var inp = $('#ms-input'), w = S.with; if (!inp || !w || S.sending) return;
+  var text = inp.value.trim(); if (!text) return;
+  S.sending = true; var re = S.re, rp = S.reply;
+  var btn = $('.ms-send'); if (btn) btn.disabled = true;
+  api('msgSend', rp ? { to: w.id, text: text, re: re, reply: { id: rp.id, quote: rp.quote } } : { to: w.id, text: text, re: re }).then(function (d) {
+    S.sending = false; S.re = ''; S.reply = null; S.thread = d; S.sig = ''; var i = $('#ms-input'); if (i) i.value = '';
+    if (K.state.view === 'messages') drawChat(false);
+    var l = $('#ms-list'); if (l) l.scrollTop = l.scrollHeight;
+  }).catch(function (e) { S.sending = false; if (btn) btn.disabled = false; K.toast((e && e.message) || 'Could not send. Try again.'); });
+}
+function react(id, e) {
+  S.rxFor = null;
+  var m = S.thread && S.thread.messages.filter(function (x) { return x.id === id; })[0];
+  api('msgReact', { id: id, emoji: e }).then(function (d) { if (m) { m.reactions = d.reactions; m.my = d.my; } S.sig = ''; drawChat(false); }).catch(function (er) { K.toast((er && er.message) || 'Could not react.'); });
+  if (m) { var on = m.my === e; m.reactions = Object.assign({}, m.reactions); if (m.my) { m.reactions[m.my]--; if (!m.reactions[m.my]) delete m.reactions[m.my]; } if (!on) { m.reactions[e] = (m.reactions[e] || 0) + 1; m.my = e; } else m.my = ''; }
+  drawChat(false);
+}
+/* Long press on a bubble (phones) opens the reaction bar. */
+var lp = null;
+/* On a phone:
+   - press and hold ON THE WORDS of a message: the phone selects text as usual (then "Reply" quotes the selection);
+   - press and hold the edge or the background of the bubble: the reaction bar opens;
+   - swipe to reply, as in Messenger: someone else's message (on the left) is pulled to the right, your own message
+     (on the right) is pulled to the left. A reply arrow appears in the space behind it and fills in when far enough
+     (with a small buzz); let go and the bubble springs back and the reply starts. */
+var sw = null, SW_AT = 56;
+document.addEventListener('touchstart', function (ev) {
+  var b = ev.target.closest && ev.target.closest('.ms-b'); if (!b || ev.target.closest('button')) return;
+  var row = b.closest('.ms-msg'), t = ev.touches[0];
+  sw = { b: b, row: row, dir: row.classList.contains('me') ? -1 : 1, x: t.clientX, y: t.clientY, dx: 0, on: false, hit: false, ic: null };
+  if (ev.target.closest('.ms-t')) return;          // on the words: leave it to text selection
+  lp = setTimeout(function () { sw = null; S.rxFor = b.dataset.id; drawChat(false); try { navigator.vibrate && navigator.vibrate(10); } catch (e) {} }, 450);
+}, { passive: true });
+document.addEventListener('touchmove', function (ev) {
+  if (!sw) { clearTimeout(lp); return; }
+  var t = ev.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+  if (!sw.on) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    clearTimeout(lp);
+    // only the Messenger direction, mostly sideways, and not while text is selected
+    if (dx * sw.dir > 0 && Math.abs(dx) > Math.abs(dy) * 1.5 && !(window.getSelection && String(window.getSelection()))) {
+      sw.on = true; sw.x = t.clientX; dx = 0;
+      sw.ic = document.createElement('span'); sw.ic.className = 'ms-swic ' + (sw.dir > 0 ? 'l' : 'r'); sw.ic.innerHTML = ic('i-reply', 'ic-sm');
+      sw.row.appendChild(sw.ic); sw.b.classList.add('swiping');
+    } else { sw = null; return; }
+  }
+  var d = Math.max(0, dx * sw.dir), pull = d < SW_AT ? d : SW_AT + (d - SW_AT) * 0.3;   // gets heavier past the point
+  pull = Math.min(pull, 96); sw.dx = pull;
+  sw.b.style.transform = 'translateX(' + (pull * sw.dir) + 'px)';
+  var k = Math.min(1, pull / SW_AT);
+  sw.ic.style.opacity = String(k); sw.ic.style.transform = 'translateY(-50%) scale(' + (0.5 + 0.5 * k) + ')';
+  var hit = pull >= SW_AT;
+  if (hit !== sw.hit) { sw.hit = hit; sw.ic.classList.toggle('hit', hit); if (hit) { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} } }
+}, { passive: true });
+function endSwipe() {
+  clearTimeout(lp);
+  if (!sw) return;
+  var s0 = sw; sw = null;
+  if (!s0.on) return;
+  s0.b.classList.remove('swiping'); s0.b.style.transform = '';
+  if (s0.ic) { var icn = s0.ic; icn.style.opacity = '0'; setTimeout(function () { if (icn.parentNode) icn.parentNode.removeChild(icn); }, 220); }
+  if (s0.hit) {
+    var m = S.thread && S.thread.messages.filter(function (x) { return x.id === s0.b.dataset.id; })[0];
+    if (m) setTimeout(function () { startReply('chat', m.id, m.mine ? 'You' : S.with.name, '', stickerId(m.text) ? '[Sticker]' : m.text); }, 120);
+  }
+}
+document.addEventListener('touchend', endSwipe, { passive: true });
+document.addEventListener('touchcancel', endSwipe, { passive: true });
+document.addEventListener('keydown', function (ev) {
+  if (ev.target && ev.target.id === 'ms-input' && ev.key === 'Enter' && !ev.shiftKey && !isTouch()) { ev.preventDefault(); sendMsg(); }
+});
+document.addEventListener('input', function (ev) { if (ev.target && ev.target.id === 'ms-input') grow(ev.target); });
+
+/* =====================================================================
+   Community
+   ===================================================================== */
+function cmRoot() { return $('#community-root'); }
+function renderCommunity() {
+  var r = cmRoot(); if (!r) return;
+  document.body.classList.remove('in-chat');
+  if (!K.live) { r.innerHTML = offline(); return; }
+  drawFeed(); loadFeed(false);
+}
+function loadFeed(more) {
+  if (S.loading) return;
+  S.loading = true; S.err = '';
+  var before = more && S.feed && S.feed.posts.length ? S.feed.posts[S.feed.posts.length - 1].at : '';
+  api('cmFeed', { filter: S.filter, before: before }).then(function (d) {
+    S.loading = false;
+    if (more && S.feed) { S.feed.posts = S.feed.posts.concat(d.posts); S.feed.more = d.more; } else S.feed = d;
+    S.feed.posts.forEach(function (p) { S.posts[p.id] = p; });
+    if (d.topic) S.posts[d.topic.id] = d.topic; if (d.pinned) S.posts[d.pinned.id] = d.pinned;
+    if (K.state.view === 'community') drawFeed();
+  }).catch(function (e) { S.loading = false; S.err = (e && e.message) || 'Could not load Community.'; if (K.state.view === 'community') drawFeed(); });
+}
+function drawFeed() {
+  var r = cmRoot(), f = S.feed; if (!r) return;
+  var filters = [['all', 'All'], ['correct', 'Correct me'], ['poll', 'Polls'], ['mine', 'Mine']];
+  var h = '<div class="cm-bar"><div class="cm-filters" role="tablist">' + filters.map(function (x) { return '<button role="tab" aria-selected="' + (S.filter === x[0]) + '" data-action="cm-filter" data-f="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="cm-tools"><button class="iconbtn cm-bell" data-action="cm-notifs" aria-label="Notifications">' + ic('i-bell') + '<i class="cm-dot" hidden></i></button><button class="btn btn-primary btn-sm" data-action="cm-new">' + ic('i-plus', 'ic-sm') + 'Post</button></div></div>';
+  if (!f) { r.innerHTML = h + (S.err ? '<div class="card cm-empty"><p>' + esc(S.err) + '</p><button class="btn btn-soft" data-action="cm-reload">Try again</button></div>' : '<div class="card"><p class="small muted">Loading the group…</p></div>'); setDots(); return; }
+  if (S.filter === 'all') h += (f.pinned ? pinCard(f.pinned) : '') + (f.topic ? topicCard(f.topic, f.admin) : '') + (f.wotd ? wotdCard(f.wotd) : '');
+  h += f.posts.length ? f.posts.map(postCard).join('') : '<div class="card cm-empty">' + ic('i-users', 'ic-lg') + '<h2>' + (S.filter === 'all' ? 'Be the first to post' : 'Nothing here yet') + '</h2><p class="small muted">Ask a question, share a word list, or ask friends to correct a sentence.</p><button class="btn btn-soft" data-action="cm-new">Write a post</button></div>';
+  if (f.more) h += '<div class="cm-more"><button class="btn btn-ghost" data-action="cm-more"' + (S.loading ? ' disabled' : '') + '>' + (S.loading ? 'Loading…' : 'Show older posts') + '</button></div>';
+  r.innerHTML = h; setDots();
+}
+function topicCard(t, admin) {
+  return '<section class="cm-topic"><div class="cm-topic-top"><span class="cm-label">' + ic('i-users', 'ic-sm') + 'Topic for 3 days</span><span class="cm-left">' + esc(left(t.topic && t.topic.endsAt)) + '</span></div>' +
+    '<p class="cm-topic-t cap">' + txt(t.text) + '</p>' +
+    '<div class="cm-topic-foot"><span class="small">' + (t.comments ? t.comments + (t.comments === 1 ? ' answer' : ' answers') + ' from ' + t.people + (t.people === 1 ? ' person' : ' people') : 'No answers yet. Be the first.') + '</span>' +
+    '<span class="cm-topic-btns">' + (admin ? '<button class="btn btn-sm cm-ghost-l" data-action="tp-admin">' + ic('i-shield', 'ic-sm') + 'Manage</button>' : '') + '<button class="btn btn-sm cm-light" data-action="cm-open" data-id="' + t.id + '">Answer</button></span></div></section>';
+}
+function pinCard(p) {
+  return '<section class="cm-pin"><div class="cm-topic-top"><span class="cm-label">' + ic('i-gift', 'ic-sm') + 'Christmas question</span><span class="cm-left">Until 6 Jan</span></div>' +
+    '<p class="cm-topic-t cap">' + txt(p.text) + '</p><div class="cm-topic-foot"><span class="small">' + (p.comments ? p.comments + (p.comments === 1 ? ' answer' : ' answers') : 'Share yours first.') + '</span><button class="btn btn-sm btn-primary" data-action="cm-open" data-id="' + p.id + '">Answer</button></div></section>';
+}
+function wotdCard(w) {
+  return '<section class="card cm-wotd"><div class="row-between"><span class="cm-label dark">' + ic('i-bulb', 'ic-sm') + 'Word of the day</span><span class="pill plain">' + esc(w.level) + '</span></div>' +
+    '<div class="cm-wotd-w"><b class="cap">' + esc(w.word) + '</b>' + (w.pos ? '<span class="small muted">' + esc(w.pos) + '</span>' : '') + '<button class="iconbtn" data-action="cm-say" data-w="' + esc(w.word) + '" aria-label="Play the word">' + ic('i-volume', 'ic-sm') + '</button></div>' +
+    '<p class="small cap">' + esc(w.def) + (w.vi ? ' <span class="muted">· ' + esc(w.vi) + '</span>' : '') + '</p><p class="small muted cap cm-ex">“' + esc(w.example) + '”</p>' +
+    '<div class="cm-wotd-foot"><span class="tiny muted">' + (w.sentences ? w.sentences + (w.sentences === 1 ? ' sentence' : ' sentences') + ' today' : 'No sentences yet today') + '</span><span class="row-btns"><button class="btn btn-ghost btn-sm" data-action="cm-save" data-w="' + esc(w.word) + '" data-c="' + esc(w.example) + '">' + ic('i-bookmark', 'ic-sm') + 'Save to Words</button><button class="btn btn-soft btn-sm" data-action="cm-wotd" data-w="' + esc(w.word) + '">Use it in a sentence</button></span></div></section>';
+}
+function kindTag(p) {
+  var k = KIND[p.kind] || KIND.free, label = p.kind === 'writing' ? (SHARE_LABEL[p.share && p.share.skill] || 'Shared answer') : p.kind === 'wotd' ? 'Word of the day: ' + (p.word || '') : k[0];
+  return p.kind === 'free' ? '' : '<span class="cm-kind k-' + p.kind + '">' + ic(k[1], 'ic-sm') + esc(label) + '</span>';
+}
+function menuBtn(type, item) {
+  if (!item.canRemove && !item.canHide) return '';
+  return '<button class="iconbtn cm-menu" data-action="cm-menu" data-t="' + type + '" data-id="' + item.id + '" data-h="' + (item.canHide ? 1 : 0) + '" data-r="' + (item.canRemove ? 1 : 0) + '" data-hidden="' + (item.hidden ? 1 : 0) + '" aria-label="More">' + ic('i-dots', 'ic-sm') + '</button>';
+}
+function body(p) {
+  if (p.kind === 'poll') return '<p class="cm-body cap">' + txt(p.text) + '</p>' + pollHtml(p);
+  if (p.kind === 'correct') return '<div class="cm-correct"><span class="tiny muted">Can you correct this?</span><div class="cap">' + txt(p.text) + '</div></div>';
+  if (p.kind === 'words') return (p.text ? '<p class="cm-body cap">' + txt(p.text) + '</p>' : '') + '<div class="cm-words">' + p.words.map(function (w) {
+    return '<div class="cm-wr"><span><b class="cap">' + esc(w.w) + '</b>' + (w.m ? '<span class="small muted cap"> · ' + esc(w.m) + '</span>' : '') + '</span><button class="iconbtn" data-action="cm-save" data-w="' + esc(w.w) + '" data-c="' + esc(w.m || '') + '" aria-label="Save ' + esc(w.w) + ' to Words">' + ic('i-bookmark', 'ic-sm') + '</button></div>';
+  }).join('') + '</div>' + (p.mine ? '' : '<button class="linkbtn cm-saveall" data-action="cm-saveall" data-id="' + p.id + '">' + ic('i-bookmark', 'ic-sm') + 'Save all to Words</button>');
+  if (p.kind === 'writing') return (p.share && p.share.question ? '<div class="cm-q"><span class="tiny muted">Question</span><div class="cap">' + txt(p.share.question) + '</div></div>' : '') + '<p class="cm-body cap">' + txt(p.text) + '</p>';
+  if (p.kind === 'wotd') return '<p class="cm-body cap">' + hl(p.text, p.word) + '</p>' + (p.mine || !p.word ? '' : '<button class="linkbtn" data-action="cm-save" data-w="' + esc(p.word) + '" data-c="' + esc(p.text) + '">' + ic('i-bookmark', 'ic-sm') + 'Save “' + esc(p.word) + '” to Words</button>');
+  return '<p class="cm-body cap">' + txt(p.text) + '</p>';
+}
+function pollHtml(p) {
+  var o = p.poll, voted = o.my > -1, total = Math.max(1, o.total);
+  return '<div class="cm-poll' + (voted ? ' voted' : '') + '">' + o.options.map(function (t, i) {
+    var pct = Math.round(o.tally[i] / total * 100), right = o.answer === i;
+    return '<button class="cm-opt' + (o.my === i ? ' mine' : '') + (right ? ' right' : '') + '" data-action="cm-vote" data-id="' + p.id + '" data-o="' + i + '">' +
+      (voted ? '<i style="width:' + pct + '%"></i>' : '') + '<span class="cap">' + esc(t) + '</span>' + (right ? ic('i-check', 'ic-sm') : '') + (voted ? '<b>' + pct + '%</b>' : '') + '</button>';
+  }).join('') + '<div class="tiny muted cm-poll-f">' + o.total + (o.total === 1 ? ' vote' : ' votes') + (voted ? '' : ' · vote to see the results') +
+    (o.answer > -1 ? ' · answer shown' : (p.mine || (S.feed && S.feed.admin)) && voted ? ' · <button class="linkbtn" data-action="cm-reveal" data-id="' + p.id + '">Show the right answer</button>' : '') + '</div></div>';
+}
+function commentHtml(c, small) {
+  return '<div class="cm-c' + (c.hidden ? ' is-hidden' : '') + '" id="cmt-' + c.id + '">' + av(c.author, 'sm') + '<div class="cm-cb" data-qkind="comment" data-qid="' + c.id + '" data-qname="' + esc(c.author.name) + '"><div class="cm-ch"><b>' + esc(c.author.name) + '</b><span class="tiny muted">' + when(c.at) + (c.hidden ? ' · hidden' : '') + '</span>' + (small ? '' : menuBtn('comment', c)) + '</div>' + (small ? '' : replyQuote(c.reply, 'cm-goto')) +
+    (stickerId(c.text) ? stickerImg(stickerId(c.text), small ? 'sm' : '') : '<div class="cap">' + txt(c.text) + '</div>') + (small ? '' : '<button class="cm-heart sm' + (c.liked ? ' on' : '') + '" data-action="cm-clike" data-id="' + c.id + '" aria-label="Heart">' + ic('i-heart', 'ic-sm') + (c.likes ? '<span>' + c.likes + '</span>' : '') + '</button>' + (c.hidden ? '' : '<button class="cm-rp" data-action="cm-reply" data-id="' + c.id + '" data-name="' + esc(c.author.name) + '">' + ic('i-reply', 'ic-sm') + 'Reply</button>')) + '</div></div>';
+}
+function postCard(p) {
+  var cLabel = p.kind === 'correct' ? (p.comments ? p.comments + (p.comments === 1 ? ' correction' : ' corrections') : 'Correct it') : (p.comments ? String(p.comments) : 'Comment');
+  return '<article class="card cm-post' + (p.hidden ? ' is-hidden' : '') + '" id="post-' + p.id + '"><header class="cm-ph">' + av(p.author) + '<div class="cm-pm"><b>' + esc(p.author.name) + '</b><span class="tiny muted">' + when(p.at) + (p.hidden ? ' · hidden by the admin' : '') + '</span></div>' + kindTag(p) + menuBtn('post', p) + '</header>' +
+    body(p) +
+    (p.preview && p.preview.length ? '<div class="cm-prev" data-action="cm-open" data-id="' + p.id + '">' + (p.comments > p.preview.length ? '<div class="tiny muted">View all ' + p.comments + '</div>' : '') + p.preview.map(function (c) { return commentHtml(c, true); }).join('') + '</div>' : '') +
+    '<footer class="cm-pf"><button class="cm-heart' + (p.liked ? ' on' : '') + '" data-action="cm-like" data-id="' + p.id + '" aria-label="Heart">' + ic('i-heart', 'ic-sm') + '<span>' + (p.likes || '') + '</span></button>' +
+    '<button class="cm-act" data-action="cm-open" data-id="' + p.id + '">' + ic(p.kind === 'correct' ? 'i-spell' : 'i-message', 'ic-sm') + '<span>' + cLabel + '</span></button></footer></article>';
+}
+
+/* One post with all its comments, in a sheet (topic answers, corrections, notifications). */
+function openPost(id) {
+  var p = S.posts[id];
+  sheet('cm-post', head(p && p.kind === 'topic' ? 'Topic' : p && p.kind === 'pinned' ? 'Christmas question' : 'Comments', 'cm-post') + '<div id="cmp-body"><p class="small muted">Loading…</p></div>', 'Post');
+  api('cmPost', { id: id }).then(function (d) { S.posts[id] = d.post; drawPost(d); }).catch(function (e) { $('#cmp-body').innerHTML = '<p class="small">' + esc((e && e.message) || 'This post was removed.') + '</p>'; });
+}
+function drawPost(d) {
+  var p = d.post, el = $('#cmp-body'); if (!el) return;
+  S.curPost = d; if (S.creply && S.creply.post !== p.id) S.creply = null;
+  var draft = $('#cmp-input') ? $('#cmp-input').value : '';
+  var top = p.kind === 'topic' || p.kind === 'pinned'
+    ? '<div class="cm-sheet-topic ' + (p.kind === 'pinned' ? 'xmas' : '') + '"><span class="cm-label">' + ic(p.kind === 'pinned' ? 'i-gift' : 'i-users', 'ic-sm') + (p.kind === 'pinned' ? 'Christmas question' : 'Topic · ' + esc(left(p.topic && p.topic.endsAt))) + '</span><p class="cap">' + txt(p.text) + '</p></div>'
+    : '<div class="cm-ph">' + av(p.author) + '<div class="cm-pm"><b>' + esc(p.author.name) + '</b><span class="tiny muted">' + when(p.at) + '</span></div>' + kindTag(p) + '</div><div data-qkind="post" data-qid="' + p.id + '" data-qname="' + esc(p.author.name) + '">' + body(p) + '</div>';
+  var ph = p.kind === 'correct' ? 'Write the corrected sentence…' : p.kind === 'topic' || p.kind === 'pinned' ? 'Write your answer…' : 'Write a comment…';
+  el.innerHTML = top + '<div class="cm-cs">' + (d.comments.length ? d.comments.map(function (c) { return commentHtml(c, false); }).join('') : '<p class="small muted">' + (p.kind === 'correct' ? 'No corrections yet. Help them out.' : 'No comments yet.') + '</p>') + '</div>' +
+    (p.hidden ? '' : '<div class="cm-cin">' + tagHint(p) + (S.creply ? replyBar(S.creply, 'cm-reply-x') : '') + '<div class="ms-row-in"><button class="iconbtn emo-btn" data-action="emo-open" data-m="comment" data-id="' + p.id + '" aria-label="Emoji and stickers">' + ic('i-smile') + '</button><textarea class="input" id="cmp-input" rows="1" placeholder="' + ph + '"></textarea><button class="btn btn-primary ms-send" data-action="cm-comment" data-id="' + p.id + '" aria-label="Send">' + ic('i-send') + '</button></div></div>');
+  var inp = $('#cmp-input'); if (inp) { inp.value = draft; grow(inp); }
+}
+function tagHint(p) { return p.kind === 'pinned' ? '<p class="tiny muted" style="margin:0 0 6px">Tip: name a friend you would like to celebrate with.</p>' : ''; }
+document.addEventListener('input', function (ev) { if (ev.target && ev.target.id === 'cmp-input') grow(ev.target); });
+
+function sendComment(id, btn) {
+  var inp = $('#cmp-input'); if (!inp) return; var text = inp.value.trim(); if (!text) return K.toast('Write something first.');
+  btn.disabled = true;
+  var rp = S.creply && S.creply.post === id ? S.creply : null;
+  api('cmComment', rp ? { postId: id, text: text, reply: { id: rp.id, quote: rp.quote } } : { postId: id, text: text }).then(function (d) {
+    inp.value = ''; S.creply = null; S.posts[id] = d.post; drawPost(d);
+    var l = $('#cm-post .cm-sheet'); if (l) l.scrollTop = l.scrollHeight;
+    patchPost(d.post, d.comments);
+  }).catch(function (e) { btn.disabled = false; K.toast((e && e.message) || 'Could not post your comment.'); });
+}
+/* Updates one post in the feed after a change, without reloading the feed. */
+function patchPost(p, comments) {
+  if (!S.feed) return;
+  if (S.feed.topic && S.feed.topic.id === p.id) { S.feed.topic.comments = p.comments; S.feed.topic.people = comments ? comments.map(function (c) { return c.author.id; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).length : S.feed.topic.people; }
+  else if (S.feed.pinned && S.feed.pinned.id === p.id) S.feed.pinned.comments = p.comments;
+  else S.feed.posts = S.feed.posts.map(function (x) { if (x.id !== p.id) return x; var n = Object.assign({}, x, p); if (comments) n.preview = comments.slice(-2); return n; });
+  if (K.state.view === 'community') drawFeed();
+}
+
+/* New post */
+var COMPOSE = { kind: 'free', word: '' };
+function compose(kind, word) {
+  COMPOSE.kind = kind || 'free'; COMPOSE.word = word || '';
+  drawCompose();
+}
+function drawCompose() {
+  var k = COMPOSE.kind, tabs = [['free', 'Post'], ['correct', 'Correct me'], ['poll', 'Poll'], ['words', 'Word list']], f;
+  if (k === 'poll') f = '<input class="input" id="cc-text" placeholder="Your question, e.g. Which is correct?" maxlength="300"><div class="cc-opts">' + [0, 1, 2, 3].map(function (i) { return '<input class="input" data-o="' + i + '" placeholder="Answer ' + (i + 1) + (i > 1 ? ' (optional)' : '') + '" maxlength="120">'; }).join('') + '</div>';
+  else if (k === 'words') f = '<textarea class="input" id="cc-words" style="min-height:140px" placeholder="One word per line, with its meaning if you like:\ndeadline - the last day to finish\nfollow up - check again later"></textarea><input class="input mt" id="cc-text" placeholder="A note (optional)" maxlength="300">';
+  else if (k === 'wotd') f = '<p class="small">Use <b>' + esc(COMPOSE.word) + '</b> in a sentence about your day or your work.</p><textarea class="input" id="cc-text" style="min-height:96px" placeholder="Your sentence"></textarea>';
+  else f = '<textarea class="input" id="cc-text" style="min-height:120px" placeholder="' + (k === 'correct' ? 'Write the sentence you are not sure about. Friends reply with a corrected version.' : 'Ask a question, share something you learned, or invite people to practise.') + '"></textarea>';
+  sheet('cm-new', head(k === 'wotd' ? 'Word of the day' : 'New post', 'cm-new') +
+    (k === 'wotd' ? '' : '<div class="cm-filters cc-tabs">' + tabs.map(function (t) { return '<button aria-selected="' + (k === t[0]) + '" data-action="cc-kind" data-k="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>') + f +
+    (k === 'free' || k === 'correct' || k === 'wotd' ? '<button class="linkbtn mt" data-action="emo-open" data-m="post">' + ic('i-smile', 'ic-sm') + 'Emoji</button>' : '') +
+    '<p class="tiny muted mt">English is encouraged, but any language is fine. Everyone in Kelvin can see posts.</p>' +
+    '<div class="row-between mt"><button class="btn btn-ghost" data-action="cm-close" data-s="cm-new">Cancel</button><button class="btn btn-primary" data-action="cc-post">Post</button></div>', 'New post');
+  setTimeout(function () { var t = $('#cc-text'); if (t && !isTouch() && k !== 'words') t.focus(); else if ($('#cc-words') && !isTouch()) $('#cc-words').focus(); }, 60);
+}
+function postNow(btn) {
+  var k = COMPOSE.kind, text = ($('#cc-text') && $('#cc-text').value || '').trim(), extra = {};
+  if (k === 'poll') { extra.options = $$('#cm-new .cc-opts input').map(function (i) { return i.value.trim(); }).filter(String); if (extra.options.length < 2) return K.toast('Add at least two answers.'); }
+  if (k === 'words') {
+    extra.words = ($('#cc-words').value || '').split('\n').map(function (l) { var m = l.split(/\s+[-–—:=]\s+|\t/); return { w: (m[0] || '').trim(), m: m.slice(1).join(' - ').trim() }; }).filter(function (w) { return w.w; });
+    if (!extra.words.length) return K.toast('Add at least one word.');
+  }
+  if (k === 'wotd') extra.word = COMPOSE.word;
+  if (k !== 'words' && !text) return K.toast(k === 'poll' ? 'Write the question.' : 'Write something first.');
+  btn.disabled = true; btn.textContent = 'Posting…';
+  api('cmCreate', { kind: k, text: text, extra: extra }).then(function () { closeSheet('cm-new'); S.filter = 'all'; S.feed = null; K.toast('Posted.'); if (K.state.view === 'community') { drawFeed(); loadFeed(false); } else K.go('community'); })
+    .catch(function (e) { btn.disabled = false; btn.textContent = 'Post'; K.toast((e && e.message) || 'Could not post.'); });
+}
+
+function saveWord(w, c) {
+  return api('saveWord', { text: w, context: c || '', skill: 'words' }).then(function (r) {
+    if (K.words && K.words.state) { K.words.state.t = null; K.words.state.sv = null; }
+    return r;
+  });
+}
+function notifs() {
+  sheet('cm-n', head('Notifications', 'cm-n') + '<div id="cmn-list"><p class="small muted">Loading…</p></div>', 'Notifications');
+  api('cmNotifs').then(function (d) {
+    S.badge.notifications = 0; setDots();
+    var say = { comment: 'commented on your post', like: 'liked your post', clike: 'liked your comment', reply: 'replied to your comment' };
+    $('#cmn-list').innerHTML = d.items.length ? d.items.map(function (n) {
+      return '<button class="cmn-row' + (n.unread ? ' unread' : '') + '" data-action="cmn-open" data-id="' + esc(n.postId) + '">' + ic(n.kind === 'comment' ? 'i-message' : 'i-heart', 'ic-sm') + '<span><b>' + esc(n.from) + '</b> ' + (say[n.kind] || '') + (n.text ? ': <span class="muted">' + esc(n.text) + '</span>' : '') + '</span><span class="tiny muted">' + when(n.at) + '</span></button>';
+    }).join('') : '<p class="small muted">Nothing yet. Hearts and comments on your posts show up here.</p>';
+  }).catch(function (e) { $('#cmn-list').innerHTML = '<p class="small">' + esc((e && e.message) || 'Could not load notifications.') + '</p>'; });
+}
+function menu(el) {
+  var t = el.dataset.t, id = el.dataset.id, hidden = el.dataset.hidden === '1';
+  sheet('cm-m', head(t === 'comment' ? 'Comment' : 'Post', 'cm-m') + '<div class="cm-mlist">' +
+    (el.dataset.h === '1' ? '<button class="cm-mrow" data-action="cm-hide" data-t="' + t + '" data-id="' + id + '">' + ic(hidden ? 'i-eye' : 'i-eye-off', 'ic-sm') + (hidden ? 'Show it again' : 'Hide from the group (admin)') + '</button>' : '') +
+    (el.dataset.r === '1' ? '<button class="cm-mrow danger" data-action="cm-del" data-t="' + t + '" data-id="' + id + '">' + ic('i-trash', 'ic-sm') + 'Delete</button>' : '') + '</div>', 'Options');
+}
+function moderate(kind, t, id, btn) {
+  if (kind === 'cm-del' && !btn.dataset.sure) { btn.dataset.sure = '1'; btn.innerHTML = ic('i-trash', 'ic-sm') + 'Tap again to delete for good'; return; }
+  btn.disabled = true;
+  api(kind === 'cm-del' ? 'cmRemove' : 'cmHide', { type: t, id: id }).then(function () {
+    closeSheet('cm-m'); K.toast(kind === 'cm-del' ? 'Deleted.' : 'Done.');
+    if (t === 'comment' && $('#cm-post.on')) { var cur = $('#cm-post [data-action="cm-comment"]'); if (cur) openPost(cur.dataset.id); }
+    if (t === 'post') closeSheet('cm-post');
+    S.feed = null; loadFeed(false);
+  }).catch(function (e) { btn.disabled = false; K.toast((e && e.message) || 'Could not do that.'); });
+}
+
+/* Topic admin: the current topic, Gemini's review and the next topic */
+function topicAdmin() {
+  sheet('cm-ta', head('Topic', 'cm-ta') + '<div id="ta-body"><p class="small muted">Loading…</p></div>', 'Topic');
+  api('topicAdmin').then(drawTopicAdmin).catch(function (e) { $('#ta-body').innerHTML = '<p class="small">' + esc((e && e.message) || 'Could not load.') + '</p>'; });
+}
+function drawTopicAdmin(d) {
+  var el = $('#ta-body'); if (!el) return;
+  var rv = d.reviewed && d.reviewed.review, stars = function (n) { var s = ''; for (var i = 1; i <= 5; i++) s += '<i class="' + (i <= n ? 'on' : '') + '"></i>'; return '<span class="ta-stars">' + s + '</span>'; };
+  var src = { ai: 'Proposed by Gemini', list: 'From the written list', admin: 'Written by you' };
+  el.innerHTML = (d.live ? '<div class="ta-blk"><div class="tiny muted">Now · ' + esc(left(d.live.endsAt)) + '</div><div class="cap">' + esc(d.live.text) + '</div></div>' : '') +
+    (rv ? '<div class="ta-blk"><div class="row-between"><span class="tiny muted">Review of “' + esc(d.reviewed.text.slice(0, 60)) + (d.reviewed.text.length > 60 ? '…' : '') + '”</span>' + (rv.score ? stars(rv.score) : '') + '</div>' +
+      '<p class="small"><b>' + esc(rv.verdict) + '</b></p>' + (rv.worked ? '<p class="small"><span class="muted">Worked:</span> ' + esc(rv.worked) + '</p>' : '') + (rv.change ? '<p class="small"><span class="muted">Change:</span> ' + esc(rv.change) + '</p>' : '') +
+      (rv.stats ? '<p class="tiny muted">' + rv.stats.people + ' of ' + rv.stats.members + ' members answered · ' + rv.stats.comments + ' answers · ' + rv.stats.hearts + ' hearts</p>' : '') + '</div>'
+      : '<p class="small muted">Gemini reviews each topic 12 hours before it ends, then proposes the next one here.</p>') +
+    '<div class="ta-blk"><div class="tiny muted">Next topic' + (d.next ? ' · goes live ' + esc(new Date(d.next.publishAt || d.next.startsAt).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })) + ' · ' + esc(src[d.next.source] || '') : ' · not planned yet') + '</div>' +
+    (d.next && d.next.why ? '<p class="tiny muted">' + esc(d.next.why) + '</p>' : '') +
+    '<textarea class="input mt" id="ta-text" style="min-height:84px" placeholder="Write the next topic">' + esc(d.next ? d.next.text : '') + '</textarea>' +
+    '<div class="row-between mt"><button class="btn btn-ghost btn-sm" data-action="ta-now"' + (d.next ? '' : ' disabled') + '>Start it now</button><button class="btn btn-primary btn-sm" data-action="ta-save">Save the next topic</button></div></div>';
+}
+
+/* Emoji and sticker picker. mode: chat (emoji into the box, stickers send at once), comment (same, for a post),
+   post (emoji only, into the new post), react (emoji only, reacts to a message). */
+var EMOP = { mode: 'chat', id: '', tab: 'emoji' };
+function recent() { try { return JSON.parse(localStorage.getItem('kelvin.emoji') || '[]'); } catch (e) { return []; } }
+function remember(e) { try { var r = recent().filter(function (x) { return x !== e; }); r.unshift(e); localStorage.setItem('kelvin.emoji', JSON.stringify(r.slice(0, 16))); } catch (x) {} }
+function emoOpen(mode, id) {
+  EMOP.mode = mode; EMOP.id = id || ''; EMOP.tab = 'emoji';
+  if (S.rxFor && S.with && K.state.view === 'messages') { S.rxFor = null; drawChat(false); } S.rxFor = null;
+  drawEmo();
+}
+function drawEmo() {
+  var stickers = EMOP.mode === 'chat' || EMOP.mode === 'comment';
+  var tabs = [['emoji', '😊 Emoji']].concat(stickers ? PACKS.map(function (p) { return [p.id, p.name]; }) : []);
+  if (!stickers) EMOP.tab = 'emoji';
+  var body;
+  if (EMOP.tab === 'emoji') {
+    var r = recent();
+    body = (r.length ? '<div class="emo-h">Recent</div><div class="emo-grid">' + r.map(emoBtn).join('') + '</div>' : '') +
+      EMO.map(function (g) { return '<div class="emo-h">' + g[0] + '</div><div class="emo-grid">' + g[1].split(' ').map(emoBtn).join('') + '</div>'; }).join('');
+  } else {
+    var pk = PACKS.filter(function (p) { return p.id === EMOP.tab; })[0];
+    body = '<div class="stk-grid">' + pk.items.map(function (it) { var id = pk.id === 'kel' ? 'kel-' + it : pk.id === 'badge' ? 'badge-' + it : it; return '<button data-action="stk-pick" data-s="' + id + '" aria-label="' + esc(STK[id].alt) + '">' + stickerImg(id) + '</button>'; }).join('') + '</div>' +
+      '<p class="tiny muted" style="margin-top:8px">Tap a sticker to send it.</p>';
+  }
+  sheet('cm-emo', head(EMOP.mode === 'react' ? 'React with an emoji' : stickers ? 'Emoji and stickers' : 'Emoji', 'cm-emo') +
+    (tabs.length > 1 ? '<div class="cm-filters emo-tabs">' + tabs.map(function (t) { return '<button aria-selected="' + (EMOP.tab === t[0]) + '" data-action="emo-tab" data-t="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>' : '') +
+    '<div class="emo-body">' + body + '</div>', 'Emoji');
+}
+function emoBtn(e) { return '<button data-action="emo-pick" data-e="' + e + '">' + e + '</button>'; }
+function insertAt(el, t) {
+  if (!el) return;
+  var a = el.selectionStart == null ? el.value.length : el.selectionStart, b = el.selectionEnd == null ? a : el.selectionEnd;
+  el.value = el.value.slice(0, a) + t + el.value.slice(b);
+  var c = a + t.length; try { el.focus({ preventScroll: true }); el.setSelectionRange(c, c); } catch (x) {}
+  try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (x) {}
+}
+function emoPick(e) {
+  remember(e);
+  if (EMOP.mode === 'react') { closeSheet('cm-emo'); return react(EMOP.id, e); }
+  closeSheet('cm-emo');
+  insertAt($(EMOP.mode === 'chat' ? '#ms-input' : EMOP.mode === 'comment' ? '#cmp-input' : '#cc-text'), e);
+}
+function stkPick(id) {
+  closeSheet('cm-emo');
+  var token = '[[sticker:' + id + ']]';
+  if (EMOP.mode === 'chat') {
+    var w = S.with; if (!w || S.sending) return; S.sending = true;
+    api('msgSend', { to: w.id, text: token }).then(function (d) { S.sending = false; S.thread = d; S.sig = ''; if (K.state.view === 'messages') drawChat(false); var l = $('#ms-list'); if (l) l.scrollTop = l.scrollHeight; })
+      .catch(function (e) { S.sending = false; K.toast((e && e.message) || 'Could not send the sticker.'); });
+  } else if (EMOP.mode === 'comment') {
+    api('cmComment', { postId: EMOP.id, text: token }).then(function (d) { S.posts[EMOP.id] = d.post; drawPost(d); patchPost(d.post, d.comments); var l = $('#cm-post .cm-sheet'); if (l) l.scrollTop = l.scrollHeight; })
+      .catch(function (e) { K.toast((e && e.message) || 'Could not post the sticker.'); });
+  }
+}
+
+/* ---------- views and wiring ---------- */
+K.register('community', { title: 'Community', render: renderCommunity, refresh: function () {} });
+K.register('messages', { title: 'Messages', render: renderMessages, refresh: function () {} });
+K.onGo(function (view) {
+  if (view !== 'messages') { document.body.classList.remove('in-chat'); }
+  ['cm-post', 'cm-new', 'cm-n', 'cm-m', 'cm-ta', 'cm-share', 'cm-pick', 'cm-emo'].forEach(closeSheet);
+  setTimeout(function () { refreshBadge(false); }, 0);
+});
+K.social = { tagBox: tagBox, after: after, view: view, clear: clearTags, openChat: openChat, refreshBadge: refreshBadge };
+
+K.actions({
+  'ms-reply-to': function (el) {
+    var m = S.thread && S.thread.messages.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return;
+    var full = stickerId(m.text) ? '[Sticker]' : m.text;
+    startReply('chat', m.id, m.mine ? 'You' : S.with.name, '', full);
+  },
+  'ms-reply-x': function () { S.reply = null; drawChat(false); },
+  'ms-goto': function (el) { flash($('.ms-msg[data-id="' + el.dataset.id + '"] .ms-b')); },
+  'cm-reply': function (el) {
+    var c = S.curPost && S.curPost.comments.filter(function (x) { return x.id === el.dataset.id; })[0];
+    startReply('comment', el.dataset.id, el.dataset.name, '', c ? (stickerId(c.text) ? '[Sticker]' : c.text) : '');
+  },
+  'cm-reply-x': function () { S.creply = null; if (S.curPost) drawPost(S.curPost); },
+  'cm-goto': function (el) { flash($('#cmt-' + el.dataset.id) || $('#cmp-body [data-qkind="post"]')); },
+  'qt-reply': function (el) {
+    var si = el._si; el.classList.remove('on'); if (!si) return;
+    try { window.getSelection().removeAllRanges(); } catch (e) {}
+    if (si.kind === 'chat') { var m = S.thread && S.thread.messages.filter(function (x) { return x.id === si.id; })[0]; startReply('chat', si.id, si.name, si.text, m ? m.text : si.text); }
+    else startReply(si.kind === 'post' ? 'post' : 'comment', si.id, si.name, si.text, si.text);
+  },
+  'cm-close': function (el) { closeSheet(el.dataset.s); },
+  'emo-open': function (el) { emoOpen(el.dataset.m, el.dataset.id); },
+  'emo-tab': function (el) { EMOP.tab = el.dataset.t; drawEmo(); },
+  'emo-pick': function (el) { emoPick(el.dataset.e); },
+  'stk-pick': function (el) { stkPick(el.dataset.s); },
+  'tg-open': function (el) { startTag(el.dataset.k); },
+  'pk-pick': function (el) { pick(el.dataset.id); },
+  'cm-share': function (el) { shareSheet(+el.dataset.s); },
+  'cm-share-go': function (el) { shareGo(+el.dataset.s, el); },
+  'ms-new': function () { openPicker('chat'); },
+  'ms-open': function (el) { openChat(el.dataset.id, el.dataset.n); },
+  'ms-back': function () { S.with = null; S.thread = null; S.re = ''; renderMessages(); },
+  'ms-reload': renderMessages,
+  'ms-send': sendMsg,
+  'ms-reply': function (el) { S.re = el.dataset.q || ''; drawChat(false); var i = $('#ms-input'); if (i) i.focus(); },
+  'ms-re-x': function () { S.re = ''; drawChat(false); },
+  'ms-rx-open': function (el) { S.rxFor = S.rxFor === el.dataset.id ? null : el.dataset.id; drawChat(false); },
+  'ms-react': function (el) { react(el.dataset.id, el.dataset.e); },
+  'cm-filter': function (el) { S.filter = el.dataset.f; S.feed = null; drawFeed(); loadFeed(false); },
+  'cm-reload': function () { loadFeed(false); },
+  'cm-more': function () { loadFeed(true); },
+  'cm-new': function () { compose('free'); },
+  'cm-wotd': function (el) { compose('wotd', el.dataset.w); },
+  'cc-kind': function (el) { COMPOSE.kind = el.dataset.k; drawCompose(); },
+  'cc-post': function (el) { postNow(el); },
+  'cm-open': function (el) { openPost(el.dataset.id); },
+  'cmn-open': function (el) { closeSheet('cm-n'); if (el.dataset.id) openPost(el.dataset.id); },
+  'cm-comment': function (el) { sendComment(el.dataset.id, el); },
+  'cm-like': function (el) {
+    var p = S.posts[el.dataset.id]; el.classList.toggle('on'); var sp = $('span', el);
+    if (p) { p.liked = !p.liked; p.likes += p.liked ? 1 : -1; if (sp) sp.textContent = p.likes || ''; }
+    api('cmLike', { id: el.dataset.id }).then(function (d) { if (p) { p.liked = d.liked; p.likes = d.likes; } if (sp) sp.textContent = d.likes || ''; el.classList.toggle('on', d.liked); }).catch(function (e) { K.toast((e && e.message) || 'Could not save the heart.'); });
+  },
+  'cm-clike': function (el) {
+    el.classList.toggle('on');
+    api('cmCommentLike', { id: el.dataset.id }).then(function (d) { el.classList.toggle('on', d.liked); el.innerHTML = ic('i-heart', 'ic-sm') + (d.likes ? '<span>' + d.likes + '</span>' : ''); }).catch(function (e) { K.toast((e && e.message) || 'Could not save the heart.'); });
+  },
+  'cm-vote': function (el) {
+    api('cmVote', { id: el.dataset.id, option: +el.dataset.o }).then(function (p) { S.posts[p.id] = p; patchPost(p); if ($('#cm-post.on')) openPost(p.id); }).catch(function (e) { K.toast((e && e.message) || 'Could not vote.'); });
+  },
+  'cm-reveal': function (el) {
+    var p = S.posts[el.dataset.id]; if (!p) return;
+    sheet('cm-m', head('Which answer is right?', 'cm-m') + '<div class="cm-mlist">' + p.poll.options.map(function (o, i) { return '<button class="cm-mrow" data-action="cm-reveal-go" data-id="' + p.id + '" data-o="' + i + '">' + esc(o) + '</button>'; }).join('') + '</div>', 'Right answer');
+  },
+  'cm-reveal-go': function (el) {
+    api('cmReveal', { id: el.dataset.id, answer: +el.dataset.o }).then(function (p) { closeSheet('cm-m'); S.posts[p.id] = p; patchPost(p); }).catch(function (e) { K.toast((e && e.message) || 'Could not save.'); });
+  },
+  'cm-menu': function (el) { menu(el); },
+  'cm-hide': function (el) { moderate('cm-hide', el.dataset.t, el.dataset.id, el); },
+  'cm-del': function (el) { moderate('cm-del', el.dataset.t, el.dataset.id, el); },
+  'cm-notifs': notifs,
+  'cm-save': function (el) {
+    el.disabled = true;
+    saveWord(el.dataset.w, el.dataset.c).then(function (r) { K.toast(r.already ? '“' + el.dataset.w + '” is already in Words.' : 'Saved “' + el.dataset.w + '” to Words.'); el.disabled = false; })
+      .catch(function (e) { el.disabled = false; K.toast((e && e.message) || 'Could not save that word.'); });
+  },
+  'cm-saveall': function (el) {
+    var p = S.posts[el.dataset.id]; if (!p) return; el.disabled = true;
+    var list = p.words.slice(), n = 0;
+    (function nextWord() {
+      var w = list.shift(); if (!w) { el.disabled = false; return K.toast(n ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + ' to Words.' : 'These words are already in Words.'); }
+      saveWord(w.w, w.m).then(function (r) { if (!r.already) n++; nextWord(); }).catch(function (e) { el.disabled = false; K.toast((e && e.message) || 'Could not save every word.'); });
+    })();
+  },
+  'cm-say': function (el) { if (K.words && K.words.speak) K.words.speak(el.dataset.w); },
+  'tp-admin': topicAdmin,
+  'ta-save': function (el) {
+    var t = ($('#ta-text').value || '').trim(); if (t.length < 10) return K.toast('Write a topic of a few words.');
+    el.disabled = true; api('topicEdit', { text: t }).then(function (d) { drawTopicAdmin(d); K.toast('Saved. It goes live when this topic ends.'); }).catch(function (e) { el.disabled = false; K.toast((e && e.message) || 'Could not save.'); });
+  },
+  'ta-now': function (el) {
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Tap again to start now'; return; }
+    el.disabled = true; api('topicPublish').then(function (d) { drawTopicAdmin(d); S.feed = null; loadFeed(false); K.toast('The new topic is live.'); }).catch(function (e) { el.disabled = false; K.toast((e && e.message) || 'Could not start it.'); });
+  }
+});
+
+document.addEventListener('input', function (ev) { if (ev.target && ev.target.id === 'pk-q' && S.picker) { S.picker.q = ev.target.value; drawPicker(); } });
+/* Close the reaction bar when tapping elsewhere in the chat. */
+document.addEventListener('click', function (ev) { if (S.rxFor && !ev.target.closest('.ms-rxbar, .ms-rx-open, .ms-rx')) { S.rxFor = null; if (K.state.view === 'messages' && S.with) drawChat(false); } }, true);
+})();
+</script>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMaxYMax slice">
+<defs>
+<linearGradient id="a" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1A3F96" stop-opacity=".55"/><stop offset=".6" stop-color="#1E50C8" stop-opacity=".85"/><stop offset="1" stop-color="#2864E8" stop-opacity=".8"/></linearGradient>
+<linearGradient id="b" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#1F6BEA" stop-opacity=".6"/><stop offset=".42" stop-color="#22B8F5" stop-opacity=".95"/><stop offset="1" stop-color="#2A72F0" stop-opacity=".9"/></linearGradient>
+<linearGradient id="c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1C4FD0" stop-opacity=".4"/><stop offset="1" stop-color="#1F5BDB" stop-opacity=".85"/></linearGradient>
+<radialGradient id="g" cx=".6" cy=".82" r=".3"><stop offset="0" stop-color="#00BFEA" stop-opacity=".25"/><stop offset="1" stop-color="#00BFEA" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="1600" height="900" fill="url(#g)"/>
+<path d="M0 900C380 832 760 712 1100 566C1300 486 1460 430 1600 412V900Z" fill="url(#a)"/>
+<path d="M640 900C880 780 1080 600 1290 470C1420 390 1520 352 1600 344V900Z" fill="url(#b)"/>
+<path d="M1040 900C1220 826 1400 772 1600 744V900Z" fill="url(#c)"/>
+</svg>

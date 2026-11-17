@@ -1,0 +1,395 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Practise a set: Flashcards, Learn, Match, Test (in the style of Quizlet)
+   - Free practice. These modes never move a word's review box or date (the daily session does that).
+   - Wrong answers are counted per word. A word missed more often than it is answered right
+     shows up in the "Hard words" set; right answers take it out again.
+   - Cards: English word in front; the back shows the Vietnamese meaning, the English definition and the sentence.
+   ===================================================================== */
+
+var K = window.Kelvin, $ = K.$, esc = K.esc, ic = K.ic;
+/* Every set holds only words you have already met (learned before or today). */
+var SETS = [['missed', 'Missed today'], ['hard', 'Hard words'], ['today', 'Studied today'], ['learned', 'All studied'], ['saved', 'Saved from practice']];
+var SET_ORDER = ['missed', 'hard', 'today', 'learned'];
+var MODES = [
+  ['flashcards', 'Flashcards', 'Flip and rate yourself', 'i-cards'],
+  ['learn', 'Learn', 'Choose, then type', 'i-school'],
+  ['match', 'Match', 'Pair words against the clock', 'i-puzzle'],
+  ['test', 'Test', 'A mixed quiz with a score', 'i-clipboard']
+];
+var MIN = { flashcards: 1, learn: 2, match: 2, test: 2 };
+var S = { set: 'learned', chosen: false, run: null, loading: false, from: null };
+
+function W() { return K.words; }
+function root() { return $('#words-root'); }
+function shuffle(a) { return W().shuffle(a); }
+function lang() { return K.state.settings.studyLang === 'en' ? 'en' : 'vi'; }
+/* The meaning shown on cards and in questions: Vietnamese by default (English if there is none), or English when chosen. */
+function meaning(c) { return lang() === 'vi' ? (c.vi || c.def) : (c.def || c.vi); }
+function shortMeaning(c) { var m = meaning(c); return m.length > 70 ? m.slice(0, 67).replace(/\s+\S*$/, '') + '…' : m; }
+function plainEx(ex) { return String(ex || '').replace(/[\[\]]/g, ''); }
+
+/* ---------- the practice card (Words page, Home and Practice) ---------- */
+/* Until you pick a set, the hardest non-empty one is chosen: Missed today, then Hard words, Studied today, All studied. */
+function autoSet(n) {
+  if (S.chosen && n[S.set]) return S.set;
+  for (var i = 0; i < SET_ORDER.length; i++) if (n[SET_ORDER[i]]) return SET_ORDER[i];
+  return S.chosen ? S.set : 'learned';
+}
+function setName(k) { var f = SETS.filter(function (x) { return x[0] === k; })[0]; return f ? f[1] : k; }
+function chips(n) {
+  return '<div class="filters" role="group" aria-label="Choose a set">' + SETS.map(function (x) {
+    return '<button data-action="st-set" data-s="' + x[0] + '" aria-pressed="' + (S.set === x[0]) + '">' + x[1] + ' <span class="num">' + (n[x[0]] || 0) + '</span></button>';
+  }).join('') + '</div>';
+}
+function modes(from) {
+  return '<div class="modes">' + MODES.map(function (m) {
+    return '<button class="mode" data-action="st-start" data-m="' + m[0] + '"' + (from ? ' data-from="' + from + '"' : '') + '><span class="tint">' + ic(m[3]) + '</span><b>' + m[1] + '</b><span class="small muted">' + m[2] + '</span></button>';
+  }).join('') + '</div>';
+}
+/* where: 'words' (full card with the language choice), 'dashboard' or 'practice' (compact). */
+function card(t, where) {
+  where = where || 'words';
+  var n = (t && t.sets) || {}; S.set = autoSet(n);
+  var full = where === 'words';
+  return '<article class="card sk-words study-card' + (where === 'dashboard' ? ' mt' : '') + '"' + (full ? ' id="study-card"' : '') + '><div class="card-head st-head"><div><h2>' + ic('i-repeat', 'ic-sm') + 'Practise your words</h2><div class="tiny muted" style="margin-top:2px">Free practice. Your review schedule stays the same.</div></div></div>' +
+    chips(n) + modes(full ? '' : where) +
+    (full ? '<div class="row-between mt" style="gap:10px"><p class="tiny muted" style="margin:0">Only words you have already met. Missed today: wrong or with a hint today. Hard words: the ones you keep missing; they leave once you get them right.</p>' +
+      '<label class="small muted" style="display:flex;gap:8px;align-items:center">Meanings in <select class="input st-lang" style="width:auto;height:32px"><option value="vi"' + (lang() === 'vi' ? ' selected' : '') + '>Vietnamese</option><option value="en"' + (lang() === 'en' ? ' selected' : '') + '>English</option></select></label></div>'
+      : '<p class="tiny muted" style="margin:12px 0 0">Only words you have already met, learned before or today.</p>') + '</article>';
+}
+/* After a session: practise the words just missed, straight away. */
+function after(n) {
+  return '<div class="study-after"><div class="small"><b>' + ic('i-repeat', 'ic-sm') + 'Practise the ' + (n === 1 ? 'word' : n + ' words') + ' you missed</b><span class="muted"> Free practice. Your review schedule stays the same.</span></div>' +
+    '<div class="modes">' + MODES.map(function (m) {
+      return '<button class="mode" data-action="st-start" data-m="' + m[0] + '" data-s="missed" data-from="after"><span class="tint">' + ic(m[3]) + '</span><b>' + m[1] + '</b></button>';
+    }).join('') + '</div></div>';
+}
+
+/* ---------- starting ---------- */
+function start(mode, btn, set, from) {
+  if (S.loading) return;
+  if (set) S.set = set;
+  var useSet = S.set;
+  if (from && from !== 'after') { S.from = from; K.go('words'); }
+  else if (from === 'after') { S.from = null; if (K.words.closeRun) K.words.closeRun(); }
+  else S.from = null;
+  S.loading = true; if (btn) btn.disabled = true;
+  K.Api.call('wordsDeck', { set: useSet }).then(function (d) {
+    S.loading = false; if (btn) btn.disabled = false;
+    var items = d.items || [];
+    if (items.length < MIN[mode]) {
+      var nm = setName(useSet), msg = items.length ? 'Add more words to “' + nm + '” first: ' + mode + ' needs at least ' + MIN[mode] + '.' : '“' + nm + '” has no words yet. Choose another set.';
+      if (S.from || from === 'after') { var f = S.from; S.from = null; if (f) K.go(f); else K.words.reload(); }
+      return K.toast(msg);
+    }
+    S.run = { mode: mode, items: items, extra: d.extraDefs || [], started: Date.now(), results: [] };
+    try { window.scrollTo(0, 0); } catch (e) {}
+    ({ flashcards: fcStart, learn: lnStart, match: mtStart, test: tsStart })[mode]();
+  }).catch(function (e) { S.loading = false; if (btn) btn.disabled = false; if (S.from) { var f = S.from; S.from = null; K.go(f); } K.toast((e && e.message) || 'Could not load that set.'); });
+}
+function shell(title, right, body, pct) {
+  root().innerHTML = '<div class="test-shell sk-words study"><div class="row-between" style="margin-bottom:10px"><button class="btn btn-ghost btn-sm" data-action="st-exit">' + ic('i-back', 'ic-sm') + 'Exit</button><span class="small muted num">' + right + '</span></div>' +
+    (pct === undefined ? '' : '<div class="wd-bar"><i style="width:' + pct + '%"></i></div>') +
+    '<article class="card"><div class="small muted" style="margin-bottom:14px">' + title + '</div>' + body + '</article></div>';
+}
+function note(id, ok) { S.run.results.push({ id: id, ok: !!ok }); }
+/* Sends the answers once (counts misses for Hard words and logs the time). Quiet: practice is never lost because of this. */
+/* The answers of a set, for the question index and History. */
+var MODE_NAME = { flashcards: 'Flashcards', learn: 'Learn', match: 'Match', test: 'Test' };
+function testItem(a) {
+  var c = a.q.c, k = a.q.k;
+  return { q: k === 'mc' ? 'Meaning of "' + c.w + '"' : k === 'tf' ? '"' + c.w + '" means "' + a.q.shown + '"' : 'Type the word: ' + meaning(c),
+    a: a.given || '(blank)', r: k === 'mc' ? meaning(c) : k === 'tf' ? (a.q.truth ? 'True' : 'False') : c.w, ok: !!a.ok, done: true };
+}
+function setItems(r) {
+  if (r.mode === 'test') return (r.ans || []).map(testItem);
+  if (r.mode === 'learn') return r.log || [];
+  var byId = {}; (r.items || []).forEach(function (c) { byId[c.id] = c; });
+  return r.results.map(function (x) { var c = byId[x.id] || {}; return { q: c.w || '', a: '', r: meaning(c) || '', ok: !!x.ok, done: true }; });
+}
+K.qindex.provide(function () {
+  var r = S.run; if (!r || K.state.view !== 'words' || (r.mode !== 'learn' && r.mode !== 'test')) return null;
+  var items;
+  if (r.mode === 'test') {
+    items = (r.ans || []).map(function (a) { var x = testItem(a); x.ok = null; x.r = ''; return x; });   // answers are shown at the end of a test
+    if (r.i < r.qs.length) items.push({ q: 'Question ' + (r.i + 1), done: false, cur: true });
+    return { title: 'Test', items: items, note: 'Answers are shown at the end.' };
+  }
+  items = (r.log || []).slice();
+  if (!r.fb && r.queue && r.queue[0]) items.push({ q: meaning(r.queue[0]), done: false, cur: true });
+  return { title: 'Learn', items: items };
+});
+function report() {
+  var r = S.run; if (!r || r.reported || !r.results.length) return;
+  r.reported = true;
+  try {
+    var items = setItems(r), right = items.filter(function (x) { return x.ok; }).length;
+    K.history.save({ kind: r.mode, title: 'Words: ' + MODE_NAME[r.mode], right: right, total: items.length, minutes: Math.max(1, Math.round((Date.now() - r.started) / 60000)), items: items });
+  } catch (e) {}
+  K.Api.call('wordsPractice', { mode: r.mode, results: r.results, seconds: Math.round((Date.now() - r.started) / 1000) }).then(function () { K.loadOverview(true); }).catch(function () {});
+}
+function exit() { report(); S.run = null; K.stopSpeech(); var f = S.from; S.from = null; if (f) { W().state.t = null; K.go(f); } else W().reload(); }
+function backLabel() { return S.from === 'dashboard' ? 'Back to Home' : S.from === 'practice' ? 'Back to Practice' : 'Back to Words'; }
+function done(title, statsHtml, buttons) {
+  report();
+  var cut = statsHtml.indexOf('</h2>');   // the result line sits on the brand background
+  if (cut > -1) statsHtml = '<div class="bolt-hero">' + statsHtml.slice(0, cut + 5).replace(' style="font-size:22px"', '') + '</div>' + statsHtml.slice(cut + 5);
+  shell(title, '', statsHtml + '<div class="row-btns mt" style="justify-content:flex-end">' + buttons + '<button class="btn btn-primary" data-action="st-exit">' + backLabel() + '</button></div>');
+}
+
+/* ---------- Flashcards ---------- */
+function fcStart(list) {
+  var r = S.run; r.deck = (list || r.items).slice(); r.i = 0; r.flip = false; r.know = []; r.learning = []; r.back = !!r.back;
+  fcDraw();
+}
+function fcDraw() {
+  var r = S.run, c = r.deck[r.i], n = r.deck.length;
+  var front = '<div class="fc-w">' + esc(c.w) + '</div>' + (c.pos ? '<div class="small muted">' + esc(c.pos) + '</div>' : '');
+  var back = (c.vi ? '<div class="fc-m">' + esc(c.vi) + '</div>' : '') + (c.def ? '<div class="fc-d">' + esc(c.def) + '</div>' : '') + (c.ex ? '<div class="fc-ex">' + W().highlight(c.ex, c.w) + '</div>' : '');
+  var showFront = r.back ? r.flip : !r.flip;
+  shell('Flashcards', (r.i + 1) + ' / ' + n,
+    '<button class="flashcard' + (r.flip ? ' flipped' : '') + '" data-action="st-flip" aria-label="Flip the card">' + (showFront ? front : back) +
+    '<span class="tiny muted fc-hint">' + (r.flip ? 'Tap to flip back' : 'Tap or press Space to flip') + '</span></button>' +
+    '<div class="fc-tools"><button class="iconbtn" data-action="st-speak" aria-label="Hear the word">' + ic('i-volume') + '</button><button class="iconbtn" data-action="st-shuffle" aria-label="Shuffle">' + ic('i-shuffle') + '</button><button class="iconbtn" data-action="st-side" aria-label="Show the meaning first" aria-pressed="' + r.back + '">' + ic('i-swap') + '</button></div>' +
+    '<div class="fc-rate"><button class="btn" data-action="st-fc" data-k="0">' + ic('i-x', 'ic-sm') + 'Still learning</button><button class="btn btn-primary" data-action="st-fc" data-k="1">' + ic('i-check', 'ic-sm') + 'Know</button></div>' +
+    '<p class="tiny muted" style="text-align:center;margin-top:10px">Keys: Space flips, Left = still learning, Right = know</p>',
+    r.i / n * 100);
+}
+function fcRate(k) {
+  var r = S.run, c = r.deck[r.i]; (k ? r.know : r.learning).push(c); note(c.id, k);
+  r.i++; r.flip = false;
+  if (r.i < r.deck.length) return fcDraw();
+  var lrn = r.learning.length;
+  done('Flashcards: round done', '<h2 style="font-size:22px">You know ' + r.know.length + ' of ' + r.deck.length + '</h2>' +
+    (lrn ? '<p class="muted" style="margin-top:6px">Still learning: ' + r.learning.map(function (x) { return esc(x.w); }).join(', ') + '.</p>' : '<p class="muted" style="margin-top:6px">Every card in this round. Nice.</p>'),
+    (lrn ? '<button class="btn btn-soft" data-action="st-fc-again" data-only="1">Study the ' + lrn + ' again</button>' : '') + '<button class="btn btn-ghost" data-action="st-fc-again">Restart all</button>');
+}
+
+/* ---------- Learn: round 1 choose the word, round 2 type it ---------- */
+function lnStart() {
+  var r = S.run; r.round = 1; r.queue = shuffle(r.items); r.firstTry = {}; r.doneCount = 0; r.fb = null;
+  lnDraw();
+}
+function lnOpts(c) {
+  var others = shuffle(S.run.items.filter(function (x) { return x.id !== c.id && x.w.toLowerCase() !== c.w.toLowerCase(); })).slice(0, 3);
+  return shuffle(others.concat([c])).map(function (x) { return { t: x.w, ok: x.id === c.id }; });
+}
+function lnDraw() {
+  var r = S.run, c = r.queue[0], n = r.items.length, body;
+  if (!r.opts && r.round === 1) r.opts = lnOpts(c);
+  var prompt = '<p class="tiny muted" style="margin-bottom:6px">' + (r.round === 1 ? 'Round 1 of 2: choose the word' : 'Round 2 of 2: type the word') + '</p><p class="wd-q">' + esc(meaning(c)) + '</p>' +
+    (c.ex && r.round === 2 ? '<p class="small muted" style="margin-top:6px">' + esc(plainEx(c.ex).replace(new RegExp(c.w.replace(/[^a-z' -]/gi, ''), 'ig'), '___')) + '</p>' : '');
+  if (r.round === 1) {
+    body = prompt + '<div class="opts" style="margin-top:14px">' + r.opts.map(function (o, i) {
+      var cls = r.fb ? (o.ok ? ' right' : (r.fb.sel === i ? ' wrong' : '')) : '';
+      return '<button class="opt' + cls + '" data-action="st-ln-pick" data-i="' + i + '"' + (r.fb ? ' disabled' : '') + '><span class="k">' + 'ABCD'[i] + '</span><span>' + esc(o.t) + '</span></button>';
+    }).join('') + '</div>';
+  } else {
+    body = prompt + '<p class="small muted" style="margin-top:6px">' + esc(c.w[0]) + ' ' + new Array(c.w.length).join('_ ').trim() + ' (' + c.w.length + ' letters)</p>' +
+      '<div class="row-between mt" style="gap:10px;flex-wrap:nowrap"><input class="input" id="st-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word"' + (r.fb ? ' disabled' : '') + ' style="flex:1"><button class="btn btn-primary" data-action="st-ln-type"' + (r.fb ? ' disabled' : '') + '>Check</button></div>' +
+      (r.fb ? '' : '<button class="linkbtn mt" data-action="st-ln-skip">I don\'t know</button>');
+  }
+  if (r.fb) body += '<div class="sheet ' + r.fb.cls + '"><div class="fbk ' + r.fb.cls + '">' + r.fb.html + '</div><div class="row-between mt"><span></span><button class="btn btn-primary" data-action="st-ln-next" data-focus>Continue</button></div></div>';
+  shell('Learn', K.qindex.pill(Math.min(n * 2, r.doneCount + 1), n * 2), body, r.doneCount / (n * 2) * 100);
+  var f = r.fb ? root().querySelector('[data-focus]') : $('#st-input'); if (f) f.focus();
+}
+function lnAnswer(ok, html, cls, sel) {
+  var r = S.run, c = r.queue[0], key = r.round + c.id;
+  var tmp = document.createElement('div'); tmp.innerHTML = html;
+  (r.log = r.log || []).push({ q: meaning(c), a: sel !== undefined && r.opts ? r.opts[sel].t : (($('#st-input') || {}).value || "I don't know"), r: c.w, ok: !!ok, why: tmp.textContent.trim(), done: true });
+  if (r.firstTry[key] === undefined) { r.firstTry[key] = ok; note(c.id, ok); }
+  r.fb = { ok: ok, html: html, cls: cls, sel: sel }; lnDraw();
+}
+function lnPick(i) {
+  var r = S.run; if (r.fb) return;
+  var c = r.queue[0], o = r.opts[i];
+  lnAnswer(o.ok, o.ok ? '<b>Right.</b> ' + esc(c.w) + ': ' + esc(meaning(c)) : '<b>Not quite.</b> The word is <b>' + esc(c.w) + '</b>. It comes back later in this round.', o.ok ? 'ok' : 'no', i);
+}
+function lnType(skip) {
+  var r = S.run; if (r.fb) return;
+  var c = r.queue[0], v = skip ? '' : ($('#st-input') || {}).value || '';
+  if (!skip && !v.trim()) return K.toast('Type your answer first.');
+  var g = skip ? { ok: false } : W().gradeTyped(v, [c.w]);
+  if (g.ok && g.near) return lnAnswer(true, '<b>Nearly.</b> Check the spelling: <b>' + esc(c.w) + '</b>.', 'near');
+  lnAnswer(!!g.ok, g.ok ? '<b>Right.</b>' : '<b>The word is ' + esc(c.w) + '.</b> It comes back later in this round.', g.ok ? 'ok' : 'no');
+}
+function lnNext() {
+  var r = S.run, c = r.queue.shift();
+  if (r.fb.ok) r.doneCount++; else r.queue.push(c);
+  r.fb = null; r.opts = null;
+  if (!r.queue.length) {
+    if (r.round === 1) { r.round = 2; r.queue = shuffle(r.items); }
+    else {
+      var n = r.items.length, first = r.items.filter(function (x) { return r.firstTry['2' + x.id] && r.firstTry['1' + x.id]; }).length;
+      return done('Learn: finished', '<h2 style="font-size:22px">You learned all ' + n + ' words</h2><p class="muted" style="margin-top:6px">' + first + ' of ' + n + ' right the first time in both rounds.</p>',
+        '<button class="btn btn-ghost" data-action="st-restart">Learn again</button>');
+    }
+  }
+  lnDraw();
+}
+
+/* ---------- Match ---------- */
+function bestKey() { return 'kelvin_match_best'; }
+function best() { try { return Number(localStorage.getItem(bestKey())) || 0; } catch (e) { return 0; } }
+function mtStart() {
+  var r = S.run, pick = shuffle(r.items).slice(0, 6), tiles = [];
+  pick.forEach(function (c) { tiles.push({ id: c.id, k: 'w', t: c.w, c: c }); tiles.push({ id: c.id, k: 'm', t: shortMeaning(c), c: c }); });
+  r.tiles = shuffle(tiles); r.sel = -1; r.left = pick.length; r.t0 = Date.now(); r.missed = {}; r.bad = [];
+  mtDraw();
+  clearInterval(r.tick); r.tick = setInterval(function () { var el = $('#mt-time'); if (!el || !S.run || S.run.mode !== 'match') return clearInterval(r.tick); el.textContent = secs(Date.now() - r.t0); }, 200);
+}
+function secs(ms) { return (ms / 1000).toFixed(1) + 's'; }
+function mtDraw() {
+  var r = S.run, b = best();
+  shell('Match', '<span id="mt-time">' + secs(Date.now() - r.t0) + '</span>' + (b ? ' · best ' + secs(b) : ''),
+    '<p class="small muted" style="margin-bottom:12px">Tap a word, then its meaning.</p><div class="match">' + r.tiles.map(function (x, i) {
+      if (x.gone) return '<span class="tile gone" aria-hidden="true"></span>';
+      return '<button class="tile' + (x.k === 'w' ? ' w' : '') + (r.sel === i ? ' sel' : '') + (r.bad.indexOf(i) > -1 ? ' bad' : '') + '" data-action="st-mt" data-i="' + i + '">' + esc(x.t) + '</button>';
+    }).join('') + '</div>');
+}
+function mtPick(i) {
+  var r = S.run, x = r.tiles[i]; if (!x || x.gone) return;
+  r.bad = [];
+  if (r.sel < 0 || r.sel === i) { r.sel = r.sel === i ? -1 : i; return mtDraw(); }
+  var y = r.tiles[r.sel];
+  if (y.k === x.k) { r.sel = i; return mtDraw(); }
+  if (y.id === x.id) {
+    x.gone = y.gone = true; r.sel = -1; r.left--;
+    if (!r.missed[x.id]) note(x.id, true);
+    if (!r.left) return mtDone();
+  } else {
+    [x.id, y.id].forEach(function (id) { if (!r.missed[id]) { r.missed[id] = 1; note(id, false); } });
+    r.bad = [i, r.sel]; r.sel = -1;
+    setTimeout(function () { if (S.run === r && r.bad.length) { r.bad = []; mtDraw(); } }, 600);
+  }
+  mtDraw();
+}
+function mtDone() {
+  var r = S.run, ms = Date.now() - r.t0, b = best(), rec = !b || ms < b;
+  clearInterval(r.tick);
+  if (rec) try { localStorage.setItem(bestKey(), String(ms)); } catch (e) {}
+  var miss = Object.keys(r.missed).length;
+  done('Match: finished', '<h2 style="font-size:22px">' + secs(ms) + (rec ? ' <span class="pill ok-pill">New best</span>' : '') + '</h2><p class="muted" style="margin-top:6px">' +
+    (miss ? miss + (miss === 1 ? ' word was' : ' words were') + ' paired wrong at first.' : 'No wrong pairs.') + (b && !rec ? ' Your best is ' + secs(b) + '.' : '') + '</p>',
+    '<button class="btn btn-ghost" data-action="st-restart">Play again</button>');
+}
+
+/* ---------- Test ---------- */
+function tsStart() {
+  var r = S.run, pick = shuffle(r.items).slice(0, 20), kinds = ['mc', 'type', 'tf'];
+  r.qs = pick.map(function (c, i) {
+    var k = kinds[i % 3], q = { c: c, k: k };
+    if (k === 'mc') {
+      var pool = r.items.filter(function (x) { return x.id !== c.id && meaning(x) !== meaning(c); }).map(meaning);
+      if (lang() === 'en') pool = pool.concat(r.extra.map(function (d) { return d.def; }));
+      var opts = shuffle(pool.filter(function (m, j, a) { return m && a.indexOf(m) === j; })).slice(0, 3);
+      if (opts.length < 1) { q.k = 'type'; return q; }
+      q.opts = shuffle(opts.map(function (m) { return { t: m, ok: false }; }).concat([{ t: meaning(c), ok: true }]));
+    } else if (k === 'tf') {
+      var other = r.items.filter(function (x) { return x.id !== c.id && meaning(x) !== meaning(c); });
+      q.truth = !other.length || Math.random() < 0.5;
+      q.shown = q.truth ? meaning(c) : meaning(other[Math.floor(Math.random() * other.length)]);
+    }
+    return q;
+  });
+  r.i = 0; r.ans = [];
+  tsDraw();
+}
+function tsDraw() {
+  var r = S.run, q = r.qs[r.i], n = r.qs.length, c = q.c, body;
+  if (q.k === 'mc') body = '<p class="tiny muted">Choose the meaning</p><p class="wd-q"><b>' + esc(c.w) + '</b></p><div class="opts" style="margin-top:14px">' + q.opts.map(function (o, i) { return '<button class="opt" data-action="st-ts" data-v="' + i + '"><span class="k">' + 'ABCD'[i] + '</span><span>' + esc(o.t) + '</span></button>'; }).join('') + '</div>';
+  else if (q.k === 'tf') body = '<p class="tiny muted">True or false?</p><p class="wd-q"><b>' + esc(c.w) + '</b> means “' + esc(q.shown) + '”</p><div class="row-btns mt"><button class="btn" data-action="st-ts" data-v="t">True</button><button class="btn" data-action="st-ts" data-v="f">False</button></div>';
+  else body = '<p class="tiny muted">Type the word</p><p class="wd-q">' + esc(meaning(c)) + '</p><div class="row-between mt" style="gap:10px;flex-wrap:nowrap"><input class="input" id="st-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type the word" style="flex:1"><button class="btn btn-primary" data-action="st-ts" data-v="type">Next</button></div>';
+  shell('Test', K.qindex.pill(r.i + 1, n), body + '<p class="tiny muted" style="margin-top:14px">Answers are shown at the end.</p>', r.i / n * 100);
+  var f = $('#st-input'); if (f) f.focus();
+}
+function tsAnswer(v) {
+  var r = S.run, q = r.qs[r.i], ok, given;
+  if (q.k === 'mc') { var o = q.opts[parseInt(v, 10)]; ok = o.ok; given = o.t; }
+  else if (q.k === 'tf') { ok = (v === 't') === q.truth; given = v === 't' ? 'True' : 'False'; }
+  else { given = ($('#st-input') || {}).value || ''; if (!given.trim()) return K.toast('Type your answer first, or a guess.'); ok = W().gradeTyped(given, [q.c.w]).ok; }
+  r.ans.push({ q: q, ok: ok, given: given }); note(q.c.id, ok);
+  r.i++;
+  if (r.i < r.qs.length) return tsDraw();
+  var right = r.ans.filter(function (a) { return a.ok; }).length, n = r.qs.length, wrong = r.ans.filter(function (a) { return !a.ok; });
+  done('Test: results', '<h2 style="font-size:22px">' + right + ' of ' + n + ' right (' + Math.round(right / n * 100) + '%)</h2>' +
+    (wrong.length ? '<p class="muted" style="margin:6px 0 10px">Check these:</p>' + wrong.map(function (a) {
+      var c = a.q.c, right = a.q.k === 'type' ? c.w : a.q.k === 'tf' ? (a.q.truth ? 'True' : 'False') + ': ' + c.w + ' means ' + meaning(c) : meaning(c);
+      return '<div class="srow" style="grid-template-columns:minmax(0,1fr)"><div><div class="w">' + esc(c.w) + '</div><div class="d">Your answer: <span style="color:var(--error)">' + esc(a.given || '(blank)') + '</span></div><div class="d">Right answer: <b>' + esc(right) + '</b></div></div></div>';
+    }).join('') : '<p class="muted" style="margin-top:6px">A perfect score.</p>'),
+    '<button class="btn btn-ghost" data-action="st-restart">New test</button>');
+}
+
+/* ---------- wiring ---------- */
+K.study = {
+  card: card,
+  after: after,
+  active: function () { return !!S.run; },
+  reset: function () { if (S.run) { report(); if (S.run.tick) clearInterval(S.run.tick); } S.run = null; }
+};
+K.actions({
+  'st-set': function (el) {
+    S.set = el.dataset.s; S.chosen = true;
+    document.querySelectorAll('.study-card [data-action="st-set"]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.s === S.set)); });
+  },
+  'st-start': function (el) { start(el.dataset.m, el, el.dataset.s, el.dataset.from); },
+  'st-exit': exit,
+  'st-restart': function () { var r = S.run; report(); r.results = []; r.reported = false; r.started = Date.now(); ({ flashcards: fcStart, learn: lnStart, match: mtStart, test: tsStart })[r.mode](); },
+  'st-flip': function () { if (Date.now() - (S.swipedAt || 0) < 450) return; S.run.flip = !S.run.flip; fcDraw(); },
+  'st-fc': function (el) { fcRate(el.dataset.k === '1'); },
+  'st-fc-again': function (el) { var r = S.run, list = el.dataset.only ? r.learning.slice() : r.items; report(); r.results = []; r.reported = false; r.started = Date.now(); fcStart(list); },
+  'st-speak': function () { var r = S.run; W().speak(r.deck[r.i].w); },
+  'st-shuffle': function () { var r = S.run; r.deck = r.deck.slice(0, r.i).concat(shuffle(r.deck.slice(r.i))); r.flip = false; fcDraw(); K.toast('Shuffled.'); },
+  'st-side': function () { var r = S.run; r.back = !r.back; r.flip = false; fcDraw(); },
+  'st-ln-pick': function (el) { lnPick(parseInt(el.dataset.i, 10)); },
+  'st-ln-type': function () { lnType(false); },
+  'st-ln-skip': function () { lnType(true); },
+  'st-ln-next': lnNext,
+  'st-mt': function (el) { mtPick(parseInt(el.dataset.i, 10)); },
+  'st-ts': function (el) { tsAnswer(el.dataset.v); }
+});
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.classList && e.target.classList.contains('st-lang')) { K.state.settings.studyLang = e.target.value; K.persist(); }
+});
+document.addEventListener('keydown', function (e) {
+  var r = S.run; if (!r || K.state.view !== 'words') return;
+  if (r.mode === 'flashcards' && r.deck && r.i < r.deck.length && !(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) {
+    if (e.key === ' ') { e.preventDefault(); r.flip = !r.flip; fcDraw(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); fcRate(true); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); fcRate(false); }
+  }
+  if (e.key === 'Enter' && e.target && e.target.id === 'st-input') {
+    e.preventDefault();
+    if (r.mode === 'learn') { if (r.fb) lnNext(); else lnType(false); }
+    else if (r.mode === 'test') tsAnswer('type');
+  }
+});
+/* Phones: swipe a flashcard right for "Know", left for "Still learning". A tap still flips it. */
+(function () {
+  var sx = 0, sy = 0, card = null, dx = 0;
+  document.addEventListener('touchstart', function (e) {
+    var c = e.target.closest && e.target.closest('.flashcard'); if (!c || !S.run || S.run.mode !== 'flashcards') return;
+    card = c; sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = 0; card.style.transition = 'none';
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (!card) return; dx = e.touches[0].clientX - sx; var dy = e.touches[0].clientY - sy;
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    card.style.transform = 'translateX(' + dx + 'px) rotate(' + dx / 24 + 'deg)';
+    card.classList.toggle('swipe-know', dx > 40); card.classList.toggle('swipe-learn', dx < -40);
+  }, { passive: true });
+  document.addEventListener('touchend', function () {
+    if (!card) return; var c = card; card = null; c.style.transition = '';
+    if (Math.abs(dx) > 90) { S.swipedAt = Date.now(); fcRate(dx > 0); return; }
+    if (Math.abs(dx) > 12) S.swipedAt = Date.now();
+    c.style.transform = ''; c.classList.remove('swipe-know', 'swipe-learn');
+  });
+})();
+/* read-only helper for the automated check */
+K.study.peek = function () { var r = S.run; if (!r) return null; return { mode: r.mode, n: r.items.length, i: r.i, round: r.round, q: r.queue && r.queue[0] && r.queue[0].w, opts: r.opts, tiles: r.tiles && r.tiles.map(function (t) { return { id: t.id, k: t.k, gone: !!t.gone }; }), test: r.qs && r.qs[r.i] && { k: r.qs[r.i].k, w: r.qs[r.i].c.w, truth: r.qs[r.i].truth, ok: r.qs[r.i].opts && r.qs[r.i].opts.map(function (o) { return o.ok; }).indexOf(true) } }; };
+
+})();
+</script>

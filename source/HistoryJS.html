@@ -1,0 +1,150 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   History and the question index
+   - History: every finished session, newest first, filtered by skill. A session saved since this update opens
+     again with each question, your answer, the right answer and the explanation. Older ones show their score only.
+   - Question index: inside a lesson, the "3 / 10" button opens a list of the questions in this lesson.
+     Answered ones open for review; the placement test shows them read-only (answers there cannot be changed).
+   - Modules hand over their questions with K.history.save(...) and K.qindex.provide(fn).
+   ===================================================================== */
+
+var K = window.Kelvin, $ = K.$, esc = K.esc, ic = K.ic, SK = K.SK;
+var HX = { filter: 'all', items: null, more: false, next: '', loading: false, open: null, err: '' };
+var FILTERS = [['all', 'All'], ['speaking', 'Speaking'], ['listening', 'Listening'], ['reading', 'Reading'], ['writing', 'Writing'], ['words', 'Words'], ['grammar', 'Grammar'], ['placement', 'Placement test']];
+var ICON = { speaking: 'i-mic', listening: 'i-headphones', reading: 'i-book', writing: 'i-pen', words: 'i-cards', grammar: 'i-spell', placement: 'i-target', flashcards: 'i-cards', learn: 'i-cards', match: 'i-cards', test: 'i-cards' };
+var COLOR = { speaking: 'var(--c-speaking)', listening: 'var(--c-listening)', reading: 'var(--c-reading)', writing: 'var(--c-writing)', words: 'var(--primary)', grammar: '#0A9BD4', placement: 'var(--navy)' };
+function root() { return $('#history-root'); }
+
+/* ---------- saving (called by every module when a session ends; quiet on failure) ---------- */
+function save(entry) {
+  if (!K.live || !entry || !entry.kind) return;
+  var items = (entry.items || []).filter(function (x) { return x && (x.q || x.a); });
+  K.Api.call('historySave', { kind: entry.kind, title: entry.title, score: entry.score, right: entry.right, total: entry.total, minutes: entry.minutes, items: items })
+    .then(function () { HX.items = null; }).catch(function () {});
+}
+
+/* ---------- one question, as shown in History and in the question index ---------- */
+function itemHtml(x, n) {
+  var st = x.ok === true ? 'ok' : x.ok === false ? 'bad' : 'na';
+  return '<div class="hx-item ' + st + '"><div class="hx-n">' + (st === 'ok' ? ic('i-check', 'ic-sm') : st === 'bad' ? ic('i-x', 'ic-sm') : n) + '</div><div class="hx-b">' +
+    '<div class="hx-q cap">' + esc(x.q || '') + '</div>' +
+    (x.ctx ? '<details class="hx-ctx"><summary>Show the text</summary><div class="cap">' + esc(x.ctx) + '</div></details>' : '') +
+    (x.a ? '<div class="hx-l"><span>' + (x.ok === null || x.ok === undefined ? 'Your answer' : 'You answered') + '</span><div class="hx-a cap">' + esc(x.a) + '</div></div>' : '') +
+    (x.r && x.r !== x.a ? '<div class="hx-l"><span>' + (x.ok === false ? 'Right answer' : 'Model answer') + '</span><div class="hx-r cap">' + esc(x.r) + '</div></div>' : '') +
+    (x.why ? '<div class="hx-why cap">' + esc(x.why) + '</div>' : '') + '</div></div>';
+}
+
+/* ---------- the History page ---------- */
+function load(more) {
+  if (HX.loading) return; HX.loading = true; HX.err = '';
+  if (!more) { HX.items = null; draw(); }
+  K.Api.call('historyList', { skill: HX.filter, before: more ? HX.next : '' }).then(function (d) {
+    HX.loading = false; HX.items = (more && HX.items ? HX.items : []).concat(d.items || []); HX.more = !!d.more; HX.next = d.next || '';
+    if (K.state.view === 'history' && !HX.open) draw();
+  }).catch(function (e) { HX.loading = false; HX.err = (e && e.message) || 'Could not load your history.'; if (K.state.view === 'history') draw(); });
+}
+function dayLabel(day) {
+  var d = new Date(day + 'T00:00:00'), t = new Date(); t.setHours(0, 0, 0, 0);
+  var diff = Math.round((t - d) / 86400000);
+  if (diff === 0) return 'Today'; if (diff === 1) return 'Yesterday';
+  try { return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return day; }
+}
+function timeOf(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+function scoreText(x) {
+  if (x.total) return x.right + ' of ' + x.total;
+  if (x.score !== null && x.score !== undefined && x.score !== '') return /^\d+$/.test(String(x.score)) ? x.score + '%' : String(x.score);
+  return '';
+}
+function rowHtml(x) {
+  var sc = scoreText(x), meta = [x.note, x.minutes ? x.minutes + ' min' : '', timeOf(x.at)].filter(Boolean).join(' · ');
+  return '<button class="hx-row" data-action="hx-open" data-id="' + esc(x.id) + '"' + (x.detail ? '' : ' data-nodetail="1"') + ' style="--c:' + (COLOR[x.skill] || 'var(--primary)') + '">' +
+    '<span class="tint dot">' + ic(ICON[x.kind] || ICON[x.skill] || 'i-layers', 'ic-sm') + '</span>' +
+    '<span class="hx-t"><b>' + esc(x.title) + '</b><small>' + esc(meta) + '</small></span>' +
+    (sc ? '<span class="hx-sc num">' + esc(sc) + '</span>' : '') +
+    (x.detail ? '<svg class="ic ic-sm hx-chev"><use href="#i-arrow"/></svg>' : '<span class="hx-old">Score only</span>') + '</button>';
+}
+function draw() {
+  var r = root(); if (!r) return;
+  if (!K.live) { r.innerHTML = '<article class="card empty"><div class="ico">' + ic('i-history') + '</div><h3>History needs the live app</h3><p class="small">Your sessions are kept on the server, so this page only works in the live app.</p></article>'; return; }
+  if (HX.open) return drawDetail();
+  var chips = '<div class="hx-filters" role="group" aria-label="Show">' + FILTERS.map(function (f) { return '<button data-action="hx-filter" data-f="' + f[0] + '" aria-pressed="' + (HX.filter === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
+  var body;
+  if (HX.err) body = '<article class="card empty"><h3>Could not load your history</h3><p class="small">' + esc(HX.err) + '</p><button class="btn btn-soft mt" data-action="hx-reload">Try again</button></article>';
+  else if (!HX.items) body = '<article class="card">' + [1, 2, 3, 4].map(function () { return '<div class="skel" style="height:54px;margin:10px 0"></div>'; }).join('') + '</article>';
+  else if (!HX.items.length) body = '<article class="card empty"><div class="ico">' + ic('i-history') + '</div><h3>' + (HX.filter === 'all' ? 'Your history starts with your first session' : 'Nothing here yet') + '</h3><p class="small">Finish a lesson, a practice set or a word session and it shows up here, with every question to look back at.</p><button class="btn btn-primary mt" data-go="practice">Start learning</button></article>';
+  else {
+    var groups = [], cur = null;
+    HX.items.forEach(function (x) { if (!cur || cur.day !== x.day) { cur = { day: x.day, list: [] }; groups.push(cur); } cur.list.push(x); });
+    body = groups.map(function (g) { return '<div class="hx-day">' + esc(dayLabel(g.day)) + '</div><article class="card hx-list">' + g.list.map(rowHtml).join('') + '</article>'; }).join('') +
+      (HX.more ? '<div style="text-align:center;margin-top:16px"><button class="btn btn-soft" data-action="hx-more">' + (HX.loading ? 'Loading…' : 'Show older sessions') + '</button></div>' : '');
+  }
+  r.innerHTML = '<p class="page-sub" style="margin:-4px 0 14px">Look back at what you studied. Open a session to see every question again.</p>' + chips + body;
+}
+function openSession(id) {
+  HX.open = { id: id, data: null }; draw();
+  K.Api.call('historyGet', { id: id }).then(function (d) { if (HX.open && HX.open.id === id) { HX.open.data = d; draw(); } })
+    .catch(function (e) { HX.open = null; draw(); K.toast((e && e.message) || 'Could not open that session.'); });
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+function drawDetail() {
+  var o = HX.open, d = o.data, r = root();
+  var head = '<button class="btn btn-ghost btn-sm" data-action="hx-back" style="margin:-4px 0 10px -8px">' + ic('i-back', 'ic-sm') + 'All sessions</button>';
+  if (!d) { r.innerHTML = head + '<article class="card"><div class="skel" style="height:28px;width:60%"></div><div class="skel" style="height:90px;margin-top:16px"></div><div class="skel" style="height:90px;margin-top:12px"></div></article>'; return; }
+  var ok = d.items.filter(function (x) { return x.ok === true; }).length, bad = d.items.filter(function (x) { return x.ok === false; }).length, sc = scoreText(d);
+  r.innerHTML = head +
+    '<div class="hx-hero" style="--c:' + (COLOR[d.skill] || 'var(--primary)') + '"><span class="tint dot">' + ic(ICON[d.kind] || 'i-layers') + '</span><div class="grow"><h2>' + esc(d.title) + '</h2><div class="small">' + esc(dayLabel(d.day) + ' · ' + timeOf(d.at) + (d.minutes ? ' · ' + d.minutes + ' min' : '')) + '</div></div>' + (sc ? '<div class="hx-big num">' + esc(sc) + '</div>' : '') + '</div>' +
+    (ok + bad ? '<div class="hx-sum"><span class="ok">' + ic('i-check', 'ic-sm') + ok + ' right</span><span class="bad">' + ic('i-x', 'ic-sm') + bad + ' to review</span>' + (bad ? '<button class="linkbtn" data-action="hx-only-bad" aria-pressed="' + !!o.onlyBad + '">' + (o.onlyBad ? 'Show all' : 'Show only mistakes') + '</button>' : '') + '</div>' : '') +
+    '<article class="card hx-items">' + (d.items.length ? d.items.map(function (x, i) { return o.onlyBad && x.ok !== false ? '' : itemHtml(x, i + 1); }).join('') : '<p class="muted">No questions were saved for this session.</p>') + '</article>';
+}
+
+/* ---------- the question index inside a lesson ---------- */
+var QI = { providers: [], sel: null };
+/* Each module adds a function that returns its questions while one of its sessions is open, or null. */
+function provide(fn) { QI.providers.push(fn); }
+function current() { for (var i = 0; i < QI.providers.length; i++) { var p = null; try { p = QI.providers[i](); } catch (e) {} if (p && p.items && p.items.length) return p; } return null; }
+function pill(cur, total) { return '<button class="qi-pill" data-action="qi-open" aria-label="Question ' + cur + ' of ' + total + '. Open the list of questions">' + '<span class="num">' + cur + ' / ' + total + '</span>' + ic('i-list', 'ic-sm') + '</button>'; }
+function qiOpen() {
+  var p = current(); if (!p) return K.toast('No questions answered yet.');
+  QI.data = p; if (QI.sel === null || !p.items[QI.sel] || !p.items[QI.sel].done) { QI.sel = null; for (var i = p.items.length - 1; i >= 0; i--) if (p.items[i].done) { QI.sel = i; break; } }
+  var el = $('#qi'); if (!el) { document.body.insertAdjacentHTML('beforeend', '<div class="qw center" id="qi" role="dialog" aria-modal="true" aria-label="Questions"></div>'); el = $('#qi'); }
+  qiDraw(); el.className = 'qw center on';
+}
+function qiDraw() {
+  var p = QI.data, el = $('#qi'); if (!p || !el) return;
+  var tiles = p.items.map(function (x, i) {
+    var st = x.cur ? 'cur' : !x.done ? 'todo' : x.ok === true ? 'ok' : x.ok === false ? 'bad' : 'na';
+    return '<button class="qi-t ' + st + (QI.sel === i ? ' sel' : '') + '" data-action="qi-pick" data-i="' + i + '"' + (x.done ? '' : ' disabled') + ' aria-label="Question ' + (i + 1) + '">' + (i + 1) + '</button>';
+  }).join('');
+  var x = QI.sel !== null ? p.items[QI.sel] : null;
+  el.innerHTML = '<div class="qw-in qi-in"><div class="qw-head"><span class="qw-tag">' + ic('i-list', 'ic-sm') + esc(p.title || 'Questions') + '</span><button class="iconbtn" data-action="qi-close" aria-label="Close">' + ic('i-x') + '</button></div>' +
+    '<div class="qi-grid">' + tiles + '</div>' +
+    '<div class="qi-legend tiny muted"><span><i class="ok"></i>Right</span><span><i class="bad"></i>Wrong</span><span><i class="cur"></i>Now</span>' + (p.note ? '<span>' + esc(p.note) + '</span>' : '') + '</div>' +
+    (x ? '<div class="qi-view">' + itemHtml(x, QI.sel + 1) + '</div>' : '<p class="small muted" style="margin-top:12px">Answered questions open here so you can look at them again.</p>') +
+    '<div class="row-between mt"><span></span><button class="btn btn-primary" data-action="qi-close">Back to the question</button></div></div>';
+}
+function qiClose() { var el = $('#qi'); if (el) el.className = 'qw center'; }
+
+provide(function () {
+  var log = K.state.view === 'assessment' && K.ptLog && K.ptLog(); if (!log || !log.length) return null;
+  return { title: 'Placement test', note: 'Answers in this test cannot be changed.', items: log.map(function (x) { return Object.assign({}, x, { ok: null }); }).concat([{ q: 'Current question', done: false, cur: true }]) };
+});
+K.history = { save: save, itemHtml: itemHtml, reset: function () { HX.items = null; } };
+K.qindex = { provide: provide, pill: pill, open: qiOpen, close: qiClose };
+K.register('history', { title: 'History', render: function () { HX.open = null; if (!HX.items && K.live) load(false); draw(); }, refresh: function () {} });
+K.actions({
+  'hx-filter': function (el) { HX.filter = el.dataset.f; load(false); },
+  'hx-reload': function () { load(false); },
+  'hx-more': function () { load(true); },
+  'hx-open': function (el) { if (el.dataset.nodetail) return K.toast('This session is from before History was added, so only its score was kept.'); openSession(el.dataset.id); },
+  'hx-back': function () { HX.open = null; draw(); },
+  'hx-only-bad': function () { HX.open.onlyBad = !HX.open.onlyBad; drawDetail(); },
+  'qi-open': qiOpen, 'qi-close': qiClose,
+  'qi-pick': function (el) { QI.sel = parseInt(el.dataset.i, 10); qiDraw(); }
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('#qi.on')) { e.preventDefault(); qiClose(); } });
+document.addEventListener('click', function (e) { if (e.target && e.target.id === 'qi') qiClose(); });
+})();
+</script>

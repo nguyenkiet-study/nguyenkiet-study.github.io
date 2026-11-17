@@ -1,0 +1,65 @@
+<div class="dash">
+<div id="dash-banner" class="d-o0"></div>
+
+<div class="dash-top">
+  <section class="dash-hero bg-navy-flow d-o1" aria-labelledby="greeting">
+    <div class="dh-main">
+      <h1 id="greeting">Good morning</h1>
+      <p class="rec" id="rec-text"></p>
+      <div id="up-next"></div>
+      <div class="cta" id="welcome-cta"></div>
+    </div>
+    <div class="dh-rings" id="dash-rings" role="group" aria-label="Your progress"></div>
+  </section>
+  <div class="dash-stats d-o7" id="dash-stats"></div>
+</div>
+
+<div id="dash-mix" class="d-o2"></div>
+
+<div class="dash-tiles d-o2" id="dash-skillrow" aria-label="Your skills"></div>
+
+<div class="dash-cols">
+  <div class="dash-col">
+    <article class="card d-o3">
+      <div class="card-head"><h2>Continue learning</h2><span class="small muted" id="week-total"></span></div>
+      <div id="dash-plan" class="cl-list"></div>
+    </article>
+
+    <article class="card d-o4">
+      <div class="card-head"><h2>Coming up</h2><span class="small muted">Spaced reviews</span></div>
+      <div class="up-list"><div id="dash-words"></div><div id="dash-grammar"></div><p class="up-empty small muted">Reviews for your words and grammar lessons will show up here, with the day they are due.</p></div>
+    </article>
+
+    <article class="card d-o8">
+      <div class="card-head"><h2 id="cal-title">Study calendar</h2>
+        <div class="cal-nav"><button class="icon-btn" data-action="cal-move" data-d="-1" aria-label="Previous month"><svg class="ic ic-sm" style="transform:scaleX(-1)"><use href="#i-arrow"/></svg></button><button class="icon-btn" data-action="cal-move" data-d="1" aria-label="Next month"><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button></div>
+      </div>
+      <div id="dash-cal"></div>
+    </article>
+
+    <article class="card d-o10">
+      <div class="card-head"><h2>Recent activity</h2><button class="btn btn-ghost btn-sm" data-go="history">See all<svg class="ic ic-sm"><use href="#i-arrow"/></svg></button></div>
+      <div id="dash-activity"></div>
+    </article>
+  </div>
+
+  <div class="dash-col">
+    <article class="card d-o5">
+      <div class="card-head">
+        <h2>Your skill profile</h2>
+        <span class="pill plain" id="radar-state">Measured</span>
+      </div>
+      <div class="rx-layers" id="dash-layers" role="group" aria-label="Layers on the chart"></div>
+      <div id="dash-radar" class="rx-wrap"></div>
+      <div id="dash-skill" class="rx-card" aria-live="polite"></div>
+    </article>
+
+    <div id="dash-study" class="d-o6"></div>
+
+    <article class="card d-o9">
+      <div class="card-head"><h2>Time by skill</h2><span class="small muted">This week</span></div>
+      <div id="dash-mix"></div>
+    </article>
+  </div>
+</div>
+</div>

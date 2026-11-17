@@ -1,0 +1,288 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Waiting screen
+   The card opens at once for every call listed in STEPS, with:
+   - Kel and the steps of what is happening ("Reading your answer… Checking grammar…"), always;
+   - one of four things to do meanwhile, never the same kind twice in a row:
+       word  - one of your own words from Words: tap to see the meaning
+       quiz  - one quick question, answer shown at once (not scored)
+       tip   - a mistake Vietnamese learners often make, and the fix
+       kel   - Kel and a few kind words
+   The card sits in the page itself, under the part that is loading (not a popup), with a Kel that fits the kind.
+       fact  - a short fact about English
+   While your work is being marked, only facts and tips are shown (no questions to answer).
+   A question or a word card waits for you: when the work is ready the card says "Ready" and the page opens when you
+   tap Continue. Facts and tips close by themselves. "Hide" closes it early; the work carries on.
+   ===================================================================== */
+var K = window.Kelvin, $ = K.$, esc = K.esc, ic = K.ic;
+var WAIT_AFTER = 0;
+// marking your work: facts only, no questions
+var GRADING = { practiceSubmit: 1, placementWriting: 1, placementSpeaking: 1, grammarFree: 1, grammarJudge: 1, grammarRead: 1, wordsCheck: 1, drillFinish: 1 };
+// quick page loads: something light that does not hold the page
+var LIGHT = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1 };
+var STEPS = {
+  practiceSubmit: ['Reading your answer', 'Checking grammar and words', 'Writing your feedback'],
+  practiceStart: ['Choosing your task', 'Getting it ready'],
+  placementStart: ['Building your test', 'Choosing questions for you'],
+  placementWriting: ['Reading your answer', 'Rating your level', 'Writing your feedback'],
+  placementSpeaking: ['Reading what you said', 'Rating your level', 'Writing your feedback'],
+  grammarFree: ['Reading your sentences', 'Checking the grammar', 'Writing tips for you'],
+  grammarJudge: ['Reading your sentence', 'Comparing it with the model', 'Writing a short note'],
+  grammarLesson: ['Opening the lesson', 'Getting the exercises ready'],
+  grammarRead: ['Reading your handwriting', 'Copying it into text'],
+  convStart: ['Writing a new conversation', 'Checking the questions', 'Getting the voices ready'],
+  wordsCheckStart: ['Getting your words ready'],
+  wordsRound: ['Getting your words ready'],
+  wordsReview: ['Getting your words ready'],
+  cmFeed: ['Loading the group', 'Getting the latest posts'],
+  msgThreads: ['Loading your messages'],
+  grammarHome: ['Loading your lessons'],
+  historyList: ['Loading your history'],
+  wordsToday: ['Getting today\'s words'],
+  mixStart: ['Mixing today\'s practice', 'Choosing words, sentences and sounds'],
+  drillStart: ['Choosing sentences for you', 'Getting the exercises ready']
+};
+// the Kel that goes with each kind of waiting content
+var KEL_OF = { word: ['kel-studying', 'kel-reading', 'kel-star-eyes'], quiz: ['kel-exam', 'kel-thinking'], tip: ['kel-teacher', 'kel-surprised'], fact: ['kel-reading', 'kel-thinking', 'kel-star-eyes'], kel: ['kel-wave', 'kel-thumbs-up', 'kel-yay', 'kel-party', 'kel-exercise', 'kel-relax'] };
+var QUIZ = [
+  ['I look forward to ___ you.', ['see', 'seeing', 'saw'], 1, 'After "look forward to", use the -ing form.'],
+  ['She ___ in Ho Chi Minh City since 2020.', ['lives', 'has lived', 'is living'], 1, '"Since + a time" needs the present perfect.'],
+  ['Can you ___ me the report?', ['send', 'sending', 'to send'], 0, 'After "can", use the base verb.'],
+  ['We discussed ___ the new plan.', ['about', '(nothing)', 'on'], 1, '"Discuss" needs no preposition: discuss the plan.'],
+  ['I am interested ___ marketing.', ['on', 'in', 'at'], 1, 'Interested in something.'],
+  ['He ___ to the meeting yesterday.', ['doesn\'t come', 'didn\'t come', 'not came'], 1, 'Past simple negative: didn\'t + base verb.'],
+  ['There ___ many people at the party.', ['was', 'were', 'is'], 1, '"People" is plural: there were.'],
+  ['This is the ___ day of my life!', ['better', 'best', 'most good'], 1, 'Superlative of good: the best.'],
+  ['If I ___ more time, I would travel.', ['have', 'had', 'will have'], 1, 'Second conditional: if + past simple.'],
+  ['I\'m used to ___ early.', ['get up', 'getting up', 'got up'], 1, '"Be used to" + -ing.'],
+  ['Please reply ___ this email by Friday.', ['to', '(nothing)', 'for'], 0, 'Reply to an email.'],
+  ['I have ___ information for you.', ['an', 'some', 'many'], 1, '"Information" has no plural: some information.'],
+  ['She is good ___ English.', ['in', 'at', 'on'], 1, 'Good at something.'],
+  ['We ___ dinner when the phone rang.', ['had', 'were having', 'have'], 1, 'Past continuous for the longer action.'],
+  ['The report ___ by Lan last week.', ['wrote', 'was written', 'is written'], 1, 'Passive in the past: was + past participle.'],
+  ['How ___ does it cost?', ['many', 'much', 'long'], 1, 'Money: how much.'],
+  ['I ___ my keys. I can\'t open the door.', ['lost', 'have lost', 'lose'], 1, 'Present perfect: the result matters now.'],
+  ['He suggested ___ a break.', ['to take', 'taking', 'take'], 1, '"Suggest" + -ing.'],
+  ['You ___ wear a seat belt. It\'s the law.', ['must', 'should', 'can'], 0, 'A rule or law: must.'],
+  ['I\'ll call you when I ___ home.', ['will get', 'get', 'got'], 1, 'After "when" about the future, use the present simple.'],
+  ['Neither of them ___ ready.', ['are', 'is', 'be'], 1, '"Neither of" takes a singular verb in careful English.'],
+  ['She asked me where ___.', ['do I live', 'I lived', 'did I live'], 1, 'Reported question: normal word order.'],
+  ['The meeting is ___ Monday ___ 9 a.m.', ['on, at', 'in, on', 'at, in'], 0, 'On + day, at + clock time.'],
+  ['I enjoy ___ with my team.', ['to work', 'working', 'work'], 1, '"Enjoy" + -ing.'],
+  ['It\'s ___ expensive for me to buy.', ['too', 'very', 'enough'], 0, '"Too" means more than is OK.'],
+  ['Have you ever ___ to Japan?', ['gone', 'been', 'went'], 1, '"Been to" = visited and came back.'],
+  ['My boss made me ___ the slides again.', ['to do', 'do', 'doing'], 1, '"Make someone do" without "to".'],
+  ['I wish I ___ speak French.', ['can', 'could', 'will'], 1, 'Wish + could for an ability you don\'t have.'],
+  ['Each of the students ___ a laptop.', ['have', 'has', 'having'], 1, '"Each" takes a singular verb.'],
+  ['Let\'s meet ___ the weekend.', ['in', 'at', 'on'], 1, 'British: at the weekend (American: on the weekend).']
+];
+var TIPS = [
+  ['I am agree with you.', 'I agree with you.', '"Agree" is a verb, so no "am".'],
+  ['She is very like music.', 'She really likes music.', 'Use "really likes", not "is very like".'],
+  ['We will discuss about it.', 'We will discuss it.', '"Discuss" takes no "about".'],
+  ['I have many homeworks.', 'I have a lot of homework.', '"Homework" has no plural.'],
+  ['He go to work by bus.', 'He goes to work by bus.', 'He / she / it + -s in the present simple.'],
+  ['Yesterday I go to the office.', 'Yesterday I went to the office.', 'A finished time in the past needs the past tense.'],
+  ['I very like it.', 'I like it very much.', '"Very much" goes after the object.'],
+  ['Please contact with me.', 'Please contact me.', '"Contact" takes no "with".'],
+  ['I\'m boring today.', 'I\'m bored today.', '-ed is how you feel; -ing is what causes it.'],
+  ['She has 30 years old.', 'She is 30 years old.', 'Age uses "be".'],
+  ['Open the light, please.', 'Turn on the light, please.', 'Lights and machines: turn on / turn off.'],
+  ['I will go to there tomorrow.', 'I will go there tomorrow.', '"There" needs no "to".'],
+  ['How to say this in English?', 'How do you say this in English?', 'A question needs "do".'],
+  ['I\'m waiting you.', 'I\'m waiting for you.', 'Wait for someone.'],
+  ['My English is not good so much.', 'My English is not very good.', 'Use "not very" + adjective.'],
+  ['I have went there.', 'I have been there.', 'Have + past participle (been), not past simple.'],
+  ['Can you borrow me your pen?', 'Can you lend me your pen?', 'You lend to someone; you borrow from someone.'],
+  ['I play game every night.', 'I play games every night.', 'Countable nouns need -s in general statements.'],
+  ['Tomorrow I will call to you.', 'Tomorrow I will call you.', '"Call" takes no "to".'],
+  ['It\'s depend on you.', 'It depends on you.', 'Depend is a verb: it depends.'],
+  ['I\'m study English.', 'I\'m studying English.', 'Present continuous: be + -ing.'],
+  ['Remember me to buy milk.', 'Remind me to buy milk.', 'Remind = help someone remember.'],
+  ['She speaks English very good.', 'She speaks English very well.', 'Verbs take "well"; nouns take "good".'],
+  ['I don\'t know what is it.', 'I don\'t know what it is.', 'Inside a sentence, keep normal word order.'],
+  ['Let\'s go to shopping.', 'Let\'s go shopping.', 'Go + -ing for activities.'],
+  ['I live in Vietnam since 2015.', 'I have lived in Vietnam since 2015.', 'Since + time needs the present perfect.'],
+  ['Make a photo of me.', 'Take a photo of me.', 'Take a photo.'],
+  ['He is more taller than me.', 'He is taller than me.', 'Use -er or more, not both.'],
+  ['The price is very expensive.', 'The price is very high.', 'Prices are high or low; things are expensive.'],
+  ['Thank you for your helping.', 'Thank you for your help.', 'Help is the noun here.']
+];
+var FACTS = [
+  'English has more than 170,000 words in use, but about 3,000 cover most of daily conversation.',
+  '"Set" has one of the longest entries in English dictionaries, with hundreds of meanings.',
+  'The most common English word is "the". Next come "be", "to", "of" and "and".',
+  'Native speakers link words: "an apple" sounds like "a napple".',
+  'The "-ed" ending has three sounds: /t/ in worked, /d/ in played, /ɪd/ in wanted.',
+  'English spelling and sound do not always match: "though", "through" and "tough" all end differently.',
+  'Phrasal verbs like "give up" and "look after" are among the most used verbs in spoken English.',
+  'Stress changes meaning: REcord is a noun, reCORD is a verb.',
+  'About 60 percent of English words come from French and Latin.',
+  'Learners remember a word better after meeting it 7 to 10 times in different sentences.',
+  'Saying a word out loud helps you remember it better than reading it silently.',
+  '"Schwa" /ə/ is the most common vowel sound in English, as in the first sound of "about".',
+  'British "flat" and American "apartment" mean the same thing.',
+  'Questions in English often go up at the end only when the answer is yes or no.',
+  'Short daily practice works better than one long session a week. Your brain sorts new words while you sleep.',
+  'The letter "e" is the most used letter in English writing.',
+  '"Fewer" is for things you can count (fewer cars). "Less" is for things you cannot (less traffic).',
+  'Many emails are judged by the first line. Start with the reason you are writing.',
+  'Listening to the same short audio several times helps more than many new ones once.',
+  'Contractions like "I\'m" and "don\'t" make your English sound natural in speaking.'
+];
+var HEAD = {
+  quiz: 'While Kelvin gets things ready, try this one:',
+  word: 'Meanwhile… do you still remember this word?',
+  tip: 'While you wait: a mistake many Vietnamese learners make',
+  fact: 'Did you know?',
+  kel: 'Kel says:'
+};
+var CHEERS = [
+  'Small steps every day beat one big step once a week.',
+  'Mistakes are how your brain learns. Keep going.',
+  'You are building a skill that lasts for life.',
+  'Ten minutes today is ten minutes closer.',
+  'Say it out loud. Your mouth needs practice too.',
+  'Every word you save is a word you will own.'
+];
+var KELS = ['kel-wave', 'kel-thumbs-up', 'kel-yay', 'kel-party', 'kel-star-eyes', 'kel-laugh'];
+var STK_BASE = location.protocol === 'file:' ? 'web/stickers/' : /github\.io$/.test(location.hostname) ? 'stickers/' : 'https://nguyenkiet-study.github.io/stickers/';
+
+/* pictures on the sign-in page */
+Array.prototype.forEach.call(document.querySelectorAll('img[data-stk]'), function (i) { i.src = STK_BASE + i.dataset.stk + '.webp'; });
+
+var W = { n: 0, timer: 0, stepTimer: 0, steps: [], si: 0, last: '', open: false, hidden: false, item: null };
+
+function myWords() {
+  var w = K.words && K.words.state, out = [];
+  try {
+    (w && w.items || []).forEach(function (x) { if (x.w && x.def) out.push({ w: x.w, def: x.def, vi: x.vi || '' }); });
+    (w && w.sv && w.sv.items || []).forEach(function (x) { if (x.w && x.def) out.push({ w: x.w, def: x.def, vi: x.vi || '' }); });
+  } catch (e) {}
+  return out;
+}
+function pickKind() {
+  if (K.wait && K.wait._force) { var f = K.wait._force; K.wait._force = null; W.last = f; return f; }
+  var kinds = W.mode === 'grade' ? ['fact', 'tip', 'fact'] : W.mode === 'light' ? ['fact', 'tip', 'kel'] : ['quiz', 'tip', 'kel', 'fact'];
+  if (W.mode === 'full' && myWords().length) kinds.push('word', 'word'); // your own words come up more often
+  kinds = kinds.filter(function (k) { return k !== W.last; });
+  var k = kinds[Math.floor(Math.random() * kinds.length)];
+  W.last = k; return k;
+}
+function rnd(a) { return a[Math.floor(Math.random() * a.length)]; }
+function body() {
+  var k = pickKind(), h;
+  if (k === 'word') {
+    var x = rnd(myWords()); W.item = x;
+    h = '<div class="wt-k">' + ic('i-cards', 'ic-sm') + 'One of your words</div><button class="wt-card" data-action="wt-flip"><b class="cap">' + esc(x.w) + '</b><span class="wt-back" hidden>' + esc(x.def) + (x.vi ? '<em>' + esc(x.vi) + '</em>' : '') + '</span><span class="tiny muted wt-hint">Tap to see the meaning</span></button>';
+  } else if (k === 'quiz') {
+    var q = rnd(QUIZ); W.item = q;
+    h = '<div class="wt-k">' + ic('i-spell', 'ic-sm') + 'Quick question</div><div class="wt-q">' + esc(q[0]).replace('___', '<span class="wt-gap">___</span>') + '</div><div class="wt-opts">' +
+      q[1].map(function (o, i) { return '<button data-action="wt-quiz" data-i="' + i + '">' + esc(o) + '</button>'; }).join('') + '</div><div class="wt-why small" hidden></div>';
+  } else if (k === 'tip') {
+    var t = rnd(TIPS);
+    h = '<div class="wt-k">' + ic('i-bulb', 'ic-sm') + 'Common mistake</div><div class="wt-tip"><div class="no">' + ic('i-x', 'ic-sm') + esc(t[0]) + '</div><div class="ok">' + ic('i-check', 'ic-sm') + esc(t[1]) + '</div><div class="small muted">' + esc(t[2]) + '</div></div>';
+  } else if (k === 'fact') {
+    h = '<p class="wt-cheer">' + esc(rnd(FACTS)) + '</p>';
+  } else {
+    h = '<p class="wt-cheer">' + esc(rnd(CHEERS)) + '</p>';
+  }
+  h = '<div class="wt-head">' + esc(HEAD[k]) + '</div>' + h.replace(/<div class="wt-k">[\s\S]*?<\/div>/, '');
+  W.kind = k;
+  return '<div class="wt-row"><img class="wt-kelimg" src="' + STK_BASE + rnd(KEL_OF[k]) + '.webp" alt="" draggable="false"><div class="wt-main">' + h + '</div></div>';
+}
+function stepText() { return W.steps.length ? W.steps[Math.min(W.si, W.steps.length - 1)] + '…' : 'Working on it…'; }
+/* Where the card goes: under the block that is loading, in the page that is open. */
+var lastTap = null, tapAt = 0;
+document.addEventListener('click', function (e) { lastTap = e.target; tapAt = Date.now(); }, true);
+// page loads that also run in the background (refresh, polling) only get the card right after a tap
+var ON_TAP = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1 };
+function spot() {
+  var view = document.querySelector('.view:not([hidden])') || document.querySelector('main') || document.body;
+  var t = lastTap && lastTap.isConnected && view.contains(lastTap) ? lastTap.closest('.dr-entry, .cv-entry, .gr-row, article, .card, .sheet') : null;
+  if (t && t.matches('.sheet')) t = t.closest('article, .card') || null;
+  if (!t) {
+    var all = view.querySelectorAll('article, .card'), i;
+    for (i = 0; i < all.length; i++) if (/Loading|Preparing|Saving|Checking|Opening/i.test(all[i].textContent.slice(0, 200)) && all[i].offsetParent) { t = all[i]; break; }
+  }
+  if (!t) t = view.querySelector('article, .card');
+  return { view: view, after: t };
+}
+function show(steps) {
+  W.steps = steps || []; W.si = 0; W.open = true; W.hidden = false;
+  var old = $('#wait-card'); if (old) old.remove();
+  var at = spot(), el = document.createElement('div');
+  el.id = 'wait-card'; el.className = 'wt'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+  el.innerHTML = '<button class="linkbtn wt-hide" data-action="wt-hide">Hide</button><div class="wt-body">' + body() + '</div>' +
+    '<div class="wt-bar"><i></i></div><div class="wt-top"><span class="wt-dot"></span><span class="wt-step">' + esc(stepText()) + '</span></div>';
+  if (at.after && at.after.parentNode) at.after.parentNode.insertBefore(el, at.after.nextSibling); else at.view.insertBefore(el, at.view.firstChild);
+  // a block that only says "Loading…" steps aside: the card says the same and more
+  if (at.after && at.after.textContent.trim().length < 70 && /Loading|Preparing|Opening/i.test(at.after.textContent)) { at.after.classList.add('wt-src'); W.src = at.after; }
+  requestAnimationFrame(function () {
+    el.classList.add('on');
+    var r = el.getBoundingClientRect();
+    if (r.top > window.innerHeight - 120 || r.bottom < 80) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} }
+  });
+  // if the page redraws and wipes the card while work is still going on, put it back under the new content
+  W.el = el; clearInterval(W.keep);
+  W.keep = setInterval(function () {
+    if (!W.open) return clearInterval(W.keep);
+    if (!document.body.contains(W.el)) { var a2 = spot(); if (a2.after && a2.after.parentNode) a2.after.parentNode.insertBefore(W.el, a2.after.nextSibling); else a2.view.insertBefore(W.el, a2.view.firstChild); }
+  }, 300);
+  clearInterval(W.stepTimer);
+  W.stepTimer = setInterval(function () { if (W.si < W.steps.length - 1) { W.si++; var s = $('#wait-card .wt-step'); if (s) s.textContent = stepText(); } }, 2600);
+}
+function hide() {
+  W.open = false; clearInterval(W.stepTimer); clearInterval(W.keep);
+  if (W.src) { W.src.classList.remove('wt-src'); W.src = null; }
+  var el = $('#wait-card'); if (!el) return;
+  el.classList.remove('on'); el.classList.add('off');
+  setTimeout(function () { if (el.parentNode && !el.classList.contains('on')) el.remove(); }, 220);
+}
+/* Wraps the API: calls in STEPS open the card at once. When the last of them returns, facts and tips close by
+   themselves; a question or a word card says "Ready" and waits for Continue, so the learner can finish it. */
+var call = K.Api.call;
+K.Api.call = function (fn, payload) {
+  var p = call.apply(K.Api, arguments);
+  if (!STEPS[fn] || !K.live) return p;
+  if (ON_TAP[fn] && Date.now() - tapAt > 2500) return p;
+  W.n++;
+  // shown right away: after the page has drawn its own 'loading' state (a few ms), so the card is not wiped by it
+  if (!W.open && !W.hidden && !W.soon) { W.soon = setTimeout(function () { W.soon = 0; if (W.n && !W.open && !W.hidden) { W.mode = GRADING[fn] ? 'grade' : LIGHT[fn] ? 'light' : 'full'; show(STEPS[fn]); } }, 40); }
+  return new Promise(function (res, rej) {
+    var end = function (go, failed) {
+      W.n = Math.max(0, W.n - 1);
+      if (W.n) return go();
+      if (!failed && W.open && !W.hidden && !window.__noWaitHold && (W.kind === 'quiz' || W.kind === 'word')) return ready(go);
+      hide(); W.hidden = false; go();
+    };
+    p.then(function (v) { end(function () { res(v); }); }, function (e) { end(function () { rej(e); }, true); });
+  });
+};
+function ready(go) {
+  W.go = go; clearInterval(W.stepTimer);
+  var el = $('#wait-card'); if (!el) { W.go = null; return go(); }
+  el.classList.add('ready');
+  var st = $('.wt-step', el); if (st) st.textContent = 'Ready';
+  var top = $('.wt-top', el);
+  if (top && !$('.wt-go', el)) top.insertAdjacentHTML('beforeend', '<button class="btn btn-primary btn-sm wt-go" data-action="wt-go">Continue' + ic('i-arrow', 'ic-sm') + '</button>');
+}
+function release() { var g = W.go; W.go = null; hide(); W.hidden = false; if (g) g(); }
+K.wait = { show: show, hide: hide, QUIZ: QUIZ, TIPS: TIPS };
+
+K.actions({
+  'wt-hide': function () { if (W.go) return release(); W.hidden = true; hide(); },
+  'wt-go': release,
+  'wt-flip': function (el) { var b = $('.wt-back', el), h = $('.wt-hint', el); if (b) b.hidden = !b.hidden; if (h) h.hidden = !b.hidden; },
+  'wt-quiz': function (el) {
+    var q = W.item; if (!q || !q[1]) return;
+    var i = Number(el.dataset.i), box = el.parentNode;
+    Array.prototype.forEach.call(box.children, function (b, k) { b.disabled = true; if (k === q[2]) b.classList.add('right'); else if (k === i) b.classList.add('wrong'); });
+    var why = $('#wait-card .wt-why'); if (why) { why.hidden = false; why.innerHTML = '<b>' + (i === q[2] ? 'Right!' : 'Not quite.') + '</b> ' + esc(q[3]); }
+  }
+});
+})();
+</script>

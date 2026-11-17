@@ -1,0 +1,1532 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Kelvin front end (Phase 1)
+   - Everything below runs in the browser.
+   - Api.call() is the only place that talks to the server. Inside Apps Script
+     (google.script.run exists) it calls apiCall() in Api.gs. Anywhere else, for
+     example the preview page, it answers from sample data so the UI can be reviewed.
+   ===================================================================== */
+
+var BACKEND_READY = !!(window.google && google.script && google.script.run) || !!window.KELVIN_API_URL;
+var PUBLIC_CALLS = { login: 1, register: 1, publicConfig: 1 };
+
+/* ---------- constants ---------- */
+var SKILLS = ['speaking', 'listening', 'reading', 'writing'];
+var SK = {
+  speaking:  { label: 'Speaking',  icon: 'i-mic',        blurb: 'Hold everyday conversations with confidence.' },
+  listening: { label: 'Listening', icon: 'i-headphones', blurb: 'Follow natural speech at real-world speed.' },
+  reading:   { label: 'Reading',   icon: 'i-book',       blurb: 'Understand articles, emails and reports.' },
+  writing:   { label: 'Writing',   icon: 'i-pen',        blurb: 'Write clearly for work, study and life.' },
+  grammar:   { label: 'Grammar',   icon: 'i-spell',      blurb: 'Lessons built around your own mistakes.' },
+  words:     { label: 'Words',     icon: 'i-cards',      blurb: 'Build the words you need for work and daily life.' }
+};
+var LV = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+var LV_NAME = { A1: 'Beginner', A2: 'Elementary', B1: 'Intermediate', B2: 'Upper Intermediate', C1: 'Advanced', C2: 'Proficient' };
+var LV_CAN = {
+  A1: 'I know basic words and can introduce myself.',
+  A2: 'I can handle simple, everyday situations.',
+  B1: 'I can talk about familiar topics and travel.',
+  B2: 'I can follow complex texts and speak fluently.',
+  C1: 'I use English flexibly for work and study.',
+  C2: 'I understand almost everything with ease.'
+};
+var GOALS = [
+  { id: 'daily',     label: 'Daily communication',    desc: 'Small talk, shopping, making plans' },
+  { id: 'business',  label: 'Business English',       desc: 'Meetings, emails, negotiation' },
+  { id: 'workplace', label: 'Workplace communication', desc: 'Working with teammates and clients' },
+  { id: 'interview', label: 'Interview preparation',  desc: 'Answering questions with confidence' },
+  { id: 'academic',  label: 'Academic English',       desc: 'Lectures, essays and research' },
+  { id: 'travel',    label: 'Travel English',         desc: 'Airports, hotels, getting around' }
+];
+var ACTION = {
+  speaking: 'spending more time on conversation practice',
+  listening: 'listening to more natural, fast speech',
+  reading: 'reading longer texts and noting new vocabulary',
+  writing: 'writing short messages every day and reviewing grammar'
+};
+var WEEKLY = {
+  speaking: '3 conversation drills, 15 minutes each',
+  listening: '4 short dialogues at natural speed',
+  reading: '2 articles with vocabulary notes',
+  writing: '2 short emails with a grammar review'
+};
+
+/* ---------- sample data (replaced by server data in Phase 2) ---------- */
+var MOCK = {
+  user: { name: 'Alex Morgan', username: 'alex.morgan' },
+  self: { speaking: 'B1', listening: 'B1', reading: 'B1', writing: 'B1' },
+  skills: {
+    speaking:  { level: 'A2', progress: 42, measured: true },
+    listening: { level: 'B1', progress: 58, measured: true },
+    reading:   { level: 'B2', progress: 71, measured: true },
+    writing:   { level: 'A2', progress: 36, measured: true }
+  },
+  totals: { hours: 18.5, lessons: 42, streak: 6 },
+  weekly: [20, 35, 0, 25, 40, 15, 30],
+  goals: ['business', 'workplace'],
+  recent: [
+    { skill: 'reading',   title: 'Placement test: Reading', meta: 'Measured B2, high confidence', when: 'Today' },
+    { skill: 'speaking',  title: 'Conversation drill: Ordering food', meta: '12 min', when: 'Yesterday' },
+    { skill: 'writing',   title: 'Email practice: Rescheduling a meeting', meta: '15 min', when: '2 days ago' },
+    { skill: 'listening', title: 'Dialogue: Train announcement', meta: '3 of 3 correct', when: '3 days ago' },
+    { skill: 'reading',   title: 'Article: The four-day week', meta: '2 of 3 correct', when: 'Last week' }
+  ],
+  report: {
+    speaking:  { level: 'A2', conf: 'Medium', strengths: ['Gives basic everyday information', 'Pronounces common words clearly'], weaknesses: ['Limited vocabulary', 'Long pauses before answers'], next: ['Daily 2-minute voice journal', 'Describe-your-day drills'] },
+    listening: { level: 'B1', conf: 'High',   strengths: ['Understands general conversations', 'Finds the main idea quickly'], weaknesses: ['Loses detail in fast speech'], next: ['Dialogues at 1.15x speed', 'Note-taking while listening'] },
+    reading:   { level: 'B2', conf: 'High',   strengths: ['Follows professional texts', 'Infers meaning from context'], weaknesses: ['Complex academic vocabulary'], next: ['Long-form articles', 'Word-family review'] },
+    writing:   { level: 'A2', conf: 'Medium', strengths: ['Writes simple, correct sentences'], weaknesses: ['Verb tenses', 'Sentence structure'], next: ['Sentence-combining exercises', 'Short email drills'] }
+  }
+};
+
+/* ---------- state ---------- */
+var state = {
+  user: null,
+  token: null,
+  hasTest: false,
+  self: {},
+  goals: [],
+  skills: {},
+  totals: { hours: 0, lessons: 0, streak: 0 },
+  weekly: [0, 0, 0, 0, 0, 0, 0],
+  recent: [],
+  ov: null,
+  settings: { reminder: true, reduceMotion: false, accent: 'us', weeklyGoal: 150, voiceMode: 'ai', voiceName: '', quickWords: true, studyLang: 'vi', wordsGoal: 30, wordsRound: 5, wordsAuto: true, tapVoice: true },
+  view: 'dashboard',
+  ob: { step: 0, overall: null, skills: {}, goals: [] }
+};
+var timers = [];
+
+/* ---------- utilities ---------- */
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function li(l) { return LV.indexOf(l); }
+function ic(id, cls) { return '<svg class="ic ' + (cls || '') + '"><use href="#' + id + '"/></svg>'; }
+function firstName(n) { return String(n || '').trim().split(/\s+/)[0] || 'there'; }
+function initials(n) { var p = String(n || '?').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
+function store(k, v) { try { if (v === undefined) { var s = sessionStorage.getItem(k); return s ? JSON.parse(s) : null; } if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+function clearTimers() { timers.forEach(function (t) { clearInterval(t); }); timers = []; stopSpeech(); if (activeRec) { try { activeRec.stop(); } catch (e) {} activeRec = null; } }
+var toastT;
+function toast(msg) { var t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2600); }
+function skillScore(k) { var s = state.skills[k]; return li(s.level) + s.progress / 100; }
+function overallLevel() { var a = SKILLS.reduce(function (n, k) { return n + li(state.skills[k].level); }, 0) / 4; return LV[Math.round(a)]; }
+function overallPct() { var a = SKILLS.reduce(function (n, k) { return n + skillScore(k); }, 0) / 4; return Math.round(a / 6 * 100); }
+function seeded(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------- charts (plain SVG, no libraries) ---------- */
+function radar(levels, o) {
+  o = o || {};
+  var compact = window.innerWidth < 760, S = o.size || 360, c = S / 2, R = S / 2 - (compact ? 58 : 74), i, k, f, a;
+  function pt(idx, fr) { a = (-90 + idx * 90) * Math.PI / 180; return [c + Math.cos(a) * R * fr, c + Math.sin(a) * R * fr]; }
+  function poly(fr) { return SKILLS.map(function (_, j) { return pt(j, fr(j)).map(function (n) { return n.toFixed(1); }).join(','); }).join(' '); }
+  var out = '<svg class="radar" viewBox="-14 -8 ' + (S + 28) + ' ' + (S + 16) + '" role="img" aria-label="Skill radar: ' + SKILLS.map(function (s) { return SK[s].label + ' ' + levels[s]; }).join(', ') + '">';
+  for (k = 1; k <= 6; k++) out += '<polygon class="ring" points="' + poly(function () { return k / 6; }) + '"/>';
+  for (i = 0; i < 4; i++) { var e = pt(i, 1); out += '<line class="axis" x1="' + c + '" y1="' + c + '" x2="' + e[0].toFixed(1) + '" y2="' + e[1].toFixed(1) + '"/>'; }
+  for (k = 1; k <= 6; k++) { var m = pt(0, k / 6); out += '<text class="ringlab" x="' + (m[0] + 5).toFixed(1) + '" y="' + (m[1] + 11).toFixed(1) + '">' + LV[k - 1] + '</text>'; }
+  if (o.self) out += '<polygon class="poly-self" points="' + poly(function (j) { return (li(o.self[SKILLS[j]]) + 1) / 6; }) + '"/>';
+  out += '<g class="' + (o.animate === false ? '' : 'radar-draw') + '"><polygon class="poly" points="' + poly(function (j) { return (li(levels[SKILLS[j]]) + 1) / 6; }) + '"/>';
+  SKILLS.forEach(function (s, j) { var p = pt(j, (li(levels[s]) + 1) / 6); out += '<circle class="pt" r="6" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" style="fill:var(--c-' + s + ')"/>'; });
+  out += '</g>';
+  var L = [
+    { x: c, y: c - R - 34, an: 'middle' }, { x: c + R + 16, y: c - 2, an: 'start' },
+    { x: c, y: c + R + 28, an: 'middle' }, { x: c - R - 16, y: c - 2, an: 'end' }
+  ];
+  SKILLS.forEach(function (s, j) { out += '<text class="lab" x="' + L[j].x + '" y="' + L[j].y + '" text-anchor="' + L[j].an + '">' + SK[s].label + '</text><text class="sub" x="' + L[j].x + '" y="' + (L[j].y + 15) + '" text-anchor="' + L[j].an + '">' + levels[s] + (compact ? '' : ' ' + LV_NAME[levels[s]].split(' ')[0]) + '</text>'; });
+  return out + '</svg>';
+}
+/* ---------- the interactive skill profile on the dashboard ----------
+   Tap a skill (point or name) to see its detail card. Layers: Now, Last month (from the weekly level history),
+   Goal (one level above now) and, after the placement test, Start (your own first estimate).
+   The weakest skill is marked "Focus" and is the one selected when the page opens.
+   When a level changes, the shape slides from the old position to the new one. */
+var RX = { sel: null, layers: { now: true, prev: false, goal: false, self: false }, prev: null };
+function rxScore(k) { return li(state.skills[k].level) + (state.skills[k].progress || 0) / 100; }
+function rxWeak() { var w = SKILLS[0]; SKILLS.forEach(function (k) { if (rxScore(k) < rxScore(w) - 1e-9) w = k; }); return w; }
+function rxLastMonth() {
+  var h = state.ov && state.ov.history; if (!h) return null;
+  var out = {}, any = false;
+  SKILLS.forEach(function (k) { var v = (h[k] || [])[3]; if (v !== null && v !== undefined && isFinite(v)) { out[k] = LV[Math.max(0, Math.min(5, Math.floor(v)))]; any = true; } });
+  return any ? out : null;
+}
+function rxGoal() { var g = {}; SKILLS.forEach(function (k) { g[k] = LV[Math.min(5, li(state.skills[k].level) + 1)]; }); return g; }
+function rxLast(k) { var r = (state.recent || []).filter(function (a) { return a.skill === k; })[0]; return r ? r.when : ''; }
+function rxStoreKey() { return 'kelvin_rx_' + ((state.user && state.user.username) || 'me'); }
+function rxSvg(levels, o) {
+  var compact = window.innerWidth < 760, S = 360, c = S / 2, R = S / 2 - (compact ? 62 : 74), weak = o.weak, sel = o.sel;
+  function pt(j, fr) { var a = (-90 + j * 90) * Math.PI / 180; return [c + Math.cos(a) * R * fr, c + Math.sin(a) * R * fr]; }
+  function fr(map, k) { return (li(map[k]) + 1) / 6; }
+  function poly(map) { return SKILLS.map(function (k, j) { return pt(j, fr(map, k)).map(function (n) { return n.toFixed(1); }).join(','); }).join(' '); }
+  var out = '<svg class="radar rx" viewBox="-20 -14 ' + (S + 40) + ' ' + (S + 28) + '" role="group" aria-label="Skill profile: ' + SKILLS.map(function (k) { return SK[k].label + ' ' + levels[k]; }).join(', ') + '">', k, j;
+  for (k = 1; k <= 6; k++) out += '<polygon class="ring" points="' + poly({ speaking: LV[k - 1], listening: LV[k - 1], reading: LV[k - 1], writing: LV[k - 1] }) + '"/>';
+  for (j = 0; j < 4; j++) { var e = pt(j, 1); out += '<line class="axis" x1="' + c + '" y1="' + c + '" x2="' + e[0].toFixed(1) + '" y2="' + e[1].toFixed(1) + '"/>'; }
+  for (k = 1; k <= 6; k++) { var m = pt(0, k / 6); out += '<text class="ringlab" x="' + (m[0] + 5).toFixed(1) + '" y="' + (m[1] + 11).toFixed(1) + '">' + LV[k - 1] + '</text>'; }
+  if (o.goal) out += '<polygon class="rx-goal" points="' + poly(o.goal) + '"/>';
+  if (o.self) out += '<polygon class="poly-self" points="' + poly(o.self) + '"/>';
+  if (o.prevMonth) out += '<polygon class="rx-prev" points="' + poly(o.prevMonth) + '"/>';
+  if (o.now) {
+    var from = o.from ? poly(o.from) : null, to = poly(levels);
+    out += '<g class="' + (from || o.animate === false ? '' : 'radar-draw') + '"><polygon class="poly" points="' + to + '">' + (from && from !== to ? '<animate attributeName="points" from="' + from + '" to="' + to + '" dur="0.9s" fill="freeze" calcMode="spline" keySplines=".2 .8 .2 1"/>' : '') + '</polygon>';
+    SKILLS.forEach(function (k, j) {
+      var p = pt(j, fr(levels, k)), q = o.from ? pt(j, fr(o.from, k)) : p, moved = o.from && (q[0] !== p[0] || q[1] !== p[1]);
+      var anim = moved ? '<animate attributeName="cx" from="' + q[0].toFixed(1) + '" to="' + p[0].toFixed(1) + '" dur="0.9s" fill="freeze"/><animate attributeName="cy" from="' + q[1].toFixed(1) + '" to="' + p[1].toFixed(1) + '" dur="0.9s" fill="freeze"/>' : '';
+      if (k === weak) out += '<circle class="rx-pulse" r="9" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '"/>';
+      out += '<circle class="pt' + (k === weak ? ' weak' : '') + (k === sel ? ' on' : '') + '" r="' + (k === sel ? 8 : 6) + '" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" style="fill:var(--c-' + k + ')">' + anim + '</circle>';
+    });
+    out += '</g>';
+  }
+  var L = [{ x: c, y: c - R - 34, an: 'middle' }, { x: c + R + 16, y: c - 2, an: 'start' }, { x: c, y: c + R + 28, an: 'middle' }, { x: c - R - 16, y: c - 2, an: 'end' }];
+  SKILLS.forEach(function (k, j) {
+    var p = pt(j, fr(levels, k));
+    out += '<g class="rx-hit' + (k === sel ? ' on' : '') + '" data-action="rx-pick" data-k="' + k + '" tabindex="0" role="button" aria-pressed="' + (k === sel) + '" aria-label="' + SK[k].label + ', ' + levels[k] + '">' +
+      '<circle r="24" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" fill="transparent"/>' +
+      '<rect x="' + (L[j].an === 'end' ? L[j].x - 96 : L[j].an === 'start' ? L[j].x - 4 : L[j].x - 50) + '" y="' + (L[j].y - 16) + '" width="100" height="38" rx="8" fill="transparent"/>' +
+      '<text class="lab" x="' + L[j].x + '" y="' + L[j].y + '" text-anchor="' + L[j].an + '">' + SK[k].label + '</text>' +
+      '<text class="sub" x="' + L[j].x + '" y="' + (L[j].y + 15) + '" text-anchor="' + L[j].an + '">' + levels[k] + (k === weak ? ' · Focus' : compact ? '' : ' ' + LV_NAME[levels[k]].split(' ')[0]) + '</text></g>';
+  });
+  return out + '</svg>';
+}
+function rxCard(k, weak, prevMonth) {
+  var s = state.skills[k], i = li(s.level), nxt = i >= 5 ? '' : LV[i + 1], pct = Math.round(s.progress || 0), last = rxLast(k);
+  var d = prevMonth && prevMonth[k] ? i - li(prevMonth[k]) : null;
+  var change = d === null ? 'No data from last month yet' : d > 0 ? 'Up ' + d + (d === 1 ? ' level' : ' levels') + ' since last month' : d < 0 ? 'Down ' + (-d) + (d === -1 ? ' level' : ' levels') + ' since last month' : 'Same level as last month';
+  return '<div class="rx-head sk-' + k + '"><span class="tint dot">' + ic(SK[k].icon, 'ic-sm') + '</span><b>' + SK[k].label + '</b><span class="muted small">' + s.level + ' ' + esc(LV_NAME[s.level] || '') + '</span>' +
+    (k === weak ? '<span class="pill warn rx-focus">Focus here</span>' : '') + '</div>' +
+    (nxt ? '<div class="rx-row small muted"><span>' + pct + '% of the way to ' + nxt + '</span></div><div class="rx-bar"><i style="width:' + pct + '%;background:var(--c-' + k + ')"></i></div>' : '<div class="rx-row small muted">Top level reached</div>') +
+    '<div class="rx-meta small muted"><span>' + ic('i-clock', 'ic-sm') + (last ? 'Last practised ' + esc(last) : 'Not practised yet') + '</span><span>' + ic('i-chart', 'ic-sm') + change + '</span></div>' +
+    '<button class="btn btn-soft rx-go" data-go="' + k + '">Practice ' + SK[k].label.toLowerCase() + '</button>';
+}
+function rxRender(levels) {
+  var weak = rxWeak(), prevMonth = rxLastMonth(), goal = rxGoal(), self = state.hasTest ? state.self : null;
+  if (!RX.sel || SKILLS.indexOf(RX.sel) < 0) RX.sel = weak;
+  var L = RX.layers, chips = [['now', 'Now'], ['prev', 'Last month'], ['goal', 'Goal']];
+  if (self) chips.push(['self', 'Start']);
+  $('#dash-layers').innerHTML = chips.map(function (c) {
+    var off = (c[0] === 'prev' && !prevMonth);
+    return '<button class="rx-chip rx-' + c[0] + '" data-action="rx-layer" data-l="' + c[0] + '" aria-pressed="' + !!L[c[0]] + '"' + (off ? ' data-empty="1"' : '') + '><i></i>' + c[1] + '</button>';
+  }).join('');
+  var from = null, key = rxStoreKey(), saved = null;
+  try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+  if (saved && SKILLS.some(function (k) { return saved[k] !== levels[k]; }) && SKILLS.every(function (k) { return LV.indexOf(saved[k]) > -1; })) from = saved;
+  try { localStorage.setItem(key, JSON.stringify(levels)); } catch (e) {}
+  $('#dash-radar').innerHTML = rxSvg(levels, { now: L.now, prevMonth: L.prev && prevMonth, goal: L.goal && goal, self: L.self && self, weak: weak, sel: RX.sel, from: from, animate: RX.drawn ? false : undefined });
+  $('#dash-skill').innerHTML = rxCard(RX.sel, weak, prevMonth);
+  RX.drawn = true;
+}
+function rxRedraw() { if (state.view === 'dashboard' && $('#dash-radar')) { var lv = {}; SKILLS.forEach(function (k) { lv[k] = state.skills[k].level; }); rxRender(lv); } }
+function ladder(level, selfLevel) {
+  return '<div class="ladder" role="img" aria-label="CEFR level ' + level + '">' + LV.map(function (l, i) {
+    return '<span class="rung ' + (i <= li(level) ? 'on ' : '') + (l === level ? 'cur ' : '') + (selfLevel && l === selfLevel && selfLevel !== level ? 'self' : '') + '">' + l + '</span>';
+  }).join('') + '</div>';
+}
+function lineChart() {
+  var W = 640, H = 250, pl = 34, pr = 12, pt = 12, pb = 28, n = 8, i, k, out;
+  function x(i) { return pl + i * (W - pl - pr) / (n - 1); }
+  function y(v) { return pt + (H - pt - pb) * (1 - v / 6); }
+  out = '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Skill progress over eight weeks">';
+  for (k = 0; k <= 5; k++) out += '<line class="grid-l" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(k) + '" y2="' + y(k) + '"/><text x="0" y="' + (y(k) + 4) + '">' + LV[k] + '</text>';
+  for (i = 0; i < n; i++) out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + (i === n - 1 ? 'Now' : 'W-' + (n - 1 - i)) + '</text>';
+  SKILLS.forEach(function (s, j) {
+    var now = skillScore(s), d = [0.09, 0.08, 0.07, 0.1][j], r = seeded(j + 7), pts = [];
+    for (i = 0; i < n; i++) { var v = Math.max(0.1, now - d * (n - 1 - i) + (i === n - 1 ? 0 : (r() - 0.5) * 0.12)); pts.push([x(i), y(v)]); }
+    var path = pts.map(function (p, q) { return (q ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+    out += '<path d="' + path + '" fill="none" stroke="var(--c-' + s + ')" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+    var last = pts[n - 1]; out += '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="4.5" fill="var(--c-' + s + ')" stroke="#fff" stroke-width="2"/>';
+  });
+  return out + '</svg>';
+}
+function heatmap() {
+  var r = seeded(42), out = '<div class="heat" role="img" aria-label="Daily practice over the last 12 weeks">', i;
+  for (i = 0; i < 84; i++) { var v = BACKEND_READY ? 0 : r(); var l = v < 0.38 ? 0 : v < 0.62 ? 1 : v < 0.8 ? 2 : v < 0.93 ? 3 : 4; out += '<i data-l="' + l + '"></i>'; }
+  return out + '</div>';
+}
+
+/* ---------- API layer ---------- */
+var Api = {
+  call: function (fn, payload) {
+    payload = Object.assign({}, payload || {});
+    if (!PUBLIC_CALLS[fn] && state.token) payload.token = state.token;
+    return new Promise(function (resolve, reject) {
+      if (window.KELVIN_API_URL) {
+        /* Hosted outside Apps Script: one POST per call. text/plain keeps it a simple request, so the browser sends no preflight. */
+        var ctl = window.AbortController ? new AbortController() : null, tm = ctl ? setTimeout(function () { ctl.abort(); }, 90000) : 0;
+        fetch(window.KELVIN_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, payload: payload }), redirect: 'follow', signal: ctl ? ctl.signal : undefined })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            clearTimeout(tm);
+            if (res && res.ok) return resolve(res.data);
+            if (res && res.code === 'auth' && fn !== 'session') authExpired();
+            reject({ message: (res && res.message) || 'Something went wrong. Please try again.', code: res && res.code });
+          })
+          .catch(function () { clearTimeout(tm); reject({ message: 'Could not reach the server. Check your connection and try again.', code: 'network' }); });
+      } else if (BACKEND_READY) {
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.ok) return resolve(res.data);
+            if (res && res.code === 'auth' && fn !== 'session') authExpired();
+            reject({ message: (res && res.message) || 'Something went wrong. Please try again.', code: res && res.code });
+          })
+          .withFailureHandler(function () { reject({ message: 'Could not reach the server. Check your connection and try again.', code: 'network' }); })
+          .apiCall(fn, payload);
+      } else {
+        setTimeout(function () { mockApi(fn, payload, resolve, reject); }, 450);
+      }
+    });
+  }
+};
+function authExpired() { if (!state.user) return; logout(); toast('Your session has expired. Please sign in again.'); }
+function mockApi(fn, p, ok, fail) {
+  if (fn === 'publicConfig') return ok({ inviteRequired: false });
+  if (fn === 'login') return ok({ token: 'preview', user: { name: MOCK.user.name, username: String(p.username).toLowerCase() }, onboarded: true, hasTest: true });
+  if (fn === 'register') {
+    if (String(p.username).toLowerCase() === 'taken') return fail({ message: 'This username is already taken. Try signing in instead.' });
+    return ok({ token: 'preview', user: { name: p.name, username: String(p.username).toLowerCase() }, onboarded: false, hasTest: false });
+  }
+  if (fn === 'logout' || fn === 'saveOnboarding' || fn === 'saveGoals' || fn === 'saveSettings') return ok({ saved: true });
+  fail({ message: 'Unknown request.' });
+}
+
+/* ---------- session / data ---------- */
+function loadData(hasTest, selfLevels, goals, realSkills) {
+  state.hasTest = hasTest;
+  state.goals = goals || (BACKEND_READY ? [] : MOCK.goals);
+  state.self = selfLevels || (BACKEND_READY ? {} : MOCK.self);
+  if (hasTest && BACKEND_READY) {
+    state.skills = {};
+    SKILLS.forEach(function (k) { state.skills[k] = (realSkills && realSkills[k]) || { level: state.self[k] || 'B1', progress: 0, measured: false }; });
+    state.totals = { hours: 0, lessons: 0, streak: 0 };
+    state.weekly = [0, 0, 0, 0, 0, 0, 0];
+    state.recent = [];
+  } else if (hasTest) {
+    state.skills = JSON.parse(JSON.stringify(MOCK.skills));
+    state.totals = JSON.parse(JSON.stringify(MOCK.totals));
+    state.weekly = MOCK.weekly.slice();
+    state.recent = MOCK.recent.slice();
+  } else {
+    state.skills = {};
+    SKILLS.forEach(function (k) { state.skills[k] = { level: state.self[k] || 'B1', progress: 0, measured: false }; });
+    state.totals = { hours: 0, lessons: 0, streak: 0 };
+    state.weekly = [0, 0, 0, 0, 0, 0, 0];
+    state.recent = [];
+  }
+}
+/** Applies what the server returns after sign-in, registration or a restored session. */
+function applyBootstrap(r) {
+  state.token = r.token; state.user = r.user; state.onboarded = !!r.onboarded;
+  if (r.settings) state.settings = Object.assign(state.settings, r.settings);
+  var self = r.self && Object.keys(r.self).length ? r.self : null;
+  loadData(!!r.hasTest, self, r.goals && r.goals.length ? r.goals : null, r.skills);
+  try { localStorage.setItem('kelvin_tok', r.token); } catch (e) { /* storage can be blocked inside the Apps Script frame */ }
+}
+function persist() { store('kelvin', { token: state.token, user: state.user, hasTest: state.hasTest, self: state.self, goals: state.goals, settings: state.settings, onboarded: !!state.onboarded }); }
+
+/* ---------- screens ---------- */
+function showScreen(name) {
+  ['auth', 'onboarding', 'app'].forEach(function (s) { $('#screen-' + s).hidden = s !== name; });
+  window.scrollTo(0, 0);
+}
+
+/* ---------- auth ---------- */
+function setAuthTab(tab) {
+  var reg = tab === 'register';
+  $('#tab-login').setAttribute('aria-selected', String(!reg));
+  $('#tab-register').setAttribute('aria-selected', String(reg));
+  $('#form-login').hidden = reg; $('#form-register').hidden = !reg;
+  $('#auth-title').textContent = reg ? 'Create your account' : 'Welcome back';
+  $('#auth-sub').textContent = reg ? 'It takes about a minute. Then we set up your learning profile.' : 'Sign in to continue where you left off.';
+}
+function validUsername(u) { return /^[A-Za-z0-9._-]{3,20}$/.test(u); }
+function validPass(p) { return p.length >= 1; }
+function bad(form, name, isBad) { var f = $('[data-f="' + name + '"]', form); if (f) f.classList.toggle('bad', isBad); return isBad; }
+function banner(id, msg) { var b = $(id); b.textContent = msg || ''; b.classList.toggle('show', !!msg); }
+
+function submitLogin(ev) {
+  ev.preventDefault();
+  var f = ev.target, username = f.username.value.trim().toLowerCase(), pw = f.password.value;
+  banner('#login-banner');
+  var e1 = bad(f, 'username', !validUsername(username)), e2 = bad(f, 'password', !pw);
+  if (e1 || e2) return;
+  var btn = $('#login-btn'); btn.disabled = true; btn.textContent = 'Signing in…';
+  Api.call('login', { username: username, password: pw }).then(function (r) {
+    applyBootstrap(r); persist(); r.onboarded ? enterApp('dashboard') : startOnboarding();
+  }).catch(function (e) { banner('#login-banner', (e && e.message) || 'Could not sign in. Check your details and try again.'); })
+    .then(function () { btn.disabled = false; btn.textContent = 'Sign in'; });
+}
+function submitRegister(ev) {
+  ev.preventDefault();
+  var f = ev.target, name = f.name.value.trim(), username = f.username.value.trim().toLowerCase(), pw = f.password.value, cf = f.confirm.value, invite = f.invite.value.trim();
+  banner('#register-banner');
+  var errs = [bad(f, 'name', name.length < 2), bad(f, 'username', !validUsername(username)), bad(f, 'password', !validPass(pw)), bad(f, 'confirm', pw !== cf || !cf), bad(f, 'invite', !$('[data-f="invite"]', f).hidden && !invite)];
+  if (errs.some(Boolean)) return;
+  var btn = $('#register-btn'); btn.disabled = true; btn.textContent = 'Creating account…';
+  Api.call('register', { name: name, username: username, password: pw, invite: invite }).then(function (r) {
+    applyBootstrap(r); persist(); startOnboarding();
+  }).catch(function (e) { banner('#register-banner', (e && e.message) || 'Could not create your account. Try again in a moment.'); })
+    .then(function () { btn.disabled = false; btn.textContent = 'Create account'; });
+}
+function logout() {
+  if (state.token) Api.call('logout').catch(function () {});
+  try { localStorage.removeItem('kelvin_tok'); } catch (e) {}
+  clearTimers(); store('kelvin', null); state.user = null; state.token = null; state.hasTest = false;
+  $('#form-login').reset(); $('#form-register').reset();
+  setAuthTab('login'); showScreen('auth');
+}
+
+/* ---------- onboarding ---------- */
+var OB_STEPS = ['Welcome', 'Level', 'Skills', 'Goals'];
+function startOnboarding() {
+  state.ob = { step: 0, overall: null, skills: {}, goals: [] };
+  showScreen('onboarding'); renderOb();
+}
+function obValid() {
+  var o = state.ob;
+  if (o.step === 1) return !!o.overall;
+  if (o.step === 3) return o.goals.length > 0;
+  return true;
+}
+function renderOb() {
+  var o = state.ob, h = '';
+  $('#ob-steps').innerHTML = OB_STEPS.map(function (s, i) {
+    return (i ? '<i class="sep"></i>' : '') + '<span class="st ' + (i === o.step ? 'on ' : '') + (i < o.step ? 'done' : '') + '"><b>' + (i < o.step ? ic('i-check', 'ic-sm') : i + 1) + '</b><span>' + s + '</span></span>';
+  }).join('');
+  var foot = function (next) {
+    return '<div class="ob-foot">' + (o.step > 0 ? '<button class="btn btn-ghost" data-action="ob-back">' + ic('i-back', 'ic-sm') + 'Back</button>' : '<span></span>') +
+      '<button class="btn btn-primary" data-action="ob-next" ' + (obValid() ? '' : 'disabled') + '>' + next + '</button></div>';
+  };
+  if (o.step === 0) {
+    h = '<div class="ob-step"><svg class="welcome-mark"><use href="#logo"/></svg><h1>Welcome, ' + esc(firstName(state.user.name)) + '</h1>' +
+      '<p class="lead">Two quick questions about your English, then your goals. After that, a short placement test measures each skill separately, so your plan starts from where you really are.</p>' +
+      '<div class="grid g-2" style="max-width:640px"><div class="card"><b>About 2 minutes</b><p class="muted small">Setup takes less time than a coffee.</p></div><div class="card"><b>About 20 minutes</b><p class="muted small">The placement test, whenever you are ready.</p></div></div>' +
+      foot('Get started') + '</div>';
+  } else if (o.step === 1) {
+    h = '<div class="ob-step"><h1>What is your English level today?</h1><p class="lead">Your best guess is fine. The placement test will check it.</p><div class="lvl-grid">' +
+      LV.map(function (l) { return '<button class="lvl" data-action="ob-level" data-l="' + l + '" aria-pressed="' + (o.overall === l) + '"><div class="code">' + l + '</div><div class="nm">' + LV_NAME[l] + '</div><div class="can">' + LV_CAN[l] + '</div></button>'; }).join('') +
+      '</div>' + foot('Continue') + '</div>';
+  } else if (o.step === 2) {
+    h = '<div class="ob-step"><h1>Estimate each skill</h1><p class="lead">Most people are stronger in some skills than others. These are starting points only. The test measures your real level for each one.</p>' +
+      '<div class="sk-split"><div class="card" style="padding-top:8px;padding-bottom:8px">' + SKILLS.map(function (k) {
+        return '<div class="sk-row sk-' + k + '"><div class="srt"><span class="tint">' + ic(SK[k].icon, 'ic-sm') + '</span>' + SK[k].label + '<span class="pill lvl" style="margin-left:auto">' + o.skills[k] + '</span></div><div class="seg" role="group" aria-label="' + SK[k].label + ' level">' +
+          LV.map(function (l) { return '<button data-action="ob-skill" data-k="' + k + '" data-l="' + l + '" aria-pressed="' + (o.skills[k] === l) + '">' + l + '</button>'; }).join('') + '</div></div>';
+      }).join('') + '</div><div class="card" style="position:sticky;top:20px"><div class="card-head"><h2>Your starting profile</h2></div><div id="ob-radar"></div></div></div>' + foot('Continue') + '</div>';
+  } else {
+    h = '<div class="ob-step"><h1>What do you want English for?</h1><p class="lead">Choose everything that applies. Your exercises will use these situations.</p><div class="goal-grid">' +
+      GOALS.map(function (g) { var on = o.goals.indexOf(g.id) > -1; return '<button class="goal" data-action="ob-goal" data-g="' + g.id + '" aria-pressed="' + on + '"><span class="chk">' + ic('i-check', 'ic-sm') + '</span><span><div class="ttl">' + g.label + '</div><div class="d">' + g.desc + '</div></span></button>'; }).join('') +
+      '</div>' + foot('Finish setup') + '</div>';
+  }
+  $('#ob-stage').innerHTML = h;
+  if (o.step === 2) $('#ob-radar').innerHTML = radar(o.skills, { size: 340, animate: false });
+}
+function obNext() {
+  var o = state.ob;
+  if (!obValid()) return;
+  if (o.step === 1) SKILLS.forEach(function (k) { if (!o.skills[k]) o.skills[k] = o.overall; });
+  if (o.step < 3) { o.step++; return renderOb(); }
+  var btn = $('[data-action="ob-next"]'); btn.disabled = true; btn.textContent = 'Saving…';
+  Api.call('saveOnboarding', { overall: o.overall, skills: o.skills, goals: o.goals }).then(function () {
+    state.onboarded = true; loadData(false, JSON.parse(JSON.stringify(o.skills)), o.goals.slice()); persist(); enterApp('dashboard'); toast('Profile saved. Next: take the placement test.');
+  }).catch(function () { toast('Could not save your profile. Try again.'); btn.disabled = false; btn.textContent = 'Finish setup'; });
+}
+
+/* ---------- router ---------- */
+var TITLES = { drill: 'Practice', community: 'Community', messages: 'Messages', history: 'History', words: 'Words', grammar: 'Grammar', dashboard: 'Dashboard', assessment: 'Placement test', practice: 'Learn', progress: 'My progress', profile: 'My profile', settings: 'Settings' };
+function enterApp(view) {
+  showScreen('app');
+  $('#side-avatar').textContent = $('#top-avatar').textContent = initials(state.user.name);
+  $('#side-name').textContent = state.user.name; $('#side-username').textContent = '@' + state.user.username;
+  $('#top-streak').textContent = state.totals.streak;
+  document.body.classList.toggle('rm', state.settings.reduceMotion);
+  go(view || 'dashboard');
+  if (BACKEND_READY) loadOverview();
+}
+/* ---------- favicon: the Kelvin tab icon follows the open section ---------- */
+var FAV_ICON = { community: 'i-users', messages: 'i-message', history: 'i-history', dashboard: 'i-grid', assessment: 'i-target', practice: 'i-layers', speaking: 'i-mic', listening: 'i-headphones', reading: 'i-book', writing: 'i-pen', words: 'i-cards', grammar: 'i-spell', progress: 'i-chart', profile: 'i-user', settings: 'i-sliders' };
+var FAV_DOT = '<circle cx="25" cy="7" r="5.4" fill="#fff"/><circle cx="25" cy="7" r="3.7" fill="#00BFEA"/>';
+var FAV_STATIC = null;
+function setFavicon(view) {
+  try {
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    if (!FAV_STATIC) FAV_STATIC = $$('link[rel~="icon"]').map(function (l) { return l.cloneNode(true); });
+    var old = document.getElementById('fav-dyn'), sym = document.getElementById(FAV_ICON[view] || '');
+    if (old) old.parentNode.removeChild(old);
+    if (!sym || view === 'dashboard') {
+      if ($$('link[rel~="icon"]').length === 0) FAV_STATIC.forEach(function (l) { document.head.appendChild(l.cloneNode(true)); });
+      return;
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x=".5" y=".5" width="31" height="31" rx="7" fill="#fff" stroke="#DCE9FF"/>' +
+      '<g transform="translate(5 5) scale(.9167)" fill="none" stroke="#10234F" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' + sym.innerHTML + '</g>' + FAV_DOT + '</svg>';
+    $$('link[rel~="icon"]').forEach(function (l) { l.parentNode.removeChild(l); });
+    var l = document.createElement('link');
+    l.id = 'fav-dyn'; l.rel = 'icon'; l.type = 'image/svg+xml'; l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+    document.head.appendChild(l);
+  } catch (e) {}
+}
+function go(view) {
+  clearTimers();
+  state.view = view;
+  document.body.setAttribute('data-view', view);
+  REG.go.forEach(function (fn) { try { fn(view); } catch (e) {} });
+  var isSkill = SKILLS.indexOf(view) > -1;
+  $$('.view').forEach(function (v) { v.hidden = true; });
+  var id = isSkill ? 'learning' : view;
+  $('#view-' + id).hidden = false;
+  $('#page-title').textContent = isSkill ? SK[view].label : TITLES[view];
+  document.title = (isSkill ? SK[view].label : TITLES[view]) + ' | English, skill by skill';
+  setFavicon(view);
+  $$('[data-go]').forEach(function (a) {
+    var on = a.dataset.go === view;
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  if (isSkill || view === 'grammar') { $$('#bottom-nav [data-go]').forEach(function (b) { if (b.dataset.go === 'practice') b.setAttribute('aria-current', 'page'); }); }
+  if (view === 'progress' || view === 'settings' || view === 'assessment' || view === 'history') { $$('#bottom-nav [data-go]').forEach(function (b) { if (b.dataset.go === 'profile') b.setAttribute('aria-current', 'page'); }); }
+  window.scrollTo(0, 0);
+  ({ dashboard: renderDashboard, assessment: renderAssessment, practice: renderPractice, progress: renderProgress, profile: renderProfile, settings: renderSettings }[view] || function () { if (REG.views[view]) REG.views[view].render(); else renderLearning(view); })();
+}
+
+/* ---------- dashboard ---------- */
+function greeting() { var h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+function skillCard(k) {
+  var s = state.skills[k], next = LV[li(s.level) + 1];
+  return '<article class="card skill-card sk-' + k + '"><div class="hd"><span class="tint">' + ic(SK[k].icon) + '</span><span class="nm">' + SK[k].label + '</span><span class="pill lvl">' + s.level + '</span></div>' +
+    '<div><div class="prog"><span>' + (next ? 'Toward ' + next : 'Top level') + '</span><b class="num">' + s.progress + '%</b></div><div class="bar"><i style="width:' + s.progress + '%"></i></div></div>' +
+    '<div class="row-between"><span class="tiny muted">' + (s.measured ? 'Measured' : 'Estimate') + '</span><button class="btn btn-skill btn-sm" data-go="' + k + '">Start practice</button></div></article>';
+}
+/* one tile per area: the four skills, then Grammar and Words (Home on phones, and the Learn page) */
+function skillTile(k) {
+  var s = state.skills[k], p = s.progress || 0, next = LV[li(s.level) + 1];
+  return '<button class="hub-tile sk-' + k + '" data-go="' + k + '"><span class="tint ht-ico">' + ic(SK[k].icon, 'ic-sm') + '</span><span class="ht-name">' + SK[k].label + '</span>' +
+    '<span class="ht-sub"><b>' + s.level + '</b>' + (next ? ' · ' + p + '%<span class="ht-to"> to ' + next + '</span>' : ' · top') + '</span><span class="bar ht-bar"><i style="width:' + p + '%"></i></span></button>';
+}
+function hubTiles(extra) {
+  return '<div class="hub-grid' + (extra ? ' ' + extra : '') + '">' + SKILLS.map(skillTile).join('') + REG.hub.slice().reverse().map(function (fn) { try { return fn(); } catch (e) { return ''; } }).join('') + '</div>';
+}
+function sortedByScore() { return SKILLS.slice().sort(function (a, b) { return skillScore(a) - skillScore(b); }); }
+function renderDashboard() {
+  var ord = sortedByScore(), weak = ord[0], strong = ord[3], levels = {};
+  SKILLS.forEach(function (k) { levels[k] = state.skills[k].level; });
+  $('#greeting').textContent = greeting() + ', ' + firstName(state.user.name);
+  $('#rec-text').innerHTML = skillScore(weak) === skillScore(strong)
+    ? 'Your four skills are evenly matched. A mixed week keeps them growing together.'
+    : 'Your <b>' + strong + '</b> is stronger than your <b>' + weak + '</b>. We recommend ' + ACTION[weak] + ' this week.';
+  var nx = SIDE[weak].acts[1];
+  $('#up-next').innerHTML = '<div class="upnext sk-' + weak + '"><span class="tint dot">' + ic(SK[weak].icon, 'ic-sm') + '</span><div style="flex:1;min-width:0"><div class="tiny muted">Up next</div><div class="t">' + esc(nx) + '</div></div><span class="small muted">10 min</span></div>';
+  $('#welcome-cta').innerHTML = state.hasTest
+    ? '<button class="btn btn-primary" data-go="' + weak + '">Practice ' + weak + '</button><button class="btn btn-soft" data-go="progress">View progress</button>'
+    : '<button class="btn btn-primary" data-go="assessment">Take the placement test</button><button class="btn btn-soft" data-go="speaking">Try a practice session</button>';
+  $('#dash-banner').innerHTML = '';
+  $('#radar-state').textContent = state.hasTest ? 'Measured' : 'Your estimate';
+  $('#radar-state').className = 'pill ' + (state.hasTest ? 'ok' : 'warn');
+  rxRender(levels);
+  var sr = $('#dash-skillrow');
+  if (sr) sr.innerHTML = hubTiles('compact');
+  var t = state.totals;
+  $('#dash-stats').innerHTML = [
+    { i: 'i-layers', v: overallLevel(), k: 'Current level' },
+    { i: 'i-clock', v: t.hours.toFixed(1) + ' h', k: 'Learning time' },
+    { i: 'i-check', v: t.lessons, k: 'Lessons completed' },
+    { i: 'i-flame', v: t.streak + (t.streak === 1 ? ' day' : ' days'), k: 'Current streak' }
+  ].map(function (s) { return '<div class="card stat"><span class="ico">' + ic(s.i) + '</span><div><div class="v num">' + s.v + '</div><div class="k">' + s.k + '</div></div></div>'; }).join('');
+  if (!BACKEND_READY) {
+    var demo = demoMix(), goal = weekGoal();
+    $('#dash-plan').innerHTML = clRows(['words'].concat(ord), function (k) { return k === 'words' ? (state.settings.wordsGoal || 30) * 7 : Math.max(5, Math.round(goal * 0.2 / 5) * 5); }, demo);
+    $('#week-total').textContent = weekTotal() + ' of ' + goal + ' min this week';
+  }
+  $('#dash-activity').innerHTML = state.recent.length ? state.recent.map(function (a) {
+    return '<div class="act sk-' + a.skill + '"><span class="dot tint">' + ic(SK[a.skill].icon, 'ic-sm') + '</span><div><div class="t">' + esc(a.title) + '</div><div class="m">' + esc(a.meta) + '</div></div><span class="when">' + a.when + '</span></div>';
+  }).join('') : '<p class="muted">No activity yet. Finish a practice session or the placement test and it will show up here.</p>';
+  if (BACKEND_READY) dashReal();
+  dashRings(); calRender(); mixRender();
+  REG.dash.forEach(function (fn) { try { fn(); } catch (e) {} });
+}
+
+/* ---------- dashboard pieces: progress rings, continue list, study calendar, time by skill ---------- */
+function weekGoal() { var pl = planOf(); return (pl && pl.goalMinutes) || state.settings.weeklyGoal || 150; }
+function weekTotal() { return (state.weekly || []).reduce(function (a, b) { return a + (b || 0); }, 0); }
+function todayIdx() { return (new Date().getDay() + 6) % 7; }
+function ring(frac, val, unit, label, sub, i) {
+  var C = 2 * Math.PI * 34, f = Math.max(0, Math.min(1, frac || 0));
+  return '<div class="dh-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><defs><linearGradient id="dhg' + i + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3F8CFF"/><stop offset="1" stop-color="#00BFEA"/></linearGradient></defs>' +
+    '<circle class="trk" cx="42" cy="42" r="34"/><circle class="val" cx="42" cy="42" r="34" stroke="url(#dhg' + i + ')" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + C.toFixed(1) + '" data-off="' + (C * (1 - f)).toFixed(1) + '"/></svg>' +
+    '<div class="dh-val num">' + val + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="dh-lab">' + label + '</div><div class="dh-sub">' + sub + '</div></div>';
+}
+function dashRings() {
+  var el = $('#dash-rings'); if (!el) return;
+  var g = weekGoal(), dg = Math.max(5, Math.round(g / 7)), tm = (state.weekly || [])[todayIdx()] || 0, tot = weekTotal();
+  var lv = overallLevel(), nx = LV[li(lv) + 1], op = overallPct();
+  el.innerHTML = ring(tm / dg, tm, 'min', 'Today', 'Goal ' + dg + ' min', 0) +
+    ring(tot / g, Math.min(999, Math.round(tot / g * 100)) + '%', '', 'This week', tot + ' of ' + g + ' min', 1) +
+    ring(op / 100, op + '%', '', nx ? 'To ' + nx : 'Top level', 'Now ' + lv, 2);
+  setTimeout(function () { $$('#dash-rings .val').forEach(function (c) { c.style.strokeDashoffset = c.getAttribute('data-off'); }); }, 60);
+}
+/* one row per area of this week's plan: minutes done against the target, and a button to carry on */
+function clRows(order, target, done) {
+  return order.map(function (k) {
+    var t = target(k) || 10, d = Math.round(done[k] || 0), pct = Math.min(100, Math.round(d / t * 100)), isW = k === 'words';
+    var label = isW ? 'Words' : SK[k].label, sub = isW ? 'Reviews and new words' : state.skills[k].level + ' ' + (LV_NAME[state.skills[k].level] || '');
+    var btn = pct >= 100 ? 'Again' : d > 0 ? 'Resume' : 'Start';
+    return '<div class="cl-row sk-' + k + '"><span class="tint cl-ico">' + ic(isW ? 'i-cards' : SK[k].icon, 'ic-sm') + '</span><div class="cl-main"><div class="cl-top"><b>' + label + '</b><span class="tiny muted">' + esc(sub) + '</span><span class="cl-num num">' + d + ' / ' + t + ' min</span></div>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div></div><button class="btn btn-sm ' + (pct >= 100 ? 'btn-ghost' : 'btn-soft') + '" data-go="' + k + '">' + btn + '</button></div>';
+  }).join('');
+}
+function demoMix() { return { words: 64, reading: 28, listening: 22, speaking: 12, writing: 8 }; }
+var MIX_COL = { words: '#10234F', grammar: '#0A9BD4', speaking: 'var(--c-speaking)', listening: 'var(--c-listening)', reading: 'var(--c-reading)', writing: 'var(--c-writing)' };
+function mixRender() {
+  var el = $('#dash-mix'); if (!el) return;
+  var pl = planOf(), src = pl && pl.done ? pl.done : (BACKEND_READY ? null : demoMix());
+  if (!src) { el.innerHTML = '<p class="muted">Loading…</p>'; return; }
+  var keys = ['words'].concat(SKILLS, ['grammar']), other = 0, parts = [];
+  Object.keys(src).forEach(function (k) { if (keys.indexOf(k) < 0) other += src[k] || 0; });
+  keys.forEach(function (k) { var m = Math.round(src[k] || 0); if (m > 0) parts.push({ k: k, m: m, c: MIX_COL[k], l: k === 'words' ? 'Words' : k === 'grammar' ? 'Grammar' : SK[k].label }); });
+  if (other > 0) parts.push({ k: 'other', m: Math.round(other), c: '#94A3B8', l: 'Other' });
+  var tot = parts.reduce(function (a, p) { return a + p.m; }, 0), C = 2 * Math.PI * 52, acc = 0;
+  var svg = '<svg class="mix-donut" viewBox="0 0 132 132" role="img" aria-label="Minutes by skill this week"><circle cx="66" cy="66" r="52" fill="none" stroke="var(--wash)" stroke-width="16"/>' +
+    parts.map(function (p) { var len = p.m / tot * C, gap = parts.length > 1 ? Math.min(3, len / 3) : 0, s = '<circle cx="66" cy="66" r="52" fill="none" stroke="' + p.c + '" stroke-width="16" stroke-dasharray="' + Math.max(0.1, len - gap).toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="' + (-acc).toFixed(1) + '" transform="rotate(-90 66 66)"><title>' + p.l + ': ' + p.m + ' min</title></circle>'; acc += len; return s; }).join('') +
+    '<text x="66" y="64" text-anchor="middle" class="mix-tot">' + tot + '</text><text x="66" y="82" text-anchor="middle" class="mix-u">min</text></svg>';
+  el.innerHTML = tot ? '<div class="mix">' + svg + '<ul class="mix-legend">' + parts.map(function (p) { return '<li><i style="background:' + p.c + '"></i><span>' + p.l + '</span><b class="num">' + p.m + ' min</b><span class="muted num">' + Math.round(p.m / tot * 100) + '%</span></li>'; }).join('') + '</ul></div>'
+    : '<div class="mix">' + svg + '<p class="small muted" style="margin:0">No practice yet this week. Your minutes will be split by skill here.</p></div>';
+}
+var CAL = { off: 0 };
+function calHeat() {
+  if (state.ov && state.ov.heat) return state.ov.heat;
+  if (BACKEND_READY) return null;
+  if (!state._demoHeat) {
+    var r = seeded(42), a = [], ti = 77 + todayIdx(), i;
+    for (i = 0; i < 84; i++) { var v = r(); a.push(i > ti ? 0 : v < 0.38 ? 0 : Math.round(6 + v * 40)); }
+    for (i = 0; i < (state.totals.streak || 0); i++) if (ti - i >= 0) a[ti - i] = a[ti - i] || 15;
+    state._demoHeat = a;
+  }
+  return state._demoHeat;
+}
+function dayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function calRender() {
+  var el = $('#dash-cal'); if (!el) return;
+  var heat = calHeat(), now = dayStart(new Date()), start = new Date(now); start.setDate(now.getDate() - todayIdx() - 77);
+  var first = new Date(now.getFullYear(), now.getMonth() + CAL.off, 1), last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  var minOff = (start.getFullYear() - now.getFullYear()) * 12 + start.getMonth() - now.getMonth();
+  $('#cal-title').textContent = first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  $$('[data-action="cal-move"]').forEach(function (b) { var d = +b.dataset.d; b.disabled = d < 0 ? CAL.off <= minOff : CAL.off >= 0; });
+  if (!heat) { el.innerHTML = '<p class="muted">Loading…</p>'; return; }
+  function mins(d) { var i = Math.round((dayStart(d) - start) / 864e5); return i >= 0 && i < heat.length ? heat[i] || 0 : 0; }
+  var g = new Date(first); g.setDate(1 - ((first.getDay() + 6) % 7));
+  var out = '<div class="cal" role="grid">' + ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(function (w) { return '<span class="cal-h">' + w.slice(0, window.innerWidth < 420 ? 1 : 3) + '</span>'; }).join('');
+  var days = 0, total = 0;
+  while (g <= last || (g.getDay() + 6) % 7 !== 0) {
+    var inM = g.getMonth() === first.getMonth(), fut = g > now, m = fut ? 0 : mins(g), col = (g.getDay() + 6) % 7;
+    var prev = new Date(g); prev.setDate(g.getDate() - 1); var next = new Date(g); next.setDate(g.getDate() + 1);
+    var on = m > 0 && inM, jl = on && col > 0 && prev.getMonth() === first.getMonth() && mins(prev) > 0, jr = on && col < 6 && next <= now && next.getMonth() === first.getMonth() && mins(next) > 0;
+    if (on) { days++; total += m; }
+    var lvl = m <= 0 ? 0 : m < 10 ? 1 : m < 20 ? 2 : m < 35 ? 3 : 4;
+    out += '<span class="cal-d' + (inM ? '' : ' out') + (fut ? ' fut' : '') + (on ? ' on' : '') + (jl ? ' jl' : '') + (jr ? ' jr' : '') + (+g === +now ? ' today' : '') + '" data-l="' + (on ? lvl : 0) + '"' +
+      (inM && !fut ? ' title="' + g.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + (m ? m + ' min' : 'no practice') + '"' : '') + '><b>' + g.getDate() + '</b></span>';
+    g.setDate(g.getDate() + 1);
+  }
+  el.innerHTML = out + '</div><div class="cal-foot small"><span><b class="num">' + days + '</b> ' + (days === 1 ? 'day' : 'days') + ' practised · <b class="num">' + total + '</b> min</span><span class="cal-key"><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i><span class="muted">more</span></span></div>';
+}
+
+
+/* ---------- real data: overview, plan, dashboard, progress ---------- */
+function rerender() {
+  var v = state.view;
+  if (v === 'dashboard') renderDashboard(); else if (v === 'progress') renderProgress(); else if (v === 'practice') renderPractice();
+  else if (REG.views[v] && REG.views[v].refresh) REG.views[v].refresh();
+  else if (SKILLS.indexOf(v) > -1 && REG.side) REG.side(v);
+}
+function loadOverview(quiet) {
+  if (!BACKEND_READY) return Promise.resolve();
+  return Api.call('overview').then(function (ov) {
+    state.ov = ov; state.totals = ov.totals; state.weekly = ov.weekly; state.recent = ov.recent;
+    $('#top-streak').textContent = ov.totals.streak;
+    rerender();
+    if (state.hasTest && ov.plan && ov.plan.enriched === false && !state.enriching) {
+      state.enriching = true;
+      Api.call('planEnrich').then(function (r) { state.enriching = false; if (r && r.plan && state.ov) { state.ov.plan = r.plan; if (r.changed) rerender(); } }).catch(function () { state.enriching = false; });
+    }
+  }).catch(function (e) { if (!quiet && e && e.code !== 'auth') toast('Could not load your progress. Pull to refresh in a moment.'); });
+}
+function planOf() { return state.ov && state.ov.plan; }
+function fmtMin(m) { return m + ' min'; }
+function dashReal() {
+  var pl = planOf(), ov = state.ov, items = [], cta;
+  if (!pl) {
+    $('#rec-text').textContent = 'Loading your plan…'; $('#up-next').innerHTML = ''; $('#dash-plan').innerHTML = '<p class="muted">Loading…</p>'; return;
+  }
+  var pr = pl.priority || sortedByScore();
+  $('#rec-text').innerHTML = pl.note ? esc(pl.note) : (pl.basis === 'placement'
+    ? 'This week, start with <b>' + pr[0] + '</b>, then <b>' + pr[1] + '</b>. Words fill the gaps in between.'
+    : 'Take the placement test so Kelvin can build a plan around your real levels. Until then, start with <b>' + pr[0] + '</b>.');
+  var nx = (pl.today || []).filter(function (i) { return !i.done; })[0] || (pl.today || [])[0];
+  if (nx) {
+    var isW = nx.skill === 'words', col = isW ? 'words' : nx.skill;
+    $('#up-next').innerHTML = '<button class="upnext sk-' + col + '" data-go="' + (isW ? 'words' : nx.skill) + '" style="width:100%;text-align:left;border:0;cursor:pointer"><span class="tint dot">' + ic(isW ? 'i-cards' : SK[nx.skill].icon, 'ic-sm') + '</span><div style="flex:1;min-width:0"><div class="tiny muted">' + (nx.done ? 'Done today' : 'Up next') + '</div><div class="t">' + esc(nx.title) + '</div></div><span class="small muted">' + fmtMin(nx.minutes) + '</span></button>';
+  } else $('#up-next').innerHTML = '';
+  $('#welcome-cta').innerHTML = state.hasTest
+    ? '<button class="btn btn-primary" data-go="' + (nx && nx.skill !== 'words' ? nx.skill : pr[0]) + '">Practice ' + (nx && nx.skill !== 'words' ? nx.skill : pr[0]) + '</button><button class="btn btn-soft" data-go="progress">View progress</button>'
+    : '<button class="btn btn-primary" data-go="assessment">Take the placement test</button><button class="btn btn-soft" data-go="' + pr[0] + '">Try a practice session</button>';
+  $('#dash-plan').innerHTML = clRows(['words'].concat(pr), function (k) { return pl.targets[k] || 10; }, pl.done || {}) +
+    (pl.vocabulary && pl.vocabulary.length ? '<p class="tiny muted" style="margin:12px 0 0">Word themes: ' + pl.vocabulary.map(esc).join(', ') + '</p>' : '');
+  $('#week-total').textContent = weekTotal() + ' of ' + pl.goalMinutes + ' min this week';
+}
+function lineChartReal(hist) {
+  var W = 640, H = 250, pl = 34, pr = 12, pt = 12, pb = 28, n = 8, i, k, out;
+  function x(i) { return pl + i * (W - pl - pr) / (n - 1); }
+  function y(v) { return pt + (H - pt - pb) * (1 - v / 6); }
+  out = '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Skill level over eight weeks">';
+  for (k = 0; k <= 5; k++) out += '<line class="grid-l" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(k) + '" y2="' + y(k) + '"/><text x="0" y="' + (y(k) + 4) + '">' + LV[k] + '</text>';
+  for (i = 0; i < n; i++) out += '<text x="' + x(i) + '" y="' + (H - 6) + '" text-anchor="middle">' + (i === n - 1 ? 'Now' : 'W-' + (n - 1 - i)) + '</text>';
+  SKILLS.forEach(function (s) {
+    var vals = (hist && hist[s]) || [], d = '', last = null, pen = false;
+    for (i = 0; i < n; i++) {
+      var v = vals[i]; if (v === null || v === undefined) { pen = false; continue; }
+      d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' '; pen = true; last = [x(i), y(v)];
+    }
+    if (!last) return;
+    out += '<path d="' + d + '" fill="none" stroke="var(--c-' + s + ')" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="' + last[0] + '" cy="' + last[1] + '" r="4.5" fill="var(--c-' + s + ')" stroke="#fff" stroke-width="2"/>';
+  });
+  return out + '</svg>';
+}
+function heatReal(heat) {
+  var out = '<div class="heat" role="img" aria-label="Daily practice over the last 12 weeks">', i;
+  for (i = 0; i < 84; i++) { var m = heat[i] || 0, l = m <= 0 ? 0 : m < 10 ? 1 : m < 20 ? 2 : m < 35 ? 3 : 4; out += '<i data-l="' + l + '" title="' + m + ' min"></i>'; }
+  return out + '</div>';
+}
+function progressReal() {
+  var ov = state.ov, tiles = SKILLS.map(function (k) { var s = state.skills[k]; return '<div class="card stat sk-' + k + '"><span class="ico tint">' + ic(SK[k].icon) + '</span><div><div class="v">' + s.level + '</div><div class="k">' + SK[k].label + '</div></div></div>'; }).join('');
+  var hist = ov && ov.history, any = hist && SKILLS.some(function (k) { return (hist[k] || []).some(function (v) { return v !== null && v !== undefined; }); });
+  var ms = ov && ov.milestones && ov.milestones.length ? ov.milestones.map(function (m) { return '<div class="act"><span class="dot tint" style="--c:var(--primary)">' + ic('i-check', 'ic-sm') + '</span><div><div class="t">' + esc(m.title) + '</div><div class="m">' + esc(m.meta) + '</div></div></div>'; }).join('') : '<p class="muted">Milestones appear as you learn.</p>';
+  $('#progress-root').innerHTML = '<div class="grid g-4 stats">' + tiles + '</div>' +
+    '<article class="card mt"><div class="card-head"><h2>Level over the last 8 weeks</h2><div class="legend">' + SKILLS.map(function (k) { return '<span><i style="border-color:var(--c-' + k + ')"></i>' + SK[k].label + '</span>'; }).join('') + '</div></div>' +
+    (!ov ? '<p class="muted">Loading…</p>' : any ? lineChartReal(hist) : '<p class="muted">' + (state.hasTest ? 'Your line grows as you practise and retake the test.' : 'Your line starts after your first placement test.') + '</p>') + '</article>' +
+    '<div class="grid g-7-5 mt"><article class="card"><div class="card-head"><h2>Practice days</h2><span class="small muted">Last 12 weeks</span></div>' + (ov ? heatReal(ov.heat) : '<p class="muted">Loading…</p>') + '</article>' +
+    '<article class="card"><div class="card-head"><h2>Milestones</h2></div>' + ms + '</article></div>';
+}
+
+/* ---------- practice hub (mobile entry) ---------- */
+function renderPractice() {
+  var ps = $('#practice-study'), kw = window.Kelvin.words;
+  $('#practice-hub').innerHTML = '<h2 class="sec-title">Choose what to practise</h2>' + hubTiles();
+  if (ps) ps.innerHTML = kw && kw.studyMini ? kw.studyMini('practice') : '';
+}
+
+/* ---------- speech helpers ---------- */
+var activeRec = null;
+var speakGen = 0, curAudio = null;
+/* iPhone and iPad need extra care: a voice picked by hand can stay silent, speak() right after cancel() is dropped, and audio
+   may only start from a tap. So: let the system choose the voice there, cancel only when something is speaking, and keep one
+   audio player that is "unlocked" inside the tap and reused for clips that arrive later. */
+var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// iPhone/iPad: the ring/silent switch mutes the browser voice, but not the natural voice (an audio file). So on these
+// devices the natural voice comes first.
+var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && (navigator.maxTouchPoints || 0) > 1);
+var keepUtter = [], player = null, voiceSilent = IS_IOS;
+function stopSpeech() {
+  speakGen++;
+  try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); } catch (e) {}
+  keepUtter = [];
+  if (curAudio) { try { curAudio.pause(); } catch (e) {} curAudio = null; }
+}
+/** Call inside a tap, before any waiting: plays a moment of silence so the shared player may start later without a new tap. */
+/**
+ * iPhone (iOS 17 and later): tell the phone what kind of sound this is. "playback" plays even when the ring/silent switch
+ * is on silent; "play-and-record" while the microphone is on. Older phones ignore it.
+ */
+function audioSession(type) { try { if (navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; } catch (e) {} }
+function unlockAudio() {
+  audioSession('playback');
+  if (player || typeof Audio === 'undefined') return;
+  try {
+    player = new Audio(); player.preload = 'auto';
+    player.src = pcmToWavUrl(btoa(new Array(481).join('\0')), 24000);
+    var p = player.play(); if (p && p.catch) p.catch(function () {});
+  } catch (e) { player = null; }
+}
+/** Higher score = a more natural browser voice. Edge "Online (Natural)" and Google voices rank first; robotic ones last. */
+function voiceScore(v) {
+  var n = v.name + ' ' + v.voiceURI, sc = 0;
+  if (/natural|neural|online/i.test(n)) sc += 50;
+  if (/google/i.test(n)) sc += 30;
+  if (/premium|enhanced|siri/i.test(n)) sc += 25;
+  if (/samantha|daniel|karen|serena|aria|jenny|guy|libby|sonia|ryan|moira|emma|brian|andrew|ava/i.test(n)) sc += 15;
+  if (/espeak|compact|novelty|bad news|bahh|bells|boing|cellos|zarvox|whisper|trinoids|albert|fred|junior|ralph|organ|hysterical|good news|bubbles|deranged|superstar/i.test(n)) sc -= 100;
+  if (v.localService === false) sc += 5;
+  return sc;
+}
+function englishVoices() {
+  var v = []; try { v = speechSynthesis.getVoices().filter(function (x) { return /^en/i.test(x.lang); }); } catch (e) {}
+  return v.sort(function (a, b) { return voiceScore(b) - voiceScore(a); });
+}
+function pickVoices() {
+  var v = englishVoices(), pref = state.settings.accent === 'uk' ? /en[-_]GB/i : /en[-_]US/i;
+  var p = v.filter(function (x) { return pref.test(x.lang); }), list = p.length ? p : v, i;
+  if (state.settings.voiceName) for (i = 0; i < v.length; i++) if (v[i].voiceURI === state.settings.voiceName) { list = [v[i]].concat(list.filter(function (x) { return x !== v[i]; })); break; }
+  return list;
+}
+/** Splits a line into sentences so long clips are not cut off by the browser, with a short pause between sentences and a longer one between speakers. */
+function speechChunks(lines) {
+  var out = [];
+  lines.forEach(function (l) {
+    var parts = String(l.t).match(/[^.!?]+[.!?]*\s*/g) || [String(l.t)];
+    parts.forEach(function (t, k) { t = t.trim(); if (t) out.push({ s: l.s || 0, t: t, gap: k === parts.length - 1 ? 520 : 160 }); });
+  });
+  return out;
+}
+/**
+ * Reads lines with the browser voice. onFail (optional) is called when the first words never start: some phones accept
+ * speak() and stay silent, so the caller can switch to the natural voice.
+ */
+function speakLines(lines, rate, onEnd, onFail, cast) {
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  audioSession('playback');
+  var busy = false; try { busy = speechSynthesis.speaking || speechSynthesis.pending; } catch (e) {}
+  stopSpeech();
+  try { speechSynthesis.resume(); } catch (e) {}
+  var voices = pickVoices(), chunks = speechChunks(lines), i = 0, cancelled = false, gen = speakGen, started = false, watch = 0;
+  var second = voices.length > 1 ? voices[1] : null;
+  var choose = !IOS || !!state.settings.voiceName;           // on iPhone the system voice for the language is the safe one
+  function alive() { return !cancelled && gen === speakGen; }
+  function fail() { if (!alive()) return; cancelled = true; clearTimeout(watch); try { speechSynthesis.cancel(); } catch (e) {} onFail(); }
+  function next() {
+    if (!alive()) return;
+    if (i >= chunks.length) { if (onEnd) onEnd(); return; }
+    var c = chunks[i++], u = new SpeechSynthesisUtterance(c.t);
+    u.lang = state.settings.accent === 'uk' ? 'en-GB' : 'en-US'; u.rate = rate;
+    var v = c.s && second ? second : voices[0]; if (v && choose) u.voice = v;
+    u.pitch = c.s && !(second && choose) ? 1.2 : 1;
+    if (cast && cast.g) u.pitch = cast.g[c.s] === 'f' ? (c.s && !(second && choose) ? 1.25 : 1.1) : (c.s && !(second && choose) ? 0.85 : 0.95); // two people sound different
+    u.onstart = function () { started = true; clearTimeout(watch); };
+    var done = function (ev) {
+      clearTimeout(watch); u.onend = u.onerror = null;
+      if (ev && ev.type === 'error' && !started && onFail && alive()) return fail();
+      setTimeout(next, c.gap);
+    };
+    u.onend = done; u.onerror = done;
+    keepUtter.push(u);                                         // an utterance that is garbage-collected is never spoken on iOS
+    speechSynthesis.speak(u);
+    if (onFail && !started && i === 1) watch = setTimeout(function () { if (!started) fail(); }, 4000);
+  }
+  if (busy) setTimeout(next, 90); else next();                 // speak() straight after cancel() is dropped on phones
+  return { cancel: function () { cancelled = true; clearTimeout(watch); stopSpeech(); } };
+}
+
+/* ---------- natural voice (Gemini TTS through the backend), with the browser voice as a safety net ---------- */
+var ttsCache = {}, ttsRestUntil = 0;
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = function () { if ($('#settings-root') && $('#settings-root').firstChild) syncSettings(); };
+function pcmToWavUrl(b64, rate) {
+  var bin = atob(b64), n = bin.length, buf = new ArrayBuffer(44 + n), v = new DataView(buf), i;
+  function w(o, str) { for (var k = 0; k < str.length; k++) v.setUint8(o + k, str.charCodeAt(k)); }
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n, true);
+  var u = new Uint8Array(buf, 44); for (i = 0; i < n; i++) u[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+/** force: use the natural voice even when Settings say "Browser voice" (used when the browser voice stays silent). */
+/* Audio clips asked for in advance (the next lines of a conversation), so they play at once when needed. */
+var ttsPending = {};
+function ttsKey(lines, cast) { return (state.settings.accent === 'uk' ? 'uk' : 'us') + '|' + JSON.stringify(lines) + (cast ? '|' + JSON.stringify(cast) : ''); }
+function fetchTts(lines, cast) {
+  var key = ttsKey(lines, cast);
+  if (ttsCache[key]) return Promise.resolve(ttsCache[key]);
+  if (ttsPending[key]) return ttsPending[key];
+  var accent = state.settings.accent === 'uk' ? 'uk' : 'us';
+  ttsPending[key] = Api.call('ttsAudio', cast ? { lines: lines, accent: accent, cast: cast } : { lines: lines, accent: accent }).then(function (r) {
+    delete ttsPending[key];
+    if (!r || !r.audio) throw new Error('empty');
+    ttsCache[key] = pcmToWavUrl(r.audio, r.rate || 24000); return ttsCache[key];
+  }, function (e) { delete ttsPending[key]; throw e; });
+  return ttsPending[key];
+}
+function prefetchNatural(lines, cast) {
+  if (!BACKEND_READY || Date.now() < ttsRestUntil || (state.settings.voiceMode === 'browser' && !IS_IOS)) return;
+  fetchTts(lines, cast).catch(function () {});
+}
+function speakNatural(lines, rate, onEnd, force, cast, onStart) {
+  var silentOk = function () { voiceSilent = true; if (onEnd) onEnd(); };
+  if (onStart && (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil)) setTimeout(onStart, 0);
+  if (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil || typeof Audio === 'undefined') return force ? false : speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk, cast);
+  unlockAudio();
+  stopSpeech();
+  var gen = speakGen, h = { cancelled: false, inner: null }, accent = state.settings.accent === 'uk' ? 'uk' : 'us';
+  var key = accent + '|' + JSON.stringify(lines) + (cast ? '|' + JSON.stringify(cast) : '');
+  h.cancel = function () { h.cancelled = true; if (h.inner) h.inner.cancel(); stopSpeech(); };
+  function alive() { return !h.cancelled && gen === speakGen; }
+  function fallback(e) {
+    if (!alive()) return;
+    if (!e || e.code !== 'play') ttsRestUntil = Date.now() + ((e && e.code === 'limit') ? 3600e3 : 600e3);
+    if (force) { toast('Sound is not available right now. Check that your phone is not on silent.'); if (onEnd) onEnd(); return; }
+    if (onStart) onStart();
+    h.inner = speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk, cast); if (!h.inner && onEnd) onEnd();
+  }
+  function play(url) {
+    if (!alive()) return;
+    var a = player || new Audio(); a.onended = a.onerror = null;
+    try { a.pause(); } catch (e) {}
+    a.src = url; a.playbackRate = rate || 1; curAudio = a;
+    a.onended = function () { if (curAudio === a) curAudio = null; if (alive() && onEnd) onEnd(); };
+    a.onerror = function () { fallback({ code: 'play' }); };
+    a.onplaying = function () { a.onplaying = null; if (alive() && onStart) onStart(); };
+    var pr = a.play(); if (pr && pr.catch) pr.catch(function () { fallback({ code: 'play' }); });
+  }
+  if (ttsCache[key]) { play(ttsCache[key]); return h; }
+  if (!ttsCache._told && !ttsPending[key]) { ttsCache._told = true; toast('Preparing the natural voice. This takes a few seconds the first time.'); }
+  fetchTts(lines, cast).then(play).catch(fallback);
+  return h;
+}
+/**
+ * One word or a short sentence, from a tap. The browser voice comes first: it is instant and uses no AI. If it stays
+ * silent (seen on some iPhones), the natural voice takes over for the rest of the visit.
+ */
+function say(text, rate) {
+  var lines = [{ s: 0, t: String(text) }];
+  rate = rate || 0.9;
+  unlockAudio();
+  function natural() {
+    voiceSilent = true;
+    if (speakNatural(lines, rate, null, true) === false) toast('This browser cannot play the word right now.');
+  }
+  if (voiceSilent) return natural();
+  if (!speakLines(lines, rate, null, natural)) natural();
+}
+function makeRecognizer(handlers) {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  var r = new SR(), finalText = '';
+  // the microphone needs the "play-and-record" sound mode on iPhone; afterwards sound goes back to "playback"
+  var startRec = r.start.bind(r);
+  r.start = function () { audioSession('play-and-record'); return startRec(); };
+  try { r.addEventListener('end', function () { audioSession('playback'); }); r.addEventListener('error', function () { audioSession('playback'); }); } catch (e) {}
+  r.lang = 'en-US'; r.interimResults = true; r.continuous = true;
+  r.onresult = function (e) {
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
+    handlers.text(finalText, interim);
+  };
+  r.onerror = function (e) { handlers.error(e.error); };
+  r.onend = function () { handlers.end(finalText); };
+  return r;
+}
+
+/* ---------- shared multiple-choice helpers (graded by the app, never by AI) ---------- */
+function mcq(qs) {
+  return qs.map(function (q, qi) {
+    return '<div class="q" data-q="' + qi + '"><div class="qt">' + (qi + 1) + '. ' + esc(q.t) + '</div><div class="opts">' + q.o.map(function (o, oi) {
+      return '<button class="opt" data-action="pick" data-o="' + oi + '" aria-pressed="false"><span class="k">' + 'ABCD'[oi] + '</span><span>' + esc(o) + '</span></button>';
+    }).join('') + '</div><div class="explain">' + esc(q.e) + '</div></div>';
+  }).join('');
+}
+function pick(btn) {
+  var q = btn.closest('.q'); if (q.dataset.done) return;
+  $$('.opt', q).forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+  btn.setAttribute('aria-pressed', 'true');
+}
+function gradeMcq(scope, qs) {
+  var right = 0, unanswered = 0;
+  qs.forEach(function (q, qi) {
+    var box = $('.q[data-q="' + qi + '"]', scope), sel = $('.opt[aria-pressed="true"]', box);
+    if (!sel) { unanswered++; return; }
+  });
+  if (unanswered) return { missing: unanswered };
+  qs.forEach(function (q, qi) {
+    var box = $('.q[data-q="' + qi + '"]', scope); box.dataset.done = '1';
+    $$('.opt', box).forEach(function (b, oi) {
+      b.disabled = true;
+      if (oi === q.a) b.classList.add('right');
+      else if (b.getAttribute('aria-pressed') === 'true') b.classList.add('wrong');
+    });
+    if ($('.opt.right[aria-pressed="true"]', box)) right++;
+    $('.explain', box).classList.add('show');
+  });
+  return { right: right, total: qs.length };
+}
+
+/* ---------- learning (practice) ---------- */
+var CONTENT = {
+  reading: {
+    passage: 'Last spring, the town library of Marlow began opening one hour earlier on weekdays. The idea came from a survey: many parents said they could only visit before work, when their children were still half asleep. At first, staff were reluctant to change their routines, and few people came. After a local cafe agreed to offer cheaper coffee to early visitors, numbers rose quickly. Today, the 8 a.m. hour is the busiest of the day, and the library plans to try the same schedule on Saturdays.',
+    qs: [
+      { t: 'What is the passage mainly about?', o: ['A library changing its opening hours', 'A cafe opening near a library', 'Parents who dislike mornings', 'A survey about coffee prices'], a: 0, e: 'The whole passage follows the new weekday opening time and how it worked out.' },
+      { t: 'What helped to raise the number of visitors?', o: ['A longer survey', 'Cheaper coffee for early visitors', 'More staff on Saturdays', 'A new library building'], a: 1, e: 'The text says numbers rose after a local cafe offered cheaper coffee.' },
+      { t: 'In the passage, "reluctant" is closest in meaning to:', o: ['unwilling', 'excited', 'confused', 'unable'], a: 0, e: 'Staff did not want to change their routines, so they were unwilling.' }
+    ]
+  },
+  listening: {
+    lines: [
+      { s: 0, t: 'Hi Priya, did you get my message about Friday?' },
+      { s: 1, t: "Yes, but I can't make the lunch. My train from Leeds was cancelled, so I'm arriving after two." },
+      { s: 0, t: 'No problem. We could meet for coffee at four instead.' },
+      { s: 1, t: "Perfect. Let's meet at the cafe near the station, not the one on Park Road. It's closed for repairs." },
+      { s: 0, t: "Got it. I'll book a table." }
+    ],
+    qs: [
+      { t: "Why can't Priya come to lunch?", o: ['She is ill', 'Her train was cancelled', 'She has another meeting', 'She forgot'], a: 1, e: 'Priya says her train from Leeds was cancelled.' },
+      { t: 'What time do they agree to meet?', o: ['Two', 'Three', 'Four', 'Five'], a: 2, e: 'Sam suggests coffee at four and Priya agrees.' },
+      { t: 'Where will they meet?', o: ['At the cafe on Park Road', 'At the cafe near the station', "At Priya's office", "At Sam's house"], a: 1, e: 'The Park Road cafe is closed, so they choose the one near the station.' }
+    ]
+  },
+  speaking: { prompt: 'Describe your typical morning, from waking up to starting work or study. Aim for about 45 seconds.', target: 45 },
+  writing: { prompt: 'Write a short email (60 to 80 words) to a colleague. Ask to move your meeting from Tuesday to Thursday and give a reason.', min: 60, max: 80 }
+};
+var SIDE = {
+  speaking:  { acts: ['Warm-up: introduce yourself in 30 seconds', 'Conversation drill: ordering food', 'Shadowing: repeat a short dialogue'], words: ['catch up', 'run late', 'make an effort', 'get used to', 'in the meantime'], grammar: ['Present perfect vs past simple', 'Linking words: because, so, then'] },
+  listening: { acts: ['Dialogue: making plans', 'Dictation: five short sentences', 'Podcast clip at 1.15x speed'], words: ['heads up', 'in a nutshell', 'figure out', 'sort out', 'on the way'], grammar: ['Contractions in fast speech', 'Question tags'] },
+  reading:   { acts: ['Article: a short news story', 'Vocabulary in context', 'Skim for the main idea'], words: ['reluctant', 'ongoing', 'decline', 'significant', 'in favour of'], grammar: ['Reference words: this, that, which', 'Passive voice'] },
+  writing:   { acts: ['Sentence combining', 'Email: rescheduling a meeting', 'Proofread your own paragraph'], words: ['Would it be possible', 'as soon as possible', 'I am writing to', 'looking forward to', 'apologise for'], grammar: ['Polite requests', 'Past simple for reasons'] }
+};
+
+function renderLearning(k) {
+  if (BACKEND_READY && REG.learn) return REG.learn(k);
+  var s = state.skills[k], next = LV[li(s.level) + 1], side = SIDE[k], done = {};
+  $('#learning-root').innerHTML =
+    '<div class="sk-' + k + '"><article class="card"><div class="skill-head"><div class="big tint">' + ic(SK[k].icon) + '</div>' +
+    '<div><h2 style="font-size:22px">' + SK[k].label + '</h2><p class="muted">' + SK[k].blurb + '</p><div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><span class="pill lvl">Level ' + s.level + '</span><span class="pill ' + (s.measured ? 'ok' : 'warn') + '">' + (s.measured ? 'Measured' : 'Your estimate') + '</span></div></div>' +
+    '<div class="ladder-wrap">' + ladder(s.level, state.hasTest ? state.self[k] : null) + '<div class="row-between tiny muted" style="margin:14px 0 6px"><span>' + (next ? 'Progress toward ' + next : 'Top level reached') + '</span><b class="num" style="color:var(--text)">' + s.progress + '%</b></div><div class="bar"><i style="width:' + s.progress + '%"></i></div></div></div></article>' +
+    '<div class="practice mt"><article class="card" id="practice-card"></article><div class="grid" style="align-content:start">' +
+    '<article class="card"><div class="card-head"><h2>Today</h2><span class="small muted" id="today-count">0 of 3 done</span></div>' + side.acts.map(function (a, i) {
+      return '<button class="check" data-action="check" data-i="' + i + '" style="width:100%;text-align:left;background:none;border:0;border-top:' + (i ? '1px solid var(--line-2)' : '0') + '"><span class="cb">' + ic('i-check', 'ic-sm') + '</span><span><div class="t">' + a + '</div><div class="m">' + [5, 10, 8][i] + ' min</div></span></button>';
+    }).join('') + '</article>' +
+    '<article class="card"><h2 style="margin-bottom:12px">Words to learn</h2><div class="chips">' + side.words.map(function (w) { return '<span class="tag sk">' + esc(w) + '</span>'; }).join('') + '</div><h2 style="margin:20px 0 10px">Grammar to review</h2>' + side.grammar.map(function (g) { return '<div class="small" style="padding:8px 0;border-top:1px solid var(--line-2)">' + g + '</div>'; }).join('') + '</article></div></div></div>';
+  var card = $('#practice-card');
+  ({ reading: practiceReading, listening: practiceListening, speaking: practiceSpeaking, writing: practiceWriting }[k])(card);
+}
+function sampleBadge() { return '<span class="badge-sample">' + ic('i-alert', 'ic-sm') + 'Sample feedback. AI scoring connects in Phase 3.</span>'; }
+function exHead(t, sub) { return '<div class="card-head" style="margin-bottom:6px"><h2>' + t + '</h2><span class="pill plain">Sample exercise, level B1</span></div><p class="muted small" style="margin-bottom:18px">' + sub + '</p>'; }
+
+function practiceReading(card) {
+  var C = CONTENT.reading;
+  card.innerHTML = exHead('Read and answer', 'Read the passage, then answer three questions.') + '<div class="passage">' + esc(C.passage) + '</div>' + mcq(C.qs) +
+    '<div class="row-between mt"><span class="small muted" id="rd-result">Answers are scored by the app, with no AI call.</span><button class="btn btn-skill" data-action="grade">Check answers</button></div>';
+  card._qs = C.qs;
+}
+function practiceListening(card) {
+  var C = CONTENT.listening, ttsOk = 'speechSynthesis' in window;
+  card.innerHTML = exHead('Listen and answer', 'Play the conversation, then answer three questions. You can replay it.') +
+    '<div class="player"><button class="play" data-action="play" aria-label="Play conversation">' + ic('i-play', 'ic-lg') + '</button><div class="wave" id="wave">' + waveBars() + '</div>' +
+    '<select class="input" id="speed" style="width:auto;height:36px" aria-label="Speed"><option value="0.85">Slower</option><option value="1" selected>Normal</option><option value="1.15">Faster</option></select></div>' +
+    (ttsOk ? '' : '<p class="small" style="color:#B45309;margin-top:10px">This browser has no built-in voice. Read the transcript below instead.</p>') +
+    mcq(C.qs) + '<div class="row-between mt"><span class="small muted" id="ls-result">Answers are scored by the app, with no AI call.</span><button class="btn btn-skill" data-action="grade">Check answers</button></div>' +
+    '<div id="transcript-box" hidden class="passage mt">' + C.lines.map(function (l) { return '<div><b>' + (l.s ? 'Priya' : 'Sam') + ':</b> ' + esc(l.t) + '</div>'; }).join('') + '</div>';
+  card._qs = C.qs;
+  if (!ttsOk) $('#transcript-box', card).hidden = false;
+}
+var curSpeech = null;
+function togglePlay(card, btn) {
+  var wave = $('#wave', card);
+  if (curSpeech) { curSpeech.cancel(); curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); return; }
+  var rate = parseFloat($('#speed', card).value);
+  curSpeech = speakNatural(CONTENT.listening.lines, rate, function () { curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); });
+  if (!curSpeech) return toast('This browser cannot play speech. Use the transcript.');
+  wave.classList.add('live'); btn.innerHTML = ic('i-stop', 'ic-lg');
+}
+function waveBars() { var h = '', i; for (i = 0; i < 31; i++) h += '<i style="height:' + (22 + Math.abs(Math.sin(i * 1.7)) * 70).toFixed(0) + '%"></i>'; return h; }
+function fmtTime(s) { return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+function practiceSpeaking(card) {
+  var C = CONTENT.speaking, supported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  card.innerHTML = exHead('Speak for a minute', C.prompt) +
+    '<div style="display:flex;align-items:center;gap:20px;margin:6px 0 18px"><button class="mic" id="mic-btn" data-action="mic" aria-label="Start recording">' + ic('i-mic', 'ic-lg') + '</button><div><div class="num" style="font-size:28px;font-weight:650" id="sp-time">0:00</div><div class="small muted" id="sp-state">' + (supported ? 'Tap the microphone and start speaking.' : 'Speech recognition is not available here. Type your answer below.') + '</div></div></div>' +
+    '<div class="transcript" id="sp-text" data-empty="Your words appear here as you speak."></div>' +
+    (supported ? '' : '<textarea class="input mt" id="sp-type" placeholder="Type what you would say…" style="min-height:110px"></textarea>') +
+    '<div class="row-between mt"><span class="small muted">Fluency numbers below are measured from your own words.</span><button class="btn btn-skill" data-action="speak-done">Get feedback</button></div><div id="sp-fb"></div>';
+  card._sp = { secs: 0, text: '', rec: null, running: false, supported: supported };
+}
+function micToggle(card) {
+  var sp = card._sp, btn = $('#mic-btn', card), stateEl = $('#sp-state', card), textEl = $('#sp-text', card);
+  if (!sp.supported) return toast('Speech recognition is not available in this browser. Type your answer instead.');
+  if (sp.running) { try { sp.rec.stop(); } catch (e) {} return; }
+  sp.rec = makeRecognizer({
+    text: function (fin, interim) { sp.text = fin; textEl.textContent = (fin + interim).trim(); },
+    error: function (err) {
+      sp.running = false; btn.classList.remove('rec');
+      stateEl.textContent = (err === 'not-allowed' || err === 'service-not-allowed') ? 'Microphone access is blocked in this view. Type your answer instead.' : 'Recording stopped (' + err + '). Try again or type your answer.';
+      if (err === 'not-allowed' || err === 'service-not-allowed') { sp.supported = false; if (!$('#sp-type', card)) textEl.insertAdjacentHTML('afterend', '<textarea class="input mt" id="sp-type" placeholder="Type what you would say…" style="min-height:110px"></textarea>'); }
+    },
+    end: function (fin) { sp.running = false; btn.classList.remove('rec'); stateEl.textContent = 'Recording stopped. Tap again to continue or get feedback.'; }
+  });
+  activeRec = sp.rec;
+  try { sp.rec.start(); } catch (e) { return toast('Could not start the microphone.'); }
+  sp.running = true; btn.classList.add('rec'); stateEl.textContent = 'Listening…';
+  clearInterval(sp.tm);
+  sp.tm = setInterval(function () { if (!sp.running) return; sp.secs++; $('#sp-time', card).textContent = fmtTime(sp.secs); }, 1000); timers.push(sp.tm);
+}
+function speakDone(card) {
+  var sp = card._sp, typed = $('#sp-type', card), text = (sp.text || (typed && typed.value) || '').trim(), words = text ? text.split(/\s+/).length : 0;
+  if (words < 5) return toast('Say or type at least a few sentences first.');
+  var secs = sp.secs || Math.max(20, Math.round(words / 2));
+  var wpm = Math.round(words / secs * 60);
+  $('#sp-fb', card).innerHTML = '<div class="fb"><div class="row-between" style="margin-bottom:12px">' + '<h3>Your feedback</h3>' + sampleBadge() + '</div>' +
+    '<div class="grid g-2" style="gap:12px;margin-bottom:12px"><div class="card" style="padding:14px"><div class="muted small">Words spoken</div><b class="num" style="font-size:22px">' + words + '</b></div><div class="card" style="padding:14px"><div class="muted small">Pace' + (sp.secs ? '' : ' (estimated)') + '</div><b class="num" style="font-size:22px">' + wpm + ' words/min</b></div></div>' +
+    '<p class="small muted">The two numbers above come from your own answer. The notes below are sample text that shows the layout of AI feedback.</p><ul><li>Strength: clear, simple sentences</li><li>To improve: link ideas with because, so and then</li><li>Try next: describe your evening in the same way</li></ul></div>';
+}
+function practiceWriting(card) {
+  var C = CONTENT.writing;
+  card.innerHTML = exHead('Write an email', C.prompt) + '<textarea class="input" id="wr-text" placeholder="Hi Sam,&#10;&#10;…" aria-label="Your email"></textarea><div class="wc"><span id="wr-count">0 words</span><span>Target: ' + C.min + ' to ' + C.max + ' words</span></div>' +
+    '<div class="row-between mt"><span class="small muted">Word count is measured live.</span><button class="btn btn-skill" data-action="write-done">Get feedback</button></div><div id="wr-fb"></div>';
+}
+function writeDone(card) {
+  var C = CONTENT.writing, t = $('#wr-text', card).value.trim(), n = t ? t.split(/\s+/).length : 0;
+  if (n < 15) return toast('Write at least a few sentences first.');
+  var note = n < C.min ? 'A little short of the target. Add one more detail.' : n > C.max ? 'A little over the target. Cut one sentence.' : 'Right on target for length.';
+  $('#wr-fb', card).innerHTML = '<div class="fb"><div class="row-between" style="margin-bottom:12px"><h3>Your feedback</h3>' + sampleBadge() + '</div><p class="small"><b>' + n + ' words.</b> ' + note + '</p><p class="small muted" style="margin-top:6px">The notes below are sample text that shows the layout of AI feedback.</p><ul><li>Strength: polite, clear request</li><li>To improve: check verb tenses in the reason</li><li>Try next: add a closing line that suggests a new time</li></ul></div>';
+}
+
+/* ---------- placement test (Phase 1 demo of the flow) ---------- */
+var BANK = {
+  A2: { t: 'She ___ to work by bus every day.', o: ['goes', 'go', 'going', 'gone'], a: 0, e: 'Third person singular in the present simple takes -s.' },
+  B1: { t: 'If I ___ more time, I would learn another language.', o: ['have', 'had', 'would have', 'having'], a: 1, e: 'Second conditional: if + past simple, would + verb.' },
+  B2: { t: 'Sales fell sharply, so the board decided to ___ the launch until next year.', o: ['defer', 'differ', 'deter', 'deliver'], a: 0, e: '"Defer" means to delay something until later.' }
+};
+var PARTS = [{ k: 'reading', n: 2 }, { k: 'listening', n: 1 }, { k: 'writing', n: 1 }, { k: 'speaking', n: 1 }];
+var A = null;
+function renderAssessment() {
+  if (BACKEND_READY) return renderPlacementIntro();
+  A = null;
+  var parts = [
+    { k: 'reading', t: 'Reading', s: 'Vocabulary, grammar and short texts.', m: '5 min' },
+    { k: 'listening', t: 'Listening', s: 'Short conversations and announcements. You can play each clip twice.', m: '5 min' },
+    { k: 'writing', t: 'Writing', s: 'Build sentences and write a short message.', m: '5 min' },
+    { k: 'speaking', t: 'Speaking', s: 'Answer a few everyday questions out loud.', m: '5 min' }
+  ];
+  $('#assess-root').innerHTML = '<div class="assess-intro"><article class="card"><h2 style="font-size:22px;margin-bottom:6px">Placement test</h2><p class="muted" style="margin-bottom:22px">About 20 minutes. Each skill is measured on its own, and the questions adapt to your answers.</p>' +
+    parts.map(function (p) { return '<div class="part sk-' + p.k + '"><span class="tint">' + ic(SK[p.k].icon) + '</span><div style="flex:1"><div class="t">' + p.t + '</div><div class="s">' + p.s + '</div></div><span class="small muted">' + p.m + '</span></div>'; }).join('') +
+    '<button class="btn btn-primary mt" data-action="assess-start">Start the demo</button></article>' +
+    '<article class="card"><h2 style="margin-bottom:10px">How to read your result</h2><p class="muted">Your result is an <b style="color:var(--text)">estimated</b> CEFR level for each skill, with a confidence rating. It comes from a short test, so it is a useful starting point and not an official certificate.</p>' +
+    '<div class="callout mt" style="margin-bottom:0"><span class="ico">' + ic('i-alert') + '</span><div class="grow small"><b>Phase 1 preview</b><div class="muted">This demo shows the test flow with five sample questions. The adaptive engine and real scoring arrive in Phase 3.</div></div></div></article></div>';
+}
+function segBar(done) {
+  var cur = A.part;
+  return '<div class="segbar">' + PARTS.map(function (p, i) { var w = i < cur ? 100 : i === cur ? (A.within / p.n * 100) : 0; return '<div class="sg sk-' + p.k + '" style="flex:' + p.n + '"><i style="width:' + w + '%"></i></div>'; }).join('') + '</div>' +
+    '<div class="seglabels">' + PARTS.map(function (p, i) { return '<span class="' + (i === cur ? 'on' : '') + '" style="flex:' + p.n + '">' + SK[p.k].label + '</span>'; }).join('') + '</div>';
+}
+function assessStart() { A = { part: 0, within: 0, cur: li('B1'), trail: ['B1'] }; assessRender(); }
+function assessRender() {
+  var p = PARTS[A.part], root = $('#assess-root'), body = '';
+  clearTimers();
+  var title = SK[p.k].label + ', question ' + (A.within + 1) + ' of ' + p.n;
+  if (p.k === 'reading') {
+    var lvl = LV[A.cur]; A.item = BANK[lvl] || BANK.B1;
+    body = '<div class="qt" style="margin-bottom:12px;font-size:17px">' + esc(A.item.t) + '</div>' + mcq([A.item]).replace(/<div class="qt">.*?<\/div>/, '') + '<div class="row-between mt"><button class="btn btn-ghost" data-action="assess-skip">Not sure</button><button class="btn btn-primary" data-action="assess-answer">Submit answer</button></div>';
+  } else if (p.k === 'listening') {
+    A.lq = { t: 'What has changed about the train?', o: ['It leaves earlier from the same platform', 'It leaves later from a different platform', 'It has been cancelled', 'It now stops at more stations'], a: 1, e: 'It is delayed by twenty minutes and moves to platform six.' };
+    body = '<div class="player"><button class="play" data-action="assess-play" aria-label="Play audio">' + ic('i-play', 'ic-lg') + '</button><div class="wave" id="wave">' + waveBars() + '</div><span class="small muted" id="plays">2 plays left</span></div>' +
+      '<div style="margin-top:6px">' + mcq([A.lq]) + '</div><div class="row-between mt"><button class="btn btn-ghost" data-action="assess-skip">Not sure</button><button class="btn btn-primary" data-action="assess-answer">Submit answer</button></div>';
+    A.plays = 2;
+  } else if (p.k === 'writing') {
+    body = '<p style="font-size:17px;margin-bottom:12px">Write 2 or 3 sentences about what you did last weekend.</p><textarea class="input" id="as-text" style="min-height:150px" aria-label="Your answer"></textarea><div class="wc"><span id="as-count">0 words</span><span>At least 10 words</span></div>' +
+      '<div class="row-between mt"><button class="btn btn-ghost" data-action="assess-skip">Skip this part</button><button class="btn btn-primary" data-action="assess-answer">Continue</button></div>';
+  } else {
+    var supported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    body = '<p style="font-size:17px;margin-bottom:16px">Tell me about your job or your studies.</p><div style="display:flex;align-items:center;gap:20px;margin-bottom:16px"><button class="mic sk-speaking" id="as-mic" data-action="assess-mic" aria-label="Start recording">' + ic('i-mic', 'ic-lg') + '</button><div class="small muted" id="as-sp-state">' + (supported ? 'Tap the microphone and speak for about 30 seconds.' : 'Speech recognition is not available here. Type your answer below.') + '</div></div>' +
+      '<div class="transcript" id="as-sp-text" data-empty="Your words appear here as you speak."></div>' + (supported ? '' : '<textarea class="input mt" id="as-type" placeholder="Type what you would say…"></textarea>') +
+      '<div class="row-between mt"><button class="btn btn-ghost" data-action="assess-skip">Skip this part</button><button class="btn btn-primary" data-action="assess-answer">Finish test</button></div>';
+    A.sp = { text: '', running: false, supported: supported };
+  }
+  root.innerHTML = '<div class="test-shell sk-' + p.k + '">' + segBar() + '<article class="card"><div class="small muted" style="margin-bottom:14px">' + title + '</div>' + body + '</article>' +
+    (p.k === 'reading' ? '<div class="engine"><b>Engine view (preview only)</b><span>Estimate path: ' + A.trail.join(' → ') + '</span><span>Next question level adjusts to your answer.</span></div>' : '') + '</div>';
+  var ta = $('#as-text'); if (ta) ta.addEventListener('input', function () { var n = ta.value.trim() ? ta.value.trim().split(/\s+/).length : 0; $('#as-count').textContent = n + (n === 1 ? ' word' : ' words'); });
+}
+function assessAdvance() {
+  var p = PARTS[A.part]; A.within++;
+  if (A.within >= p.n) { A.part++; A.within = 0; }
+  if (A.part >= PARTS.length) return assessResult();
+  assessRender();
+}
+function assessAnswer() {
+  var p = PARTS[A.part], root = $('#assess-root');
+  if (p.k === 'reading' || p.k === 'listening') {
+    var sel = $('.opt[aria-pressed="true"]', root); if (!sel) return toast('Choose an answer first.');
+    var item = p.k === 'reading' ? A.item : A.lq, ok = parseInt(sel.dataset.o, 10) === item.a;
+    if (p.k === 'reading') { A.cur = Math.max(li('A2'), Math.min(li('B2'), A.cur + (ok ? 1 : -1))); A.trail.push(LV[A.cur]); }
+    stopSpeech(); return assessAdvance();
+  }
+  if (p.k === 'writing') { var n = $('#as-text').value.trim().split(/\s+/).filter(Boolean).length; if (n < 10) return toast('Write at least 10 words, or skip this part.'); return assessAdvance(); }
+  var typed = $('#as-type'), words = ((A.sp.text || (typed && typed.value) || '').trim().split(/\s+/)).filter(Boolean).length;
+  if (words < 3) return toast('Say or type a few words, or skip this part.');
+  assessAdvance();
+}
+function assessPlay(btn) {
+  if (A.plays <= 0 && !curSpeech) return toast('No plays left for this clip.');
+  var wave = $('#wave');
+  if (curSpeech) { curSpeech.cancel(); curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); return; }
+  curSpeech = speakNatural([{ s: 0, t: 'Attention please. The nine forty train to Leeds has been delayed by twenty minutes, and will now leave from platform six instead of platform two.' }], 1, function () { curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); });
+  if (!curSpeech) { $('#assess-root .test-shell article').insertAdjacentHTML('beforeend', '<div class="passage mt"><b>Transcript:</b> The nine forty train to Leeds has been delayed by twenty minutes, and will now leave from platform six instead of platform two.</div>'); return; }
+  A.plays--; $('#plays').textContent = A.plays + (A.plays === 1 ? ' play left' : ' plays left');
+  wave.classList.add('live'); btn.innerHTML = ic('i-stop', 'ic-lg');
+}
+function assessMic() {
+  var sp = A.sp, btn = $('#as-mic'), st = $('#as-sp-state'), tx = $('#as-sp-text');
+  if (!sp.supported) return toast('Speech recognition is not available. Type your answer instead.');
+  if (sp.running) { try { sp.rec.stop(); } catch (e) {} return; }
+  sp.rec = makeRecognizer({
+    text: function (f, i) { sp.text = f; tx.textContent = (f + i).trim(); },
+    error: function (err) {
+      sp.running = false; btn.classList.remove('rec');
+      st.textContent = (err === 'not-allowed' || err === 'service-not-allowed') ? 'Microphone access is blocked in this view. Type your answer instead.' : 'Recording stopped (' + err + ').';
+      if ((err === 'not-allowed' || err === 'service-not-allowed') && !$('#as-type')) { sp.supported = false; tx.insertAdjacentHTML('afterend', '<textarea class="input mt" id="as-type" placeholder="Type what you would say…"></textarea>'); }
+    },
+    end: function () { sp.running = false; btn.classList.remove('rec'); st.textContent = 'Recording stopped. Tap again to continue.'; }
+  });
+  activeRec = sp.rec;
+  try { sp.rec.start(); } catch (e) { return toast('Could not start the microphone.'); }
+  sp.running = true; btn.classList.add('rec'); st.textContent = 'Listening…';
+}
+function reportCards(R, selfMap) {
+  return '<div class="report-grid">' + SKILLS.map(function (k) {
+    var r = R[k];
+    if (!r) return '<article class="card report sk-' + k + '"><h3>' + SK[k].label + '</h3><div class="small muted" style="margin:6px 0 12px">Not measured</div><p class="muted">You skipped this part. Take the test again to measure it.</p></article>';
+    var li_ = function (a) { return '<li>' + esc(a) + '</li>'; };
+    return '<article class="card report sk-' + k + '"><div class="row-between"><div><h3>' + SK[k].label + '</h3><div class="small muted">Estimated level</div></div><span class="pill ' + (r.conf === 'High' ? 'ok' : 'warn') + '">' + esc(r.conf) + ' confidence</span></div>' +
+      '<div class="lv" style="margin:12px 0 14px">' + esc(r.level) + '</div>' + ladder(r.level, selfMap[k]) +
+      '<div class="lbl" style="margin-top:20px">Strengths</div><ul>' + r.strengths.map(li_).join('') + '</ul>' +
+      '<div class="lbl">Needs work</div><ul>' + r.weaknesses.map(li_).join('') + '</ul>' +
+      '<div class="lbl">Recommended next</div><div class="chips" style="margin-top:8px">' + r.next.map(function (x) { return '<span class="tag sk">' + esc(x) + '</span>'; }).join('') + '</div></article>';
+  }).join('') + '</div><p class="small muted mt">Levels are estimates from a short test and are not an official CEFR certificate. They are usually right to within one level. The dot under a level marks your own starting estimate.</p>';
+}
+function assessResult() {
+  clearTimers();
+  $('#assess-root').innerHTML = '<div class="callout"><span class="ico">' + ic('i-alert') + '</span><div class="grow"><b>Sample report</b><div class="small muted">These scores are sample data that show the layout of your result. In Phase 3 the adaptive engine calculates them from your answers.</div></div></div>' +
+    reportCards(MOCK.report, MOCK.self) +
+    '<div class="row-between mt"><button class="btn btn-ghost" data-action="assess-restart">Run the demo again</button><button class="btn btn-primary" data-action="assess-finish">Build my learning plan</button></div>';
+}
+
+/* ---------- placement test, run by the server (used inside Apps Script) ---------- */
+var T = null; // the test in progress: { sid, plan, view, shownAt, plays, sp }
+var PT_COPY = {
+  reading: ['Reading', 'Vocabulary, grammar and short texts. Up to 12 questions that adapt to you.', 'about 8 min'],
+  listening: ['Listening', 'Short conversations and announcements. You can play each clip twice.', 'about 5 min'],
+  writing: ['Writing', 'One short task. A rater reads your text and scores it against a fixed rubric.', 'about 5 min'],
+  speaking: ['Speaking', 'Two everyday questions answered out loud (or typed if your microphone is blocked).', 'about 4 min']
+};
+function renderPlacementIntro() {
+  T = null; clearTimers();
+  $('#assess-root').innerHTML = '<div class="assess-intro"><article class="card"><h2 style="font-size:22px;margin-bottom:6px">Placement test</h2><p class="muted" style="margin-bottom:22px">About 20 to 25 minutes. Each skill is measured separately, and the questions adapt to your answers.</p>' +
+    SKILLS.map(function (k) { var p = PT_COPY[k]; return '<div class="part sk-' + k + '"><span class="tint">' + ic(SK[k].icon) + '</span><div style="flex:1"><div class="t">' + p[0] + '</div><div class="s">' + p[1] + '</div></div><span class="small muted">' + p[2] + '</span></div>'; }).join('') +
+    '<div class="form-banner" id="pt-banner" role="alert"></div>' +
+    '<button class="btn btn-primary mt" id="pt-start" data-action="pt-start">' + (state.hasTest ? 'Retake the test' : 'Start the test') + '</button></article>' +
+    '<article class="card"><h2 style="margin-bottom:10px">How to read your result</h2><p class="muted">Your result is an <b style="color:var(--text)">estimated</b> CEFR level for each skill, with a confidence rating. A short test is usually right to within one level. If you stop halfway, you can continue where you left off.</p>' +
+    '<div class="callout mt" style="margin-bottom:0"><span class="ico">' + ic('i-alert') + '</span><div class="grow small"><b>Before you write or speak</b><div class="muted">Your writing and speech transcript are sent to an AI service to be scored. Do not include private details such as addresses, phone numbers or other people\'s names.</div></div></div></article></div>';
+}
+function ptSeg() {
+  var cur = T.view.type === 'mcq' ? T.view.skill : T.view.type, ci = SKILLS.indexOf(cur);
+  var order = T.plan.map(function (p) { return p.skill; }); ci = order.indexOf(cur);
+  var within = T.view.type === 'mcq' ? (T.view.number - 1) / T.view.max : T.view.type === 'speaking' ? T.sp.i / T.view.tasks.length : 0;
+  return '<div class="segbar">' + T.plan.map(function (p, i) { var w = i < ci ? 100 : i === ci ? within * 100 : 0; return '<div class="sg sk-' + p.skill + '" style="flex:' + p.max + '"><i style="width:' + w + '%"></i></div>'; }).join('') + '</div>' +
+    '<div class="seglabels">' + T.plan.map(function (p, i) { return '<span class="' + (i === ci ? 'on' : '') + '" style="flex:' + p.max + '">' + SK[p.skill].label + '</span>'; }).join('') + '</div>';
+}
+function ptShell(skill, title, body) {
+  var nlog = (T && T.log && T.log.length) || 0;
+  $('#assess-root').innerHTML = '<div class="test-shell sk-' + skill + '">' + ptSeg() + '<article class="card"><div class="row-between" style="margin-bottom:14px"><span class="small muted">' + title + '</span>' + (nlog && window.Kelvin && Kelvin.qindex ? Kelvin.qindex.pill(nlog + 1, nlog + 1) : '') + '</div>' + body + '<div class="form-banner" id="pt-banner" role="alert" style="margin-top:14px"></div></article></div>';
+  window.scrollTo(0, 0);
+}
+function ptRender() {
+  clearTimers(); var v = T.view; T.shownAt = Date.now();
+  if (v.type === 'mcq') {
+    var it = v.item, listening = v.skill === 'listening', body = '';
+    if (listening) {
+      T.plays = 2;
+      body += '<div class="player"><button class="play" data-action="pt-play" aria-label="Play audio">' + ic('i-play', 'ic-lg') + '</button><div class="wave" id="wave">' + waveBars() + '</div><span class="small muted" id="plays">2 plays left</span></div>';
+    } else if (it.passage) {
+      body += '<div class="passage" style="margin-bottom:16px">' + esc(it.passage) + '</div>';
+    }
+    body += '<div style="margin-top:6px">' + mcq([{ t: it.stem, o: it.options, e: '' }]) + '</div>' +
+      '<div class="row-between mt"><button class="btn btn-ghost" data-action="pt-unsure">Not sure</button><button class="btn btn-primary" data-action="pt-answer">Next</button></div>';
+    return ptShell(v.skill, SK[v.skill].label + ', question ' + v.number + (v.number > 1 ? '' : '') + ' of up to ' + v.max, body);
+  }
+  if (v.type === 'writing') {
+    ptShell('writing', 'Writing', '<p style="font-size:17px;margin-bottom:12px">' + esc(v.task.prompt) + '</p><textarea class="input" id="pt-text" style="min-height:170px" aria-label="Your answer"></textarea>' +
+      '<div class="wc"><span id="pt-count">0 words</span><span class="muted">Aim for at least ' + v.task.minWords + ' words</span></div>' +
+      '<div class="row-between mt"><button class="btn btn-ghost" data-action="pt-skip-w">Skip this part</button><button class="btn btn-primary" id="pt-send" data-action="pt-send-w">Continue</button></div>');
+    var ta = $('#pt-text'); ta.addEventListener('input', function () { var n = ta.value.trim() ? ta.value.trim().split(/\s+/).length : 0; $('#pt-count').textContent = n + (n === 1 ? ' word' : ' words'); });
+    return;
+  }
+  if (v.type === 'speaking') return ptSpeakRender();
+}
+function ptFail(e, btn, label) {
+  if (btn) { btn.disabled = false; btn.textContent = label; }
+  if (e && e.code === 'invalid') { toast((e.message || 'Reloading your test.')); return ptResume(); }
+  if (e && e.code === 'auth') return;
+  var b = $('#pt-banner'); if (b) { b.textContent = (e && e.message) || 'Something went wrong. Please try again.'; b.classList.add('show'); }
+}
+function ptResume() { Api.call('placementStart').then(function (r) { T = { sid: r.sessionId, plan: r.plan, view: r.view, sp: null }; ptRender(); }).catch(function (e) { ptFail(e); }); }
+function ptStart(btn) {
+  btn.disabled = true; btn.textContent = 'Preparing…';
+  Api.call('placementStart').then(function (r) { T = { sid: r.sessionId, plan: r.plan, view: r.view, sp: null, started: Date.now() }; if (r.resumed) toast('Continuing your test.'); ptRender(); })
+    .catch(function (e) { btn.disabled = false; btn.textContent = state.hasTest ? 'Retake the test' : 'Start the test'; var b = $('#pt-banner'); b.textContent = (e && e.message) || 'Could not start the test.'; b.classList.add('show'); });
+}
+/* The placement test keeps its own list of answers on this device, for the question index and History.
+   The server never says here whether an answer was right (the test adapts), so these show your answers only. */
+function ptLog(x) { if (!T) return; (T.log = T.log || []).push(x); }
+function ptAnswer(choice, btn) {
+  var label = btn.textContent; btn.disabled = true; stopSpeech();
+  var it = T.view.item; ptLog({ q: it.stem, ctx: it.passage || '', a: choice === -1 ? 'Not sure' : it.options[choice], skill: T.view.skill, done: true });
+  Api.call('placementAnswer', { sessionId: T.sid, questionId: T.view.item.id, choice: choice, ms: Date.now() - T.shownAt }).then(function (r) {
+    T.view = r.view; ptRender();
+  }).catch(function (e) { ptFail(e, btn, label); });
+}
+function ptPlay(btn) {
+  if (T.plays <= 0 && !curSpeech) return toast('No plays left for this clip.');
+  var wave = $('#wave'), text = T.view.item.audioText;
+  if (curSpeech) { curSpeech.cancel(); curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); return; }
+  curSpeech = speakNatural([{ s: 0, t: text }], 1, function () { curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); });
+  if (!curSpeech) { if (!$('#pt-transcript')) $('#assess-root .test-shell article .player').insertAdjacentHTML('afterend', '<div class="passage mt" id="pt-transcript"><b>Audio is not available in this browser. Read the script instead:</b> ' + esc(text) + '</div>'); return; }
+  T.plays--; $('#plays').textContent = T.plays + (T.plays === 1 ? ' play left' : ' plays left');
+  wave.classList.add('live'); btn.innerHTML = ic('i-stop', 'ic-lg');
+}
+function ptSendWriting(btn) {
+  var text = $('#pt-text').value.trim(), n = text ? text.split(/\s+/).length : 0;
+  if (n < 3) return toast('Write a few words, or skip this part.');
+  if (n < T.view.task.minWords && !T.warned) { T.warned = true; return toast('That is short. Write about ' + T.view.task.minWords + ' words for a fair result, or press Continue again to send it.'); }
+  btn.disabled = true; btn.textContent = 'Rating your writing…'; banner('#pt-banner');
+  ptLog({ q: (T.view.task && T.view.task.prompt) || 'Writing task', a: text, skill: 'writing', done: true });
+  Api.call('placementWriting', { sessionId: T.sid, text: text, ms: Date.now() - T.shownAt }).then(function (r) { T.warned = false; T.view = r.view; ptRender(); })
+    .catch(function (e) { ptFail(e, btn, 'Continue'); });
+}
+function ptSkipWriting(btn) {
+  btn.disabled = true;
+  Api.call('placementWriting', { sessionId: T.sid, skip: true }).then(function (r) { T.view = r.view; ptRender(); }).catch(function (e) { ptFail(e, btn, 'Skip this part'); });
+}
+/* speaking */
+function ptSpeakRender() {
+  var v = T.view; if (!T.sp) T.sp = { i: 0, answers: [], text: '', secs: 0, running: false, typed: false, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition) };
+  var sp = T.sp, last = sp.i === v.tasks.length - 1; sp.text = ''; sp.secs = 0; sp.typed = false; sp.running = false;
+  ptShell('speaking', 'Speaking, question ' + (sp.i + 1) + ' of ' + v.tasks.length,
+    '<p style="font-size:17px;margin-bottom:16px">' + esc(v.tasks[sp.i].prompt) + '</p><div style="display:flex;align-items:center;gap:20px;margin-bottom:16px"><button class="mic sk-speaking" id="pt-mic" data-action="pt-mic" aria-label="Record your answer">' + ic('i-mic', 'ic-lg') + '</button><div><div id="pt-sp-state" style="font-weight:600">' + (sp.supported ? 'Tap the microphone and answer.' : 'Type your answer below.') + '</div><div class="small muted">Speak for 20 to 40 seconds.</div></div></div>' +
+    '<div class="transcript" id="pt-sp-text" data-empty="Your words appear here as you speak."></div>' + (sp.supported ? '' : '<textarea class="input mt" id="pt-type" placeholder="Type what you would say…"></textarea>') +
+    '<div class="row-between mt"><button class="btn btn-ghost" data-action="pt-skip-s">Skip this part</button><button class="btn btn-primary" id="pt-send" data-action="pt-next-s">' + (last ? 'Finish test' : 'Next question') + '</button></div>');
+}
+function ptMic() {
+  var sp = T.sp, btn = $('#pt-mic'), st = $('#pt-sp-state'), tx = $('#pt-sp-text');
+  if (!sp.supported) return toast('Speech recognition is not available. Type your answer instead.');
+  if (sp.running) { try { sp.rec.stop(); } catch (e) {} return; }
+  sp.rec = makeRecognizer({
+    text: function (f, i) { sp.text = f; tx.textContent = (f + i).trim(); },
+    error: function (err) {
+      sp.running = false; btn.classList.remove('rec');
+      st.textContent = (err === 'not-allowed' || err === 'service-not-allowed') ? 'Microphone access is blocked in this view. Type your answer instead.' : 'Recording stopped (' + err + ').';
+      if ((err === 'not-allowed' || err === 'service-not-allowed') && !$('#pt-type')) { sp.supported = false; tx.insertAdjacentHTML('afterend', '<textarea class="input mt" id="pt-type" placeholder="Type what you would say…"></textarea>'); }
+    },
+    end: function () { if (sp.running) sp.secs += (Date.now() - sp.t0) / 1000; sp.running = false; btn.classList.remove('rec'); st.textContent = 'Recording stopped. Tap again to continue.'; }
+  });
+  activeRec = sp.rec;
+  try { sp.rec.start(); } catch (e) { return toast('Could not start the microphone.'); }
+  sp.running = true; sp.t0 = Date.now(); btn.classList.add('rec'); st.textContent = 'Listening…';
+}
+function ptNextSpeaking(btn) {
+  var sp = T.sp, typedEl = $('#pt-type'), typed = !!(typedEl && typedEl.value.trim()), text = typed ? typedEl.value.trim() : (sp.text || '').trim();
+  if (sp.running) { try { sp.rec.stop(); } catch (e) {} }
+  var n = text ? text.split(/\s+/).length : 0;
+  if (n < 3) return toast('Say or type a few words first, or skip this part.');
+  sp.answers.push({ transcript: text, seconds: Math.round(sp.secs), typed: typed || !sp.supported });
+  ptLog({ q: T.view.tasks[sp.i].prompt, a: text, skill: 'speaking', done: true });
+  if (sp.i < T.view.tasks.length - 1) { sp.i++; return ptSpeakRender(); }
+  btn.disabled = true; btn.textContent = 'Scoring your answers…'; banner('#pt-banner');
+  Api.call('placementSpeaking', { sessionId: T.sid, answers: sp.answers }).then(function (r) { ptDone(r.result); })
+    .catch(function (e) { sp.answers.pop(); ptFail(e, btn, 'Finish test'); });
+}
+function ptSkipSpeaking(btn) {
+  btn.disabled = true;
+  Api.call('placementSpeaking', { sessionId: T.sid, skip: true }).then(function (r) { ptDone(r.result); }).catch(function (e) { ptFail(e, btn, 'Skip this part'); });
+}
+function ptDone(result) {
+  try {
+    var log = (T && T.log) || [], lv = SKILLS.filter(function (k) { return result.skills[k]; }).map(function (k) { return { q: SK[k].label + ' level', a: result.skills[k].level || '', ok: null, done: true }; });
+    if (window.Kelvin && Kelvin.history) Kelvin.history.save({ kind: 'placement', title: 'Placement test', score: result.overall || null, minutes: T && T.started ? Math.round((Date.now() - T.started) / 60000) : 20, items: lv.concat(log) });
+  } catch (e) {}
+  clearTimers(); T = null;
+  loadData(true, state.self, state.goals, result.skills); persist();
+  var R = {}; SKILLS.forEach(function (k) { if (result.skills[k]) R[k] = result.skills[k]; });
+  $('#assess-root').innerHTML = '<div class="bolt-hero"><h2>Your estimated level' + (result.overall ? ': ' + esc(result.overall) : '') + '</h2><p style="margin-top:6px">Saved to History. </p></div><div class="callout"><span class="ico">' + ic('i-check') + '</span><div class="grow"><b>Test complete</b><div class="small muted">Here is your result for each skill. Your dashboard now uses these levels.</div></div></div>' +
+    reportCards(R, state.self) + '<div class="row-between mt"><span></span><button class="btn btn-primary" data-action="pt-done">Go to my dashboard</button></div>';
+  window.scrollTo(0, 0);
+}
+
+/* ---------- progress ---------- */
+function renderProgress() {
+  if (BACKEND_READY) return progressReal();
+  var tiles = SKILLS.map(function (k) { var s = state.skills[k]; return '<div class="card stat sk-' + k + '"><span class="ico tint">' + ic(SK[k].icon) + '</span><div><div class="v">' + s.level + '</div><div class="k">' + SK[k].label + '</div></div></div>'; }).join('');
+  $('#progress-root').innerHTML = '<div class="grid g-4 stats">' + tiles + '</div>' +
+    '<article class="card mt"><div class="card-head"><h2>Level over the last 8 weeks</h2><div class="legend">' + SKILLS.map(function (k) { return '<span><i style="border-color:var(--c-' + k + ')"></i>' + SK[k].label + '</span>'; }).join('') + '</div></div>' + (state.hasTest && !BACKEND_READY ? lineChart() : '<p class="muted">' + (state.hasTest ? 'Your progress line grows as you practise and retake the test.' : 'Your progress line starts after your first placement test.') + '</p>') + '</article>' +
+    '<div class="grid g-7-5 mt"><article class="card"><div class="card-head"><h2>Practice days</h2><span class="small muted">Last 12 weeks</span></div>' + heatmap() + '</article>' +
+    '<article class="card"><div class="card-head"><h2>Milestones</h2></div>' + (state.hasTest && !BACKEND_READY ? [['Reading reached B2', 'Placement test'], ['Six-day streak', 'Current'], ['40 lessons completed', 'Last week']].map(function (m) { return '<div class="act"><span class="dot tint" style="--c:var(--primary)">' + ic('i-check', 'ic-sm') + '</span><div><div class="t">' + m[0] + '</div><div class="m">' + m[1] + '</div></div></div>'; }).join('') : '<p class="muted">Milestones appear as you learn.</p>') + '</article></div>';
+}
+
+/* ---------- profile & settings ---------- */
+function renderProfile() {
+  var u = state.user;
+  $('#profile-root').innerHTML = '<article class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap"><div class="avatar" style="width:64px;height:64px;font-size:22px;border-radius:20px">' + initials(u.name) + '</div><div style="flex:1;min-width:200px"><h2 style="font-size:22px">' + esc(u.name) + '</h2><div class="muted">' + '@' + esc(u.username) + '</div></div><button class="btn" data-go="assessment">' + (state.hasTest ? 'Retake placement test' : 'Take placement test') + '</button></article>' +
+    '<div class="grid g-2 mt"><article class="card"><div class="card-head"><h2>Learning goals</h2></div><div class="chips">' + GOALS.map(function (g) { var on = state.goals.indexOf(g.id) > -1; return '<button class="pill ' + (on ? '' : 'plain') + '" style="height:34px;padding:0 14px;border:0;cursor:pointer" data-action="profile-goal" data-g="' + g.id + '" aria-pressed="' + on + '">' + (on ? ic('i-check', 'ic-sm') : '') + g.label + '</button>'; }).join('') + '</div></article>' +
+    '<article class="card"><div class="card-head"><h2>Your levels</h2></div><table class="tbl"><thead><tr><th>Skill</th><th>Your estimate</th><th>Measured</th></tr></thead><tbody>' + SKILLS.map(function (k) { return '<tr><td>' + SK[k].label + '</td><td>' + state.self[k] + '</td><td>' + (state.skills[k].measured ? '<b>' + state.skills[k].level + '</b>' : '<span class="muted">Not tested</span>') + '</td></tr>'; }).join('') + '</tbody></table></article></div>';
+}
+function renderSettings() {
+  var s = state.settings;
+  function row(id, t, d) { return '<div class="set-row"><div><div class="t">' + t + '</div><div class="s">' + d + '</div></div><button class="switch" role="switch" aria-checked="' + s[id] + '" aria-label="' + t + '" data-action="switch" data-id="' + id + '"></button></div>'; }
+  $('#settings-root').innerHTML = '<article class="card" style="max-width:720px"><div class="card-head"><h2>Preferences</h2></div>' +
+    row('reminder', 'Daily reminder', 'A nudge at your usual practice time.') + row('tapVoice', 'Read tiles aloud', 'When you tap a word tile, Kelvin says the word. Uses the voice built into your browser, so it is instant and free.') + row('quickWords', 'Word reminders', 'A popup with today\'s words when you open Kelvin, then a reminder in the corner now and then. Never during an exercise.') + row('reduceMotion', 'Reduce motion', 'Turn off animations across the app.') +
+    '<div class="set-row"><div><div class="t">Listening voice</div><div class="s">Accent used for audio played in your browser.</div></div><select class="input" id="set-accent" style="width:160px"><option value="us"' + (s.accent === 'us' ? ' selected' : '') + '>American</option><option value="uk"' + (s.accent === 'uk' ? ' selected' : '') + '>British</option></select></div>' +
+    '<div class="set-row"><div><div class="t">' + ic('i-wave', 'ic-sm') + 'Voice quality</div><div class="s">The natural AI voice sounds like a real person. It needs a connection and falls back to your browser voice if it is busy.' + (IS_IOS ? ' On iPhone the natural voice is always used, because the browser voice goes quiet when the silent switch is on.' : '') + '</div></div><select class="input" id="set-vmode" style="width:160px"><option value="ai"' + (s.voiceMode !== 'browser' ? ' selected' : '') + '>Natural AI voice</option><option value="browser"' + (s.voiceMode === 'browser' ? ' selected' : '') + '>Browser voice</option></select></div>' +
+    '<div class="set-row"><div><div class="t">Browser voice</div><div class="s">Used for single words and when the AI voice is off. Edge and Chrome have the best ones.</div></div><div style="display:flex;gap:8px;align-items:center"><select class="input" id="set-vname" style="width:200px"><option value="">Best available</option>' + englishVoices().map(function (v) { return '<option value="' + esc(v.voiceURI) + '"' + (s.voiceName === v.voiceURI ? ' selected' : '') + '>' + esc(v.name) + '</option>'; }).join('') + '</select><button class="btn" data-action="voice-test">Test</button></div></div>' +
+    '<div class="set-row"><div><div class="t">Weekly goal</div><div class="s">Minutes of practice per week.</div></div><select class="input" id="set-goal" style="width:160px">' + [60, 100, 150, 200, 300].map(function (m) { return '<option value="' + m + '"' + (s.weeklyGoal === m ? ' selected' : '') + '>' + m + ' minutes</option>'; }).join('') + '</select></div></article>' +
+    '<article class="card mt" style="max-width:720px"><div class="card-head"><h2>' + ic('i-cards', 'ic-sm') + 'Words</h2></div>' +
+    '<div class="set-row"><div><div class="t">' + ic('i-clock', 'ic-sm') + 'Daily goal for Words</div><div class="s">Minutes a day. There is no limit on new words: you learn as many rounds as you like, and this is the time to aim for.</div></div><div style="display:flex;gap:8px;align-items:center"><input class="input" id="set-wgoal" type="number" inputmode="numeric" min="5" max="180" step="5" value="' + (s.wordsGoal || 30) + '" style="width:90px" aria-label="Daily goal for Words in minutes"><span class="small muted">min</span></div></div>' +
+    '<div class="set-row"><div><div class="t">New words per round</div><div class="s">Your saved words come first in every round.</div></div><select class="input" id="set-wround" style="width:160px">' + [5, 10, 15].map(function (m) { return '<option value="' + m + '"' + ((s.wordsRound || 5) === m ? ' selected' : '') + '>' + m + ' words</option>'; }).join('') + '</select></div>' +
+    '<div class="set-row"><div><div class="t">When many reviews are waiting</div><div class="s">Kelvin always tells you. It can also make rounds smaller (2 new words) until you catch up, so reviews do not pile up.</div></div><select class="input" id="set-wauto" style="width:200px"><option value="1"' + (s.wordsAuto !== false ? ' selected' : '') + '>Smaller rounds</option><option value="0"' + (s.wordsAuto === false ? ' selected' : '') + '>Only warn me</option></select></div></article>' +
+    '<article class="card mt" style="max-width:720px"><div class="card-head"><h2>Account</h2></div><div class="set-row"><div><div class="t">Sign out</div><div class="s">You can sign back in at any time.</div></div><button class="btn" data-action="logout">Sign out</button></div></article>';
+}
+
+/* ---------- extension registry (lets extra modules, such as Words, plug in) ---------- */
+var REG = { views: {}, actions: {}, dash: [], hub: [], go: [] };
+/* ---------- focus mode on phones ----------
+   While a lesson, a practice set or a test is open, the page is given to the lesson: the header and the bottom bar
+   step aside (each lesson has its own Exit), the main button sits in the thumb zone and feedback rises from the bottom.
+   The placement test keeps its header (it has no Exit of its own) and only hides the bottom bar. */
+var FOCUS_SEL = '.view:not([hidden]) .test-shell, .view:not([hidden]) .gr-run, .view:not([hidden]) #practice-card[data-session]';
+var focusT = 0, lastSheet = null;
+function syncFocus() {
+  var on = !!document.querySelector(FOCUS_SEL), test = on && state.view === 'assessment';
+  document.body.classList.toggle('in-session', on && !test);
+  document.body.classList.toggle('in-test', test);
+  var sh = document.querySelector('.view:not([hidden]) .sheet');
+  if (sh && sh !== lastSheet && window.innerWidth < 760) { try { sh.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+  lastSheet = sh;
+}
+try {
+  new MutationObserver(function () { clearTimeout(focusT); focusT = setTimeout(syncFocus, 0); })
+    .observe(document.querySelector('#screen-app'), { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'data-session'] });
+} catch (e) {}
+/* ---------- Enter moves on ----------
+   On a computer, Enter sends an answer (each module handles that in its own typing box). Once the answer is checked,
+   Enter again goes to the next question or the next part. Text areas keep Enter for new lines. */
+var ENTER_NEXT = ['gr-next', 'pr-next', 'st-ln-next', 'pt-next-s', 'gr-close', 'pr-check'];   // Words handles its own Enter
+var ENTER_PICKS = /^(pr-pick|gr-pick|st-ln-pick|wd-pick|pt-answer|st-ts|assess-answer|pick|rx-pick)$/;
+function visibleBtn(sel) {
+  var list = $$(sel); for (var i = 0; i < list.length; i++) { var b = list[i]; if (!b.disabled && b.offsetParent !== null && !b.classList.contains('linkbtn')) return b; }
+  return null;
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+  var t = e.target, tag = t && t.tagName;
+  if (t && t.getAttribute && t.getAttribute('role') === 'button' && t.dataset && t.dataset.action) { e.preventDefault(); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }   // chart points and other non-button controls
+  if (tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+  if (tag === 'INPUT' && !t.disabled && !t.readOnly && t.type !== 'radio' && t.type !== 'checkbox') return;          // typing boxes send the answer themselves
+  if (tag === 'BUTTON' || tag === 'A') { var act = t.dataset && t.dataset.action; if (!act || !ENTER_PICKS.test(act)) return; }   // a focused button clicks itself, except answer options
+  if ($('.qw.on') && !$('.qw.on .gr-run')) return;
+  for (var i = 0; i < ENTER_NEXT.length; i++) {
+    var b = visibleBtn('[data-action="' + ENTER_NEXT[i] + '"]');
+    if (b) { e.preventDefault(); b.click(); return; }
+  }
+});
+window.Kelvin = {
+  state: state, $: $, $$: $$, esc: esc, ic: ic, toast: toast, go: go, persist: persist,
+  speakLines: speakLines, speakNatural: speakNatural, prefetchNatural: prefetchNatural, stopSpeech: stopSpeech, say: say, canSpeak: function () { return ('speechSynthesis' in window) || BACKEND_READY; }, SK: SK,
+  register: function (name, view) { REG.views[name] = view; },
+  ptLog: function () { return T && T.log ? T.log : null; },
+  actions: function (map) { Object.keys(map).forEach(function (k) { REG.actions[k] = map[k]; }); },
+  setDash: function (fn) { REG.dash.push(fn); },
+  setHub: function (fn) { REG.hub.push(fn); },
+  onGo: function (fn) { REG.go.push(fn); },
+  learn: function (fn, side) { REG.learn = fn; REG.side = side; },
+  Api: Api, live: BACKEND_READY, LV: LV, li: li, SKILLS: SKILLS, loadOverview: loadOverview, planOf: planOf, fmtTime: fmtTime, waveBars: waveBars, makeRecognizer: makeRecognizer, clearTimers: clearTimers, timers: function (t) { timers.push(t); }, setSkill: function (k, v) { state.skills[k] = v; }
+};
+
+document.addEventListener('touchend', function once() { unlockAudio(); document.removeEventListener('touchend', once, true); }, true);
+/* ---------- events ---------- */
+document.addEventListener('click', function (ev) {
+  var goEl = ev.target.closest('[data-go]');
+  if (goEl) { ev.preventDefault(); return go(goEl.dataset.go); }
+  var el = ev.target.closest('[data-action]'); if (!el) return;
+  var a = el.dataset.action, card = el.closest('.card');
+  switch (a) {
+    case 'auth-tab': return setAuthTab(el.dataset.tab);
+    case 'toggle-pass': var inp = el.parentNode.querySelector('input'), show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; el.innerHTML = ic(show ? 'i-eye-off' : 'i-eye'); el.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); return;
+    case 'logout': return logout();
+    case 'ob-next': return obNext();
+    case 'rx-pick': RX.sel = el.dataset.k; return rxRedraw();
+    case 'cal-move': CAL.off += +el.dataset.d; return calRender();
+    case 'rx-layer':
+      if (el.dataset.empty) return toast('Last month will show once you have a month of results.');
+      RX.layers[el.dataset.l] = !RX.layers[el.dataset.l];
+      if (!SKILLS.length || !Object.keys(RX.layers).some(function (k) { return RX.layers[k]; })) RX.layers.now = true;
+      return rxRedraw();
+    case 'ob-back': state.ob.step--; return renderOb();
+    case 'ob-level': state.ob.overall = el.dataset.l; SKILLS.forEach(function (k) { state.ob.skills[k] = el.dataset.l; }); return renderOb();
+    case 'ob-skill': state.ob.skills[el.dataset.k] = el.dataset.l; return renderOb();
+    case 'ob-goal': var gi = state.ob.goals.indexOf(el.dataset.g); if (gi > -1) state.ob.goals.splice(gi, 1); else state.ob.goals.push(el.dataset.g); return renderOb();
+    case 'pick': return pick(el);
+    case 'grade': var c = el.closest('.card'), r = gradeMcq(c, c._qs), out = $('#rd-result', c) || $('#ls-result', c);
+      if (r.missing) { toast('Answer all questions first.'); return; }
+      out.innerHTML = '<b style="color:var(--text)">' + r.right + ' of ' + r.total + ' correct.</b> Scored by the app, with no AI call.'; el.disabled = true;
+      var tb = $('#transcript-box', c); if (tb) tb.hidden = false; return;
+    case 'play': return togglePlay(card, el);
+    case 'mic': return micToggle(card);
+    case 'speak-done': return speakDone(card);
+    case 'write-done': return writeDone(card);
+    case 'check': el.classList.toggle('done'); $('#today-count').textContent = $$('.check.done').length + ' of 3 done'; return;
+    case 'pt-start': return ptStart(el);
+    case 'pt-answer': var pk = $('.opt[aria-pressed="true"]', $('#assess-root')); if (!pk) return toast('Choose an answer first.'); return ptAnswer(parseInt(pk.dataset.o, 10), el);
+    case 'pt-unsure': return ptAnswer(-1, el);
+    case 'pt-play': return ptPlay(el);
+    case 'pt-send-w': return ptSendWriting(el);
+    case 'pt-skip-w': return ptSkipWriting(el);
+    case 'pt-mic': return ptMic();
+    case 'pt-next-s': return ptNextSpeaking(el);
+    case 'pt-skip-s': return ptSkipSpeaking(el);
+    case 'pt-done': return enterApp('dashboard');
+    case 'assess-start': return assessStart();
+    case 'assess-answer': return assessAnswer();
+    case 'assess-skip': stopSpeech(); return assessAdvance();
+    case 'assess-play': return assessPlay(el);
+    case 'assess-mic': return assessMic();
+    case 'assess-restart': return renderAssessment();
+    case 'assess-finish': state.hasTest = true; loadData(true, state.self, state.goals); persist(); enterApp('dashboard'); return toast('Learning plan created (sample data).');
+    case 'profile-goal': var pi = state.goals.indexOf(el.dataset.g); if (pi > -1) { if (state.goals.length === 1) return toast('Keep at least one goal.'); state.goals.splice(pi, 1); } else state.goals.push(el.dataset.g); persist(); Api.call('saveGoals', { goals: state.goals }).catch(function () { toast('Could not save your goals.'); }); return renderProfile();
+    case 'switch': var id = el.dataset.id; state.settings[id] = !state.settings[id]; persist(); syncSettings(); if (id === 'reduceMotion') document.body.classList.toggle('rm', state.settings.reduceMotion); return renderSettings();
+    case 'voice-test': if (!speakLines([{ s: 0, t: 'Hello, this is how I sound.' }], 1)) toast('This browser has no built-in voice.'); break;
+    default: if (REG.actions[a]) return REG.actions[a](el, ev);
+  }
+});
+document.addEventListener('change', function (ev) {
+  if (ev.target.id === 'set-accent') { state.settings.accent = ev.target.value; persist(); syncSettings(); toast('Voice updated.'); }
+  if (ev.target.id === 'set-vmode') { state.settings.voiceMode = ev.target.value; persist(); toast('Voice updated.'); }
+  if (ev.target.id === 'set-vname') { state.settings.voiceName = ev.target.value; persist(); speakLines([{ s: 0, t: 'Hello, this is how I sound.' }], 1); }
+  if (ev.target.id === 'set-wgoal') {
+    var g = Math.round(Number(ev.target.value));
+    if (!(g >= 5 && g <= 180)) { ev.target.value = state.settings.wordsGoal || 30; return toast('Choose from 5 to 180 minutes.'); }
+    state.settings.wordsGoal = g; ev.target.value = g; persist(); syncSettings(); loadOverview(true); toast('Words goal: ' + g + ' minutes a day.');
+  }
+  if (ev.target.id === 'set-wround') { state.settings.wordsRound = parseInt(ev.target.value, 10); persist(); syncSettings(); toast('Round size updated.'); }
+  if (ev.target.id === 'set-wauto') { state.settings.wordsAuto = ev.target.value === '1'; persist(); syncSettings(); toast('Saved.'); }
+  if (ev.target.id === 'set-goal') { state.settings.weeklyGoal = parseInt(ev.target.value, 10); persist(); syncSettings(); toast('Weekly goal updated.'); }
+});
+document.addEventListener('input', function (ev) {
+  if (ev.target.id === 'wr-text') { var t = ev.target.value.trim(), n = t ? t.split(/\s+/).length : 0; $('#wr-count').textContent = n + (n === 1 ? ' word' : ' words'); }
+  var f = ev.target.closest('.field.bad'); if (f) f.classList.remove('bad');
+});
+$('#form-login').addEventListener('submit', submitLogin);
+$('#form-register').addEventListener('submit', submitRegister);
+
+/* ---------- boot ---------- */
+function syncSettings() { Api.call('saveSettings', state.settings).catch(function () { toast('Could not save this setting.'); }); }
+function showInviteField(on) { var f = $('#form-register [data-f="invite"]'); if (f) f.hidden = !on; }
+function init() {
+  $('#auth-radar').innerHTML = radar({ speaking: 'B1', listening: 'B2', reading: 'C1', writing: 'B1' }, { size: 380 });
+  var saved = store('kelvin'), tok = saved && saved.token;
+  if (BACKEND_READY) {
+    $('#preview-note').hidden = true;
+    try { tok = tok || localStorage.getItem('kelvin_tok'); } catch (e) {}
+    Api.call('publicConfig').then(function (c) { showInviteField(c.inviteRequired); }).catch(function () {});
+    if (tok) {
+      state.token = tok; ['auth', 'onboarding', 'app'].forEach(function (s) { $('#screen-' + s).hidden = true; });
+      return Api.call('session').then(function (r) { applyBootstrap(r); r.onboarded ? enterApp('dashboard') : startOnboarding(); })
+        .catch(function () { state.token = null; try { localStorage.removeItem('kelvin_tok'); } catch (e) {} store('kelvin', null); showScreen('auth'); });
+    }
+    return showScreen('auth');
+  }
+  if (saved && saved.user) {
+    state.user = saved.user; state.settings = Object.assign(state.settings, saved.settings || {}); state.onboarded = saved.onboarded;
+    loadData(saved.hasTest, saved.self && Object.keys(saved.self).length ? saved.self : null, saved.goals);
+    return saved.onboarded ? enterApp('dashboard') : startOnboarding();
+  }
+  showScreen('auth');
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+})();
+</script>

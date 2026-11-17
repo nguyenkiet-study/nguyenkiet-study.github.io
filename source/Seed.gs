@@ -1,0 +1,210 @@
+/**
+ * Seed.gs
+ * Writing and speaking tasks that are written by hand (no AI needed to create them), so the productive
+ * parts of the placement test always have prompts. Loaded by Kelvin > Load writing and speaking tasks.
+ * Safe to run again: tasks already in the QuestionBank are skipped.
+ *
+ * Each task has a CEFR level, a prompt, and what a good answer does (EvaluationCriteria), which is given to the
+ * AI rater together with the fixed rubric in Placement.gs.
+ */
+var Seed = (function () {
+  var WRITING = [
+    ['A1', 'Write 3 or 4 sentences about yourself: your name, age, city and job or school.', 'Very simple sentences with I am, I live, I work; capital letters and full stops.'],
+    ['A1', 'Write a short message to a friend. Say what you are doing now. (20 to 30 words)', 'Present continuous basics, a greeting and a name.'],
+    ['A1', 'Write about your family. Who are they and what do they do? (25 to 40 words)', 'Family words, he is or she is, simple jobs.'],
+    ['A1', 'Write a shopping list and one sentence about what you want to cook.', 'Food words, a or some, I want to.'],
+    ['A1', 'Write 4 sentences about your daily routine.', 'Simple present, times, first and then.'],
+    ['A1', 'Describe your room in 3 or 4 sentences.', 'There is or there are, colours, furniture.'],
+    ['A1', 'Write a short note to a classmate. Ask to borrow a pen or a book and say thank you.', 'Can I, please, thank you; a greeting and a name.'],
+    ['A1', 'Write about your favourite day of the week and why you like it. (25 to 40 words)', 'Days, I like, simple reasons with because.'],
+    ['A1', 'Write a postcard to a friend from a city you are visiting. Say what the weather is like. (25 to 40 words)', 'It is, weather words, a greeting and closing.'],
+    ['A1', 'Write 3 sentences about what you can and cannot do.', 'Can and cannot, simple activity words.'],
+    ['A2', 'Write 3 or 4 sentences about what you did last weekend.', 'Uses past tense; says where, with whom or what; simple linking such as and, but, then.'],
+    ['A2', 'Write a short message to a friend. Invite them to have lunch with you this week and say where and when.', 'Greeting, invitation, a place and a time; simple polite language.'],
+    ['A2', 'Write a message to a colleague. Say you will be 15 minutes late for a meeting and why. (30 to 50 words)', 'Apology, a reason with because, a time; simple polite language.'],
+    ['A2', 'Write about your best friend. How did you meet and what do you do together? (40 to 60 words)', 'Past simple for meeting, present simple for habits, linking words.'],
+    ['A2', 'Write an email to a hotel. Ask if they have a room for two nights next week and how much it costs. (40 to 60 words)', 'Polite questions, dates, a greeting and closing.'],
+    ['A2', 'Write about your last holiday. Where did you go and what did you like? (40 to 60 words)', 'Past simple, places and activities, simple opinions.'],
+    ['A2', 'Write a short review of a café or restaurant you like. (40 to 60 words)', 'Food words, adjectives, recommendation with you should.'],
+    ['A2', 'Write a message to your neighbour. Ask them to water your plants while you are away. (30 to 50 words)', 'Polite request with could you, dates, thanks.'],
+    ['A2', 'Write about your plans for next month. (40 to 60 words)', 'Going to and present continuous for plans, time words.'],
+    ['A2', 'Write a thank-you message to a friend who helped you move house. (30 to 50 words)', 'Thanks, past simple, a friendly closing.'],
+    ['A2', 'Describe your job or your school day. What do you do and when? (40 to 60 words)', 'Present simple, times, sequence words.'],
+    ['A2', 'Write a message to a shop. Your order has not arrived. Ask when it will arrive. (30 to 50 words)', 'Polite question, order details, past simple.'],
+    ['A2', 'Write about a person you admire and why. (40 to 60 words)', 'Present simple, adjectives, reasons with because.'],
+    ['A2', 'Write a reply to a friend who asked about your new job. Say what you like and what is difficult. (40 to 60 words)', 'Present simple, like and but, simple feelings.'],
+    ['A2', 'Write about your hometown. What is there and what can visitors do? (40 to 60 words)', 'There is or there are, can, places and activities.'],
+    ['B1', 'Write a short email (50 to 80 words) to a colleague. Ask to move your meeting from Tuesday to Thursday and give a reason.', 'Polite request, a clear reason, a new time, appropriate greeting and closing, mostly correct tenses.'],
+    ['B1', 'Write about your job or studies. Say what you do every day and what you like or dislike about it. (60 to 90 words)', 'Present simple and continuous, reasons for likes and dislikes, some linking words.'],
+    ['B1', 'Write an email to your manager asking for a day off next Friday. Explain why and say how your work will be covered. (60 to 90 words)', 'Polite request, a reason, a solution, suitable tone.'],
+    ['B1', 'Write a story that begins: "When I opened the door, I could not believe my eyes." (80 to 110 words)', 'Narrative tenses, sequence words, a clear ending.'],
+    ['B1', 'Write a review of a film, book or series you enjoyed. Would you recommend it? (70 to 100 words)', 'Summary without spoilers, opinion with reasons, recommendation.'],
+    ['B1', 'Write an email to a friend giving advice about learning English. (70 to 100 words)', 'Advice with should and why not, reasons, friendly tone.'],
+    ['B1', 'Describe a difficult situation at work or school and how you dealt with it. (70 to 100 words)', 'Past tenses, sequence, result and what you learned.'],
+    ['B1', 'Write a complaint to a gym about broken equipment. Say what you want them to do. (60 to 90 words)', 'Polite but clear complaint, details, request.'],
+    ['B1', 'Write about the advantages and disadvantages of having a car in your city. (80 to 110 words)', 'Balanced points, linking words such as however and on the other hand.'],
+    ['B1', 'Write a message to new team members introducing yourself and your role. (60 to 90 words)', 'Present simple and perfect, friendly professional tone.'],
+    ['B1', 'Write about a goal you want to reach this year and your plan to reach it. (70 to 100 words)', 'Future forms, steps, reasons.'],
+    ['B1', 'Write an email to a colleague thanking them for their help on a project and saying what difference it made. (60 to 90 words)', 'Thanks, specific details, past tenses, warm closing.'],
+    ['B1', 'Write a short report for your manager about a training course you attended. (80 to 110 words)', 'Facts, opinion, recommendation, clear paragraphs.'],
+    ['B1', 'Do you prefer to work in a team or alone? Write your opinion with reasons. (80 to 110 words)', 'Clear opinion, two reasons with examples, conclusion.'],
+    ['B1', 'Write an email to a customer apologising for a late delivery and offering a solution. (60 to 90 words)', 'Apology, explanation, offer, professional tone.'],
+    ['B2', 'Your team will start working from home two days a week. Write a short message (80 to 120 words) saying what you think and suggesting how to make it work.', 'Clear opinion, balanced points, a suggestion, a range of linking devices, suitable workplace tone.'],
+    ['B2', 'Write a complaint (80 to 120 words) to a company about a late delivery. Explain the problem and say what you want them to do.', 'Formal tone, clear sequence of events, a polite but firm request, accurate formal vocabulary.'],
+    ['B2', 'Write a proposal (120 to 160 words) to your manager suggesting one change that would improve your team\'s productivity.', 'Problem, proposal, benefits, possible objections, formal structure.'],
+    ['B2', 'Should companies allow employees to choose their own working hours? Write an essay (120 to 160 words).', 'Argument with both sides, examples, justified conclusion.'],
+    ['B2', 'Write a cover letter (120 to 160 words) for a job you would like. Explain why you are a good fit.', 'Formal tone, relevant experience, motivation, clear structure.'],
+    ['B2', 'Write an email (100 to 140 words) declining a client\'s request politely and offering an alternative.', 'Diplomatic language, reason, alternative, professional tone.'],
+    ['B2', 'Write a short article (120 to 160 words) for a company newsletter about how to manage stress at work.', 'Engaging opening, practical tips, cohesive paragraphs.'],
+    ['B2', 'Describe a project that did not go as planned. What went wrong and what would you do differently? (120 to 160 words)', 'Narrative, third conditional, reflection.'],
+    ['B2', 'Is it better to learn online or in a classroom? Write your opinion (120 to 160 words).', 'Comparison, examples, concession, conclusion.'],
+    ['B2', 'Write a review (100 to 140 words) of a product or app you use every day, for other users.', 'Description, strengths and weaknesses, recommendation.'],
+    ['B2', 'Write feedback (100 to 140 words) to a colleague on a presentation they gave: what worked and what to improve.', 'Constructive tone, specific points, hedging language.'],
+    ['B2', 'Write a report (120 to 160 words) summarising a customer survey and recommending one action.', 'Report structure, figures described in words, recommendation.'],
+    ['C1', 'Some people say that companies should offer a four-day work week. Discuss the advantages and the risks, and give your view. (120 to 160 words)', 'Well-organised argument, precise vocabulary, complex sentences, nuance and hedging, cohesive devices.'],
+    ['C1', 'Write an essay (180 to 220 words): Should social media companies be responsible for the content their users post?', 'Nuanced argument, counter-arguments, precise vocabulary, clear conclusion.'],
+    ['C1', 'Write a formal proposal (180 to 220 words) to introduce a mentoring programme in your organisation.', 'Rationale, structure, expected outcomes, persuasive formal register.'],
+    ['C1', 'Write a letter (160 to 200 words) to a local newspaper about a decision in your city that you disagree with.', 'Persuasive argument, formal tone, evidence, call to action.'],
+    ['C1', 'To what extent should artificial intelligence be used in hiring decisions? (180 to 220 words)', 'Balanced critical discussion, ethical vocabulary, hedging, cohesion.'],
+    ['C1', 'Write a reflective piece (160 to 200 words) about a failure that taught you something important.', 'Reflective tone, varied structures, idiomatic language.'],
+    ['C1', 'Write a report (180 to 220 words) on how your team could reduce its environmental impact.', 'Findings, recommendations, formal register, organised sections.'],
+    ['C1', 'Write an email (150 to 190 words) to a senior manager persuading them to fund a project, while acknowledging the risks.', 'Persuasion, concession, professional nuance.'],
+    ['C1', 'Is economic growth compatible with protecting the environment? Discuss (180 to 220 words).', 'Complex argument, precise vocabulary, nuanced conclusion.'],
+    ['C1', 'Write a review (160 to 200 words) of a conference, course or event, assessing its value for professionals.', 'Evaluation, precise criteria, balanced judgement.'],
+    ['C2', 'Write an essay (220 to 260 words): Is it possible to be truly objective when making important decisions?', 'Sophisticated argument, subtle distinctions, flawless cohesion.'],
+    ['C2', 'Write a critical review (220 to 260 words) of a book or idea that has influenced how people think about work.', 'Critical evaluation, precise and idiomatic language, nuance.'],
+    ['C2', 'Write an opinion piece (220 to 260 words): Should experts or the public have the final say on major policy decisions?', 'Rhetorical control, balanced reasoning, persuasive conclusion.'],
+    ['C2', 'Write a speech (200 to 250 words) to open a company conference on the future of work.', 'Engaging rhetoric, structure, appropriate register, memorable close.'],
+    ['C2', 'Write an essay (220 to 260 words): Language shapes the way we think. To what extent do you agree?', 'Abstract reasoning, examples, nuance, sophisticated vocabulary.'],
+    ['C2', 'Write a formal letter (200 to 240 words) responding to criticism of your organisation, accepting some points and rejecting others.', 'Diplomatic precision, concession, firm but courteous tone.'],
+    ['C2', 'Write an essay (220 to 260 words): Has constant connectivity made us more productive or less thoughtful?', 'Sophisticated argument, contrast, idiomatic precision.'],
+    ['C2', 'Write a reflective essay (200 to 250 words) about a belief you once held and later changed.', 'Reflective narrative, subtle shades of meaning, stylistic control.']
+  ];
+  var SPEAKING = [
+    ['A1', 'Say your name, where you are from and where you live now.', 'Very simple sentences with I am, I live in, I am from.'],
+    ['A1', 'Tell me about your family. How many people are in your family?', 'There are, have got, simple family words, numbers.'],
+    ['A1', 'What is your job, or what do you study?', 'I am a, I work in, I study, simple present.'],
+    ['A1', 'What time do you get up and what do you eat for breakfast?', 'Times, food words, simple present.'],
+    ['A1', 'Describe your bedroom. What is in it?', 'There is or there are, colours, furniture words.'],
+    ['A1', 'What is your favourite colour, food and drink?', 'My favourite is, I like, simple reasons with because.'],
+    ['A1', 'Tell me about your best friend. What is his or her name and what does he or she look like?', 'He is or she is, simple adjectives, has got.'],
+    ['A1', 'What do you do in the evening after work or school?', 'Simple present, daily actions, then and after that.'],
+    ['A1', 'What is the weather like today where you are?', 'It is, weather words, simple descriptions.'],
+    ['A1', 'What can you see from your window?', 'I can see, there is, simple nouns and colours.'],
+    ['A1', 'What do you like to buy at the supermarket?', 'Food and shop words, I like, I usually buy.'],
+    ['A1', 'Tell me about your favourite day of the week. Why do you like it?', 'Days of the week, simple reasons with because.'],
+    ['A2', 'Tell me about your family or your friends.', 'Simple present sentences, basic descriptions.'],
+    ['A2', 'What do you usually do in the morning before work or school?', 'Daily routine, present simple, time expressions.'],
+    ['A2', 'Tell me about your home. Where do you live and what is there?', 'There is or there are, prepositions of place, simple descriptions.'],
+    ['A2', 'What do you like to do at the weekend?', 'Present simple with like and love, frequency words such as usually or sometimes.'],
+    ['A2', 'Tell me about your favourite food. What do you eat and how do you cook it?', 'Food vocabulary, simple sentences, likes and dislikes.'],
+    ['A2', 'What did you do yesterday?', 'Past simple, time expressions such as yesterday and in the evening.'],
+    ['A2', 'Describe your best friend. What is he or she like?', 'Adjectives of personality, simple comparisons if possible.'],
+    ['A2', 'How do you usually travel to work or school? How long does it take?', 'Transport vocabulary, how long, simple time expressions.'],
+    ['A2', 'Tell me about a shop or a market you go to. What can you buy there?', 'Shopping vocabulary, can, simple descriptions of places.'],
+    ['A2', 'What are you going to do next weekend?', 'Future with going to, simple plans, time expressions.'],
+    ['A2', 'Tell me about your last birthday. What did you do and who was with you?', 'Past simple, people and places, simple feelings.'],
+    ['A2', 'Describe your neighbourhood. What is good about it and what is not so good?', 'There is or there are, adjectives, but and because.'],
+    ['A2', 'What do you do to relax after a busy day?', 'Present simple, free-time activities, reasons.'],
+    ['A2', 'Tell me about a film or TV show you watched recently. What was it about?', 'Past simple, simple story words, opinion with I liked or I did not like.'],
+    ['A2', 'What was your favourite subject at school, and why?', 'Past simple with was and liked, simple reasons.'],
+    ['A2', 'Describe your workplace or your school. What does it look like?', 'There is or there are, places and furniture, adjectives.'],
+    ['A2', 'Tell me about a holiday or a trip you remember. Where did you go?', 'Past simple, places, transport, simple feelings.'],
+    ['A2', 'What do you usually cook or eat at the weekend?', 'Food words, frequency words, present simple.'],
+    ['A2', 'How do you use your phone every day?', 'Present simple, apps and actions, frequency words.'],
+    ['A2', 'Tell me about a person in your family you admire. What does he or she do?', 'Present simple, jobs, simple reasons with because.'],
+    ['A2', 'What is your plan for this evening?', 'Going to and present continuous for plans, time words.'],
+    ['A2', 'Describe the weather in your city in different seasons.', 'Seasons and weather words, it is usually, comparatives such as hotter.'],
+    ['A2', 'Tell me about a sport or a hobby you like. How often do you do it?', 'Hobby words, how often, frequency expressions.'],
+    ['A2', 'What did you have for lunch today? Was it good?', 'Past simple, food words, simple opinions.'],
+    ['A2', 'You want to invite a friend to dinner. What do you say to them?', 'Would you like to, let us, time and place, polite language.'],
+    ['B1', 'Tell me about your job or your studies. What do you do and what do you like about it?', 'Connected description with reasons.'],
+    ['B1', 'Describe a trip or a holiday you enjoyed. Where did you go and what did you do?', 'Past tenses, sequence, feelings and reasons.'],
+    ['B1', 'Do you prefer to spend your free time alone or with other people? Why?', 'Preference with reasons, comparison, linking words such as because or although.'],
+    ['B1', 'Describe a time you had to wait a long time for something. What happened?', 'Narrative past, sequence markers, feelings.'],
+    ['B1', 'Tell me about a skill you learned recently. How did you learn it?', 'Present perfect and past simple, process, sequence words.'],
+    ['B1', 'Describe a good teacher or manager you have had. Why were they good?', 'Past tenses, personality adjectives, supported reasons.'],
+    ['B1', 'What would you do if you had a free day tomorrow with no plans?', 'Second conditional, plans, reasons.'],
+    ['B1', 'Talk about a problem in your city and how it could be solved.', 'Present situation, suggestions with could and should, reasons.'],
+    ['B1', 'Describe a time you made a mistake at work or at school. What did you do next?', 'Narrative past, consequences, what you learned.'],
+    ['B1', 'How has your life changed in the last five years?', 'Present perfect and used to, comparison of past and present.'],
+    ['B1', 'Tell me about a book, podcast or video that taught you something useful.', 'Past simple, summary of content, why it was useful.'],
+    ['B1', 'Is it better to shop online or in a store? Give your reasons.', 'Comparison, advantages and disadvantages, linking words.'],
+    ['B1', 'Describe a celebration or festival in your country. What do people do?', 'Present simple and passive basics, customs, sequence.'],
+    ['B1', 'Tell me about a goal you have for this year. How will you reach it?', 'Future forms, plans, steps with first and then.'],
+    ['B1', 'Describe a meeting or a class that went very well. Why did it go well?', 'Past tenses, reasons, specific details.'],
+    ['B1', 'What advice would you give to someone starting their first job?', 'Advice with should and it is a good idea to, reasons.'],
+    ['B1', 'Tell me about a time you helped someone. What happened?', 'Narrative past, feelings, result.'],
+    ['B1', 'Do you think people spend too much time on their phones? Why or why not?', 'Opinion, reasons, examples from your life.'],
+    ['B1', 'Describe your ideal weekend. What would you do and who would you be with?', 'Would for imagined situations, details, reasons.'],
+    ['B1', 'Tell me about a place you would like to visit and why.', 'Would like to, reasons, what you know about the place.'],
+    ['B1', 'You need to ask your manager for a day off. What do you say?', 'Polite requests, a reason, offering a solution.'],
+    ['B1', 'Describe a typical working day for you, from start to finish.', 'Present simple, sequence words, time expressions, details.'],
+    ['B2', 'Some people prefer working from home. Others prefer the office. What do you think and why?', 'Opinion with reasons and examples, linking, some complex structures.'],
+    ['B2', 'Describe a problem you solved at work or at school. What happened and what did you learn?', 'Narrative, past tenses, reflection.'],
+    ['B2', 'Should children learn a second language at primary school? Give your reasons.', 'Clear position, two or three supported reasons, hedging language.'],
+    ['B2', 'What makes a team work well together? Use examples from your own experience.', 'Abstract ideas supported by examples, range of linking devices.'],
+    ['B2', 'Describe a decision that changed your life. Would you make the same choice again?', 'Narrative tenses, third conditional, reflection.'],
+    ['B2', 'Is social media more helpful or harmful for young people? Explain your view.', 'Balanced argument, concession with although or while, conclusion.'],
+    ['B2', 'How should companies support employees who want to learn new skills?', 'Suggestions, passive voice, examples, organised points.'],
+    ['B2', 'Describe a time you disagreed with someone at work. How did you handle it?', 'Narrative, reported speech, reflection on the outcome.'],
+    ['B2', 'Should public transport be free in big cities? What would the effects be?', 'Hypothetical consequences, cause and effect language.'],
+    ['B2', 'What are the advantages and disadvantages of living abroad?', 'Balanced points, contrast linkers, personal examples.'],
+    ['B2', 'How important is it to have a work-life balance? How do you try to keep it?', 'Opinion, present habits, practical examples.'],
+    ['B2', 'Tell me about a trend in your industry or field and how it affects people like you.', 'Present perfect continuous, cause and effect, specific vocabulary.'],
+    ['B2', 'If you could change one thing about the education system, what would it be and why?', 'Second conditional, justification, likely results.'],
+    ['B2', 'Describe the best piece of advice you have ever received and how you used it.', 'Narrative, reported speech, reflection.'],
+    ['B2', 'Some people say it is better to be a specialist than a generalist. Do you agree?', 'Definition of terms, argument with examples, conclusion.'],
+    ['B2', 'You have to present a new idea to your team. How would you persuade them?', 'Persuasive language, structure, anticipating objections.'],
+    ['B2', 'How has the way people communicate at work changed over the last ten years?', 'Comparison over time, present perfect, examples.'],
+    ['B2', 'Should people be paid according to results rather than hours worked?', 'Opinion, pros and cons, conditional structures.'],
+    ['C1', 'How is technology changing the way people work? Give examples and say whether the changes are mostly good or bad.', 'Extended, organised argument; precise vocabulary; nuance.'],
+    ['C1', 'Is it better to live in a big city or in the countryside? Compare the two and give your view.', 'Structured comparison, precise vocabulary, concession and conclusion.'],
+    ['C1', 'To what extent should governments control what people eat and drink?', 'Nuanced position, hedging, range of argument and counter-argument.'],
+    ['C1', 'What qualities make a good leader in a crisis? Refer to an example you know.', 'Abstract analysis with a concrete example, precise vocabulary.'],
+    ['C1', 'Artificial intelligence will replace many jobs. How should society prepare for this?', 'Speculation, cause and effect, recommendations, cohesive organisation.'],
+    ['C1', 'Describe a time when you had to adapt quickly to an unexpected change. What did it teach you?', 'Sophisticated narrative, reflection, varied structures.'],
+    ['C1', 'Should success at work be measured mainly by results or by behaviour?', 'Defining criteria, weighing both sides, nuanced conclusion.'],
+    ['C1', 'How far do you think the place where we grow up shapes who we become?', 'Abstract discussion, hedging, examples, nuanced view.'],
+    ['C1', 'Is economic growth always a good thing? Discuss with examples.', 'Complex argument, contrast, precise economic and social vocabulary.'],
+    ['C1', 'What responsibilities do large companies have towards the communities they work in?', 'Ethical argument, examples, organised and cohesive discourse.'],
+    ['C1', 'Some say failure is necessary for success. Do you agree? Use your own experience.', 'Personal reflection woven into argument, idiomatic language.'],
+    ['C1', 'How should people decide which news sources to trust?', 'Criteria, critical thinking language, practical recommendations.'],
+    ['C1', 'Remote teams are becoming common. What are the hidden costs, and how can they be managed?', 'Analysis beyond the obvious, solutions, precise vocabulary.'],
+    ['C1', 'Should university education be free for everyone? Weigh the arguments.', 'Balanced, well-structured argument with a justified conclusion.'],
+    ['C2', 'Is it possible to be truly objective when making important decisions? Discuss.', 'Philosophical nuance, subtle distinctions, sophisticated cohesion.'],
+    ['C2', 'How should societies balance individual freedom with the common good?', 'Complex argument, precise abstract vocabulary, nuanced conclusion.'],
+    ['C2', 'Language shapes the way we think. To what extent do you agree?', 'Abstract reasoning, examples across cultures, hedging and precision.'],
+    ['C2', 'What will work look like in thirty years, and what should we do now to prepare for it?', 'Speculation, layered argument, precise and idiomatic language.'],
+    ['C2', 'Can a company be both highly profitable and genuinely ethical? Discuss with examples.', 'Critical analysis, counter-arguments, subtle evaluation.'],
+    ['C2', 'Is the pursuit of happiness a worthwhile life goal, or is meaning more important?', 'Conceptual distinctions, sophisticated argument, rhetorical control.'],
+    ['C2', 'How has globalisation affected local cultures, for better and for worse?', 'Wide-ranging analysis, examples, nuance, natural fluency.'],
+    ['C2', 'Should experts or the public have the final say on major policy decisions?', 'Balanced, nuanced argument with precise vocabulary and a reasoned verdict.'],
+    ['C2', 'Describe a belief you once held strongly but later changed. What changed your mind?', 'Reflective narrative, subtle shades of meaning, idiomatic expression.'],
+    ['C2', 'Is constant connectivity making us more productive or less thoughtful?', 'Sophisticated argument, contrast, precise and idiomatic language.']
+  ];
+
+  /** Seasonal tasks: served only in their season (Practice.gs). The Christmas task comes first for every level from 1 December to 6 January. */
+  var SEASONAL = [
+    ['writing', 'A2', 'season-xmas', 'Christmas is coming. Write a message inviting a friend to your Christmas party or a Secret Santa gift swap. Say when and where it is, what to bring and why you want them to come. (50 to 90 words)', 'Invitation with time, place and what to bring; friendly tone; future forms such as will and going to; a reason.']
+  ];
+
+  function load() {
+    var have = {};
+    Db.all(CONFIG.SHEETS.QUESTION_BANK).forEach(function (r) { have[r.Skill + '|' + r.Stem] = true; });
+    var now = Db.now(), rows = [];
+    [['writing', WRITING], ['speaking', SPEAKING]].forEach(function (pair) {
+      pair[1].forEach(function (t) {
+        if (have[pair[0] + '|' + t[1]]) return;
+        rows.push({ QuestionID: Db.newId('q'), Skill: pair[0], Subtype: 'task', CEFR: t[0], DifficultyScore: 50, Stem: t[1], EvaluationCriteria: t[2], Source: 'seed', Status: 'approved', TimesServed: 0, TimesCorrect: 0, CreatedAt: now });
+      });
+    });
+    SEASONAL.forEach(function (t) {
+      if (have[t[0] + '|' + t[3]]) return;
+      rows.push({ QuestionID: Db.newId('q'), Skill: t[0], Subtype: 'task', CEFR: t[1], DifficultyScore: 50, Stem: t[3], EvaluationCriteria: t[4], Source: t[2], Status: 'approved', TimesServed: 0, TimesCorrect: 0, CreatedAt: now });
+    });
+    Db.lock(function () { Db.insertMany(CONFIG.SHEETS.QUESTION_BANK, rows); });
+    return rows.length + Conv.seed();
+  }
+  return { load: load };
+})();

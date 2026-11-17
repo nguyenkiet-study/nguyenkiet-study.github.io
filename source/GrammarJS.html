@@ -1,0 +1,524 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Grammar: lessons built around your own mistakes
+   - The server picks the order: topics where you made mistakes in Writing and Speaking first, then topics for your level.
+   - A lesson: theory (Vietnamese or English), a card to copy into your notebook (optional), a few warm-up choices,
+     then writing: fix a sentence, change a sentence, translate. Last comes a short piece of free writing.
+   - Typing is the normal way to answer. "I wrote it on paper" shows the answer so you can check yourself.
+     The free writing can also be a photo of your page.
+   - A finished lesson is reviewed after 1, 2, 4, 8 and 16 days. 80% or more moves it up a box.
+   ===================================================================== */
+
+var K = window.Kelvin, $ = K.$, esc = K.esc, ic = K.ic;
+var G = { home: null, err: '', loading: false, run: null, busy: false };
+
+function root() { return $('#grammar-root'); }
+function lang() { try { return localStorage.getItem('kelvin_gl') === 'en' ? 'en' : 'vi'; } catch (e) { return 'vi'; } }
+function setLang(l) { try { localStorage.setItem('kelvin_gl', l); } catch (e) {} }
+function tx(o) { if (!o) return ''; if (typeof o === 'string') return o; return (lang() === 'vi' ? o.vi : o.en) || o.en || o.vi || ''; }
+function ttl(o) { return lang() === 'vi' && o.titleVi ? o.titleVi : o.title; }
+function boxes(n) { var h = '<span class="boxes" aria-label="Box ' + n + ' of 5">'; for (var i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? 'on' : '') + '"></i>'; return h + '</span>'; }
+function langSeg() {
+  return '<span class="gr-lang" role="group" aria-label="Language of the explanations"><button data-action="gr-lang" data-l="vi" aria-pressed="' + (lang() === 'vi') + '">Tiếng Việt</button><button data-action="gr-lang" data-l="en" aria-pressed="' + (lang() === 'en') + '">English</button></span>';
+}
+function dueText(d) { return d <= 0 ? 'Review today' : d === 1 ? 'Review tomorrow' : 'Review in ' + d + ' days'; }
+function reason(q) {
+  if (q.reason === 'errors') return 'From your mistakes: ' + q.errors + (q.errors === 1 ? ' mistake' : ' mistakes') + ' on this';
+  return q.reason === 'level' ? 'Right for your level' : q.reason === 'basics' ? 'A basic worth checking' : 'A step above your level';
+}
+
+/* ---------- comparing sentences ---------- */
+var SHORT = [[/\bcan't\b/g, 'cannot'], [/\bwon't\b/g, 'will not'], [/\bshan't\b/g, 'shall not'], [/n't\b/g, ' not'], [/\bi'm\b/g, 'i am'], [/\b(he|she|it|that|there|what|who|where|here)'s\b/g, '$1 is'], [/'re\b/g, ' are'], [/'ve\b/g, ' have'], [/'ll\b/g, ' will'], [/\blet's\b/g, 'let us']];
+function norm(s) {
+  s = String(s || '').toLowerCase().replace(/[‘’ʼ`]/g, "'").replace(/[“”"]/g, '');
+  SHORT.forEach(function (p) { s = s.replace(p[0], p[1]); });
+  return s.replace(/'d\b/g, ' d').replace(/[.,!?;:()…-]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function matches(ans, list) { var a = norm(ans); return !!a && list.some(function (x) { return norm(x) === a; }); }
+/* The learner's sentence with the words that are not in the model answer marked. */
+function diffHtml(ans, model) {
+  var have = {}; norm(model).split(' ').forEach(function (w) { have[w] = (have[w] || 0) + 1; });
+  return String(ans).split(/\s+/).filter(Boolean).map(function (w) {
+    var ks = norm(w).split(' ').filter(Boolean), ok = ks.length > 0 && ks.every(function (k) { return have[k] > 0; });
+    if (ok) ks.forEach(function (k) { have[k]--; });
+    return ok ? esc(w) : '<mark class="bad">' + esc(w) + '</mark>';
+  }).join(' ');
+}
+function focusHtml(model, focus) {
+  var m = String(model), f = String(focus || ''), i = f ? m.toLowerCase().indexOf(f.toLowerCase()) : -1;
+  return i < 0 ? esc(m) : esc(m.slice(0, i)) + '<mark>' + esc(m.slice(i, i + f.length)) + '</mark>' + esc(m.slice(i + f.length));
+}
+
+/* ---------- the Grammar page ---------- */
+function load(force) {
+  if (G.loading) return; if (G.home && !force) return drawHome();
+  G.loading = true; G.err = '';
+  if (!G.home) root().innerHTML = '<article class="card"><h2>Grammar</h2><p class="muted mt">Loading your lessons…</p></article>';
+  K.Api.call('grammarHome').then(function (h) { G.loading = false; G.home = h; if (K.state.view === 'grammar' && !G.run) drawHome(); })
+    .catch(function (e) { G.loading = false; G.err = (e && e.message) || 'Could not load Grammar.'; if (K.state.view === 'grammar' && !G.run) drawHome(); });
+}
+function render() {
+  if (!K.live) { root().innerHTML = '<article class="card"><h2>Grammar</h2><p class="muted mt">Grammar connects to your lessons and mistakes, so it only runs in the live app.</p></article>'; return; }
+  if (G.run) return draw();
+  load(false);
+}
+function startBtn(t, label, cls) { return '<button class="btn ' + (cls || 'btn-primary') + '" data-action="gr-start" data-t="' + t.topic + '">' + label + '</button>'; }
+function drawHome() {
+  var h = G.home, r = root();
+  if (!h) { r.innerHTML = '<article class="card"><h2>Grammar</h2><p class="muted mt">' + esc(G.err || 'Could not load Grammar.') + '</p><button class="btn btn-soft mt" data-action="gr-reload">Try again</button></article>'; return; }
+  var nx = h.queue[0], due = h.due, e = h.errors;
+  var today = '<article class="card sk-grammar"><div class="card-head"><h2>' + ic('i-spell', 'ic-sm') + 'Grammar today</h2>' + langSeg() + '</div>' +
+    (due.length ? '<div class="gr-block"><div class="small muted">' + due.length + (due.length === 1 ? ' lesson' : ' lessons') + ' to review today</div>' + due.map(function (d) {
+      return '<div class="gr-row"><div class="grow"><div class="t">' + esc(ttl(d)) + '</div><div class="tiny muted">' + d.cefr + (d.errors ? ' · ' + d.errors + ' open ' + (d.errors === 1 ? 'mistake' : 'mistakes') : '') + '</div></div>' + boxes(d.box) + startBtn(d, 'Review', due[0] === d ? 'btn-primary btn-sm' : 'btn-soft btn-sm') + '</div>';
+    }).join('') + '</div>' : '') +
+    (nx ? '<div class="gr-block"><div class="small muted">' + (due.length ? 'Then a new lesson' : 'Your next lesson') + '</div><div class="gr-next"><div class="grow"><div class="t">' + esc(ttl(nx)) + '</div><div class="tiny muted">' + nx.cefr + ' · ' + reason(nx) + '</div></div>' + startBtn(nx, 'Start lesson', due.length ? 'btn-soft' : 'btn-primary') + '</div></div>'
+      : '<p class="muted mt">You have studied every topic. Keep up with the reviews.</p>') +
+    '<p class="tiny muted" style="margin:14px 0 0">About 8 minutes. You type your answers; with pen and paper you can write them down and check yourself.</p></article>';
+  var notebook = '<article class="card"><div class="card-head"><h2>' + ic('i-bookmark', 'ic-sm') + 'Your mistakes</h2><span class="pill plain">' + e.open + ' open</span></div>' +
+    (e.byTopic.length ? '<div class="gr-bars">' + e.byTopic.slice(0, 6).map(function (b) {
+      var mx = e.byTopic.reduce(function (m, x) { return Math.max(m, x.n); }, 1);
+      return '<div class="r"><span class="lb">' + esc(ttl(b)) + '</span><div class="t"><i class="o" style="width:' + b.open / mx * 100 + '%"></i><i class="f" style="width:' + (b.n - b.open) / mx * 100 + '%"></i></div><span class="muted num">' + b.n + '</span></div>';
+    }).join('') + '</div><div class="legend" style="margin-top:8px"><span><i style="border-color:var(--primary)"></i>Open</span><span><i style="border-color:#B5CEFF"></i>Fixed</span></div>'
+      : '<p class="muted small">No mistakes filed yet. When you do a Writing or Speaking practice, each correction is filed here under its grammar topic, and your lessons follow them.</p>') + '</article>';
+  var lessons = h.lessons.length ? '<article class="card mt"><div class="card-head"><h2>Lessons you have studied</h2><span class="pill plain">' + h.lessons.length + '</span></div>' + h.lessons.map(function (l) {
+    return '<div class="gr-row"><div class="grow"><div class="t">' + esc(ttl(l)) + '</div><div class="tiny muted">' + l.cefr + (l.score === null ? '' : ' · last score ' + l.score + '%') + '</div></div>' + boxes(l.box) + '<span class="due tiny muted">' + dueText(l.days) + '</span><button class="btn btn-ghost btn-sm' + (l.days <= 0 ? ' now' : '') + '" data-action="gr-start" data-t="' + l.topic + '">' + (l.days <= 0 ? 'Review' : 'Practise') + '</button></div>';
+  }).join('') + '</article>' : '';
+  var queue = h.queue.length > 1 ? '<article class="card mt"><div class="card-head"><h2>Coming up</h2><span class="pill plain">' + h.left + ' topics left</span></div>' + h.queue.slice(1).map(function (q) {
+    return '<div class="gr-row"><div class="grow"><div class="t">' + esc(ttl(q)) + '</div><div class="tiny muted">' + q.cefr + ' · ' + reason(q) + '</div></div><button class="btn btn-ghost btn-sm" data-action="gr-start" data-t="' + q.topic + '">Start</button></div>';
+  }).join('') + '</article>' : '';
+  var recent = e.recent.length ? '<article class="card mt"><div class="card-head"><h2>Mistake notebook</h2><span class="pill plain">Latest ' + e.recent.length + '</span></div>' + e.recent.map(function (x) {
+    return '<div class="gr-err' + (x.fixed ? ' fixed' : '') + '"><div class="tiny muted">' + esc(x.title) + (x.fixed ? ' · fixed' : '') + '</div><div class="o">' + esc(x.original) + '</div><div class="b">' + esc(x.better) + '</div>' + (x.why ? '<div class="tiny muted">' + esc(x.why) + '</div>' : '') + '</div>';
+  }).join('') + '</article>' : '';
+  var drills = K.drill ? '<article class="card mt"><div class="card-head"><h2>Quick practice</h2><span class="small muted">Mixed from all lessons</span></div>' + K.drill.entry('gap', true) + K.drill.entry('translate', true) + '</article>' : '';
+  r.innerHTML = '<div class="grid g-7-5">' + today + notebook + '</div>' + drills + lessons + queue + recent;
+}
+
+/* ---------- a lesson ---------- */
+var INSTR = { fix: 'Find the mistake and write the correct sentence.', translate: 'Write this in English.', own: 'This is your own sentence. Write it correctly.' };
+/* ---------- Sentences, gaps and listening: Kel speaks, you answer ----------
+   Kel says a sentence in a speech bubble. You tap word tiles into the lines below (a tile leaves an empty place in the
+   bank, so the bank does not jump). Some tiles do not belong. Tapping a tile reads the word aloud with the
+   browser voice (free, no network); this can be turned off in Settings. */
+var STK_BASE = location.protocol === 'file:' ? 'web/stickers/' : /github\.io$/.test(location.hostname) ? 'stickers/' : 'https://nguyenkiet-study.github.io/stickers/';
+var KEL = { tiles: 'kel-writing', mcq: 'kel-reading', listen: 'kel-listening' };
+function kel(t) { return '<img class="gx-kel" src="' + STK_BASE + (KEL[t] || 'kel-wave') + '.webp" alt="" draggable="false">'; }
+function stage(t, bubble) { return '<div class="gx-stage">' + kel(t) + '<div class="gx-bubble">' + bubble + '</div></div>'; }
+function shuffled(a) { var b = a.slice(), i, j, x; for (i = b.length - 1; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); x = b[i]; b[i] = b[j]; b[j] = x; } return b; }
+// words that learners mix up: one of these makes a good wrong tile
+var SWAP = { is: ['are', 'am'], are: ['is', 'be'], am: ['is', 'are'], was: ['were', 'is'], were: ['was', 'are'], has: ['have', 'had'], have: ['has', 'having'], had: ['has', 'have'],
+  do: ['does', 'did'], does: ['do', 'did'], did: ['does', 'do'], a: ['an', 'the'], an: ['a', 'the'], the: ['a', 'this'], in: ['on', 'at'], on: ['in', 'at'], at: ['in', 'on'],
+  to: ['for', 'at'], for: ['to', 'since'], since: ['for', 'from'], this: ['that', 'these'], that: ['this', 'which'], he: ['she', 'his'], she: ['he', 'her'], his: ['her', 'he'], her: ['his', 'she'],
+  will: ['would', 'going'], would: ['will'], can: ['could'], could: ['can'], go: ['goes', 'going'], goes: ['go', 'went'], went: ['go', 'gone'], my: ['me', 'mine'], me: ['my', 'I'],
+  i: ['me', 'my'], we: ['us', 'our'], they: ['them', 'their'], some: ['any'], any: ['some'], much: ['many'], many: ['much'], than: ['then'], then: ['than'], of: ['for', 'from'],
+  with: ['by', 'for'], by: ['with', 'for'], not: ['no', "don't"], been: ['being', 'be'], being: ['been'], who: ['which', 'whom'], which: ['who', 'what'], if: ['when', 'whether'], when: ['if', 'while'] };
+function clean(w) { return String(w).replace(/^[“"‘(]+|[.,!?;:”"’)…]+$/g, ''); }
+function lessonWords() {
+  var L = G.run ? G.run.L : G.pendingL, out = [];
+  if (!L) return out;
+  (L.examples || []).forEach(function (e) { out.push(e.en); });
+  (L.write || []).forEach(function (w) { out.push(w.answers[0]); });
+  (L.warm || []).forEach(function (w) { out = out.concat(w.options); });
+  return out.join(' ').split(/\s+/).map(clean).filter(function (w) { return /^[A-Za-z']{2,}$/.test(w); });
+}
+function makeTiles(answer, cefr, pool) {
+  var words = String(answer).trim().split(/\s+/).map(clean).filter(Boolean), tiles = words.map(function (w, k) { return { id: k, w: w }; });
+  var extraPool = pool; pool = null;
+  var low = {}; words.forEach(function (w) { low[w.toLowerCase()] = 1; });
+  var want = Math.min(Math.max(3, Math.round(words.length * 0.6)), { A1: 3, A2: 4 }[cefr] || 5), seen = {}; pool = [];
+  function add(w) { var k = w.toLowerCase(); if (!low[k] && !seen[k]) { seen[k] = 1; pool.push(/^I$/.test(w) ? w : w.toLowerCase()); } }
+  shuffled(words).forEach(function (w) { (SWAP[w.toLowerCase()] || []).forEach(add); });
+  var near = pool.slice(0, Math.ceil(want / 2)); pool = near; seen = {}; near.forEach(function (w) { seen[w.toLowerCase()] = 1; });
+  shuffled((extraPool || lessonWords()).map(clean).filter(function (w) { return /^[A-Za-z']{2,}$/.test(w); })).forEach(function (w) { if (pool.length < want) add(w); });
+  ['the', 'is', 'to', 'have', 'it', 'very', 'for', 'and'].forEach(function (w) { if (pool.length < want) add(w); });
+  pool.slice(0, want).forEach(function (w, k) { tiles.push({ id: 100 + k, w: w, extra: true }); });
+  // the bank is sorted like a dictionary, as in the picture lessons: the order gives nothing away
+  return tiles.sort(function (x, y) { return x.w.toLowerCase() < y.w.toLowerCase() ? -1 : x.w.toLowerCase() > y.w.toLowerCase() ? 1 : x.id - y.id; });
+}
+function hintOf(answer) {
+  return String(answer).trim().split(/\s+/).map(function (w) {
+    var m = w.match(/^([^A-Za-z]*)([A-Za-z])([A-Za-z'’-]*)([^A-Za-z]*)$/); if (!m) return w;
+    return m[1] + m[2] + m[3].replace(/[A-Za-z]/g, '_') + m[4];
+  }).join(' ');
+}
+function tileOf(s, id) { return s.tiles.filter(function (x) { return x.id === id; })[0]; }
+function bankHtml(s) {
+  var built = s.picked.map(function (id) { return '<button class="gx-t on" data-action="gr-tile-back" data-id="' + id + '"' + (s.state ? ' disabled' : '') + '>' + esc(tileOf(s, id).w) + '</button>'; }).join('');
+  var h = '<div class="gx-lines' + (s.state ? (s.ok ? ' ok' : ' no') : '') + '">' + built + '</div>';
+  if (!s.state) h += '<div class="gx-bank">' + s.tiles.map(function (t) {
+    var used = s.picked.indexOf(t.id) > -1;
+    return '<span class="gx-slot"><button class="gx-t' + (used ? ' gone' : '') + '" data-action="gr-tile" data-id="' + t.id + '"' + (used ? ' disabled tabindex="-1"' : '') + '>' + esc(t.w) + '</button></span>';
+  }).join('') + '</div>';
+  return h;
+}
+function footBtn(action, label, dis, left) {
+  return '<div class="gx-foot">' + (left || '') + '<button class="btn btn-primary gx-go" data-action="' + action + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
+}
+function sheetHtml(ok, body) {
+  return '<div class="sheet ' + (ok ? 'ok' : 'no') + '"><div class="gr-fb ' + (ok ? 'ok' : 'no') + '"><b>' + (ok ? 'Correct!' : 'Not quite.') + '</b>' + body + '</div>' + nextBtn() + '</div>';
+}
+function tilesHtml(s) {
+  var h = '<div class="gx-title">' + (s.retry ? 'Try this one again' : 'Write this in English') + '</div>' + stage('tiles', '<span class="gx-say">' + esc(s.vi) + '</span>') + bankHtml(s);
+  if (!s.state) return h + footBtn('gr-tile-check', 'Check', !s.picked.length, '<button class="linkbtn" data-action="gr-tile-reset"' + (s.picked.length ? '' : ' hidden') + '>Start again</button>');
+  return h + sheetHtml(s.ok, s.ok ? (s.answers[0] !== s.val ? '<div class="tiny muted">' + esc(s.answers[0]) + '</div>' : '') : '<div class="tiny muted">Correct answer</div><div class="gr-model">' + esc(s.answers[0]) + '</div>');
+}
+/* Listen and build: Kel says an example sentence, you build what you heard. */
+function noListen() { try { return Number(localStorage.getItem('kelvin_nolisten') || 0) > Date.now(); } catch (e) { return false; } }
+function listenHtml(s) {
+  var playing = s.playing ? ' live' : '';
+  var bub = '<button class="gx-audio" data-action="gr-listen" aria-label="Play the sentence">' + ic('i-volume', 'ic-lg') + '<span class="wave' + playing + '">' + K.waveBars() + '</span></button>';
+  var h = '<div class="gx-title">Listen and build the sentence</div>' + stage('listen', bub) +
+    '<div class="gx-slow"><button class="linkbtn" data-action="gr-listen" data-slow="1">' + ic('i-volume', 'ic-sm') + 'Slow</button></div>' + bankHtml(s);
+  if (!s.state) return h + footBtn('gr-tile-check', 'Check', !s.picked.length, '<button class="linkbtn" data-action="gr-nolisten">Can\'t listen now</button>');
+  return h + sheetHtml(s.ok, '<div class="gr-model">' + esc(s.answers[0]) + '</div>' + (s.vi ? '<div class="tiny muted">' + esc(s.vi) + '</div>' : ''));
+}
+function playListen(el) {
+  var s = cur(); if (!s || s.t !== 'listen') return;
+  var slow = el && el.dataset && el.dataset.slow === '1';
+  s.playing = true; draw();
+  var done = function () { if (cur() === s) { s.playing = false; draw(); } };
+  var h = K.speakNatural([{ s: 0, t: s.answers[0] }], slow ? 0.7 : 1, done, false);
+  if (h === false) done();
+}
+function skipListen() {
+  try { localStorage.setItem('kelvin_nolisten', String(Date.now() + 15 * 60e3)); } catch (e) {}
+  var r = G.run; r.steps.forEach(function (x, k) { if (k >= r.i && x.t === 'listen') { x.scored = false; x.skip = true; } });
+  K.stopSpeech && K.stopSpeech();
+  K.toast('No listening for 15 minutes.');
+  while (r.i < r.steps.length && r.steps[r.i].skip) r.i++;
+  if (r.i >= r.steps.length) return finish();
+  draw();
+}
+function speakTile(w) {
+  var st = K.state && K.state.settings; if (st && st.tapVoice === false) return;
+  try { K.speakLines([{ s: 0, t: w }], 0.95); } catch (e) {}
+}
+function tile(el) { var s = cur(); if (!s || (s.t !== 'tiles' && s.t !== 'listen') || s.state) return; var id = Number(el.dataset.id); if (s.picked.indexOf(id) < 0) { s.picked.push(id); speakTile(tileOf(s, id).w); } draw(); }
+function tileBack(el) { var s = cur(); if (!s || (s.t !== 'tiles' && s.t !== 'listen') || s.state) return; var id = Number(el.dataset.id); s.picked = s.picked.filter(function (x) { return x !== id; }); draw(); }
+function tileCheck() {
+  var s = cur(); if (!s || (s.t !== 'tiles' && s.t !== 'listen') || s.state) return;
+  var text = s.picked.map(function (id) { return tileOf(s, id).w; }).join(' ');
+  s.val = text; s.ok = matches(text, s.answers); s.state = 'done';
+  draw();
+}
+/* A sentence still wrong after writing (and after the AI looked at it) is learnt again as word tiles:
+   once more near the end of this lesson, and first thing in the next lesson of the topic. */
+function retryKey(t) { return 'kelvin_gr_retry_' + t; }
+function retryLoad(t) { try { var a = JSON.parse(localStorage.getItem(retryKey(t)) || '[]'); localStorage.removeItem(retryKey(t)); return a.slice(0, 3); } catch (e) { return []; } }
+function retrySave(t, b) {
+  try { var a = JSON.parse(localStorage.getItem(retryKey(t)) || '[]'); if (!a.some(function (x) { return x.vi === b.vi; })) a.push(b); localStorage.setItem(retryKey(t), JSON.stringify(a.slice(-5))); } catch (e) {}
+}
+function queueRetry(s) {
+  var r = G.run; if (!r || s.retried || !s.viPrompt || s.ok) return;
+  s.retried = true;
+  var at = r.steps.length; if (r.steps[at - 1] && r.steps[at - 1].t === 'free') at--;
+  r.steps.splice(at, 0, { t: 'tiles', vi: s.prompt, answers: s.answers, tiles: makeTiles(s.answers[0], r.L.cefr), picked: [], scored: false, retry: true });
+  retrySave(r.L.topic, { vi: s.prompt, answers: s.answers });
+}
+/* Fill the gap: choose, then Check. The answer and why come after Check. */
+function gapSentence(s) {
+  var sel = s.sel !== undefined ? s.opts[s.sel].t : '';
+  var parts = String(s.q).split(/_{2,}/);
+  var blank = '<span class="gx-blank' + (sel ? ' on' : '') + (s.done ? (s.ok ? ' ok' : ' no') : '') + '">' + (sel ? esc(sel) : '&nbsp;') + '</span>';
+  return parts.length > 1 ? esc(parts[0]) + blank + esc(parts.slice(1).join('___')) : esc(s.q) + ' ' + blank;
+}
+function mcqHtml(s) {
+  var h = '<div class="gx-title">Fill in the blank</div>' + stage('mcq', '<span class="gx-say">' + gapSentence(s) + '</span>') +
+    '<div class="gx-opts">' + s.opts.map(function (o, i) {
+      var cls = s.done ? (o.ok ? ' right' : s.sel === i ? ' wrong' : ' dim') : (s.sel === i ? ' sel' : '');
+      return '<button class="gx-opt' + cls + '" data-action="gr-pick" data-i="' + i + '"' + (s.done ? ' disabled' : '') + '>' + esc(o.t) + '</button>';
+    }).join('') + '</div>';
+  if (!s.done) return h + footBtn('gr-mcq-check', 'Check', s.sel === undefined);
+  var right = s.opts.filter(function (o) { return o.ok; })[0];
+  var body = (s.ok ? '' : '<div class="tiny muted">Correct answer</div><div class="gr-model">' + esc(right.t) + '</div>') +
+    '<div class="gx-why">' + ic('i-bulb', 'ic-sm') + '<span>' + esc(tx(s.why)) + '</span></div>' +
+    (s.ok ? '' : '<div class="tiny muted">You chose “' + esc(s.opts[s.sel].t) + '”. It does not fit this sentence.</div>');
+  return h + sheetHtml(s.ok, body);
+}
+function pick(el) { var s = cur(); if (!s || s.t !== 'mcq' || s.done) return; var i = Number(el.dataset.i); s.sel = s.sel === i ? undefined : i; draw(); }
+function mcqCheck() {
+  var s = cur(); if (!s || s.t !== 'mcq' || s.done || s.sel === undefined) return;
+  s.ok = !!s.opts[s.sel].ok; s.done = true;
+  draw();
+}
+
+function start(topic, btn) {
+  if (G.busy) return; G.busy = true;
+  var label = btn ? btn.textContent : ''; if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  K.Api.call('grammarLesson', { topic: topic }).then(function (L) {
+    G.busy = false;
+    G.pendingL = L; var steps = [{ t: 'theory' }];
+    if (L.kind === 'lesson') steps.push({ t: 'note' });
+    L.warm.forEach(function (w) {
+      var opts = w.options.map(function (o, i) { return { t: o, ok: i === 0 }; });
+      for (var i = opts.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = opts[i]; opts[i] = opts[j]; opts[j] = x; }
+      steps.push({ t: 'mcq', q: w.sentence, opts: opts, why: w.why, scored: true });
+    });
+    // sentences you got wrong last time come back first, as English word tiles
+    retryLoad(L.topic).forEach(function (b) { steps.push({ t: 'tiles', vi: b.vi, answers: b.answers, tiles: makeTiles(b.answers[0], L.cefr), picked: [], scored: true, retry: true }); });
+    var lift = ['B1', 'B2', 'C1', 'C2'].indexOf(L.cefr) > -1 ? 1 : 0;   // from B1 the sentences get harder sooner
+    if (L.build && L.build.items.length) L.build.items.forEach(function (b, k) {
+      // the first sentence of a lesson is one step easier, so each lesson starts gently
+      var top = Math.min(2, L.build.stage + lift), stage = Math.max(0, top - (k === 0 && top > 0 ? 1 : 0));
+      if (stage === 0) steps.push({ t: 'tiles', vi: b.vi, answers: b.answers, tiles: makeTiles(b.answers[0], L.cefr), picked: [], scored: true });
+      else steps.push({ t: 'write', kind: stage === 1 ? 'hint' : 'build', instr: stage === 1 ? 'Write it in English. The first letters help you.' : 'Write it in English.', prompt: b.vi, hint: stage === 1 ? hintOf(b.answers[0]) : '', answers: b.answers, focus: b.focus || '', why: b.why, scored: true, viPrompt: true });
+    });
+    // listening: example sentences that were not used above, read aloud by Kel
+    if (K.canSpeak() && !noListen()) {
+      var usedEn = (L.build ? L.build.items : []).map(function (b) { return norm(b.answers[0]); });
+      L.examples.filter(function (e) { var w = String(e.en).split(/\s+/).length; return e.en && usedEn.indexOf(norm(e.en)) < 0 && w >= 3 && w <= 14; })
+        .slice(0, L.kind === 'review' ? 1 : 2).forEach(function (e) { G.pendingL = L; steps.push({ t: 'listen', vi: e.vi || '', answers: [e.en], tiles: makeTiles(e.en, L.cefr), picked: [], scored: true }); });
+    }
+    L.write.forEach(function (w) { steps.push({ t: 'write', kind: w.type, instr: w.type === 'transform' ? (w.instruction || 'Rewrite the sentence.') : INSTR[w.type], prompt: w.prompt, answers: w.answers, focus: w.focus, why: w.why, scored: true }); });
+    L.own.forEach(function (o) { steps.push({ t: 'write', kind: 'own', own: o.id, instr: INSTR.own, prompt: o.original, answers: [o.better], focus: '', why: o.why, scored: true }); });
+    if (tx(L.free)) steps.push({ t: 'free' });
+    G.run = { L: L, steps: steps, i: 0, started: Date.now(), wrongs: [], fixed: [], result: null };
+    if (K.state.view !== 'grammar') K.go('grammar'); else draw();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }).catch(function (e) { G.busy = false; if (btn) { btn.disabled = false; btn.textContent = label; } K.toast((e && e.message) || 'Could not open that lesson.'); });
+}
+/* ---------- the question index and History ---------- */
+function scoredSteps() { return G.run ? G.run.steps.filter(function (s) { return s.scored; }) : []; }
+function stepItem(s) {
+  var done = !!(s.done || s.state === 'done');
+  if (s.t === 'mcq') {
+    var right = s.opts.filter(function (o) { return o.ok; })[0];
+    return { q: s.q, a: done && s.sel !== undefined ? s.opts[s.sel].t : '', r: right ? right.t : '', ok: done ? !!s.ok : null, why: tx(s.why), done: done };
+  }
+  if (s.t === 'listen') return { q: 'Listen and build: ' + s.answers[0], a: done ? s.val || '' : '', r: s.answers[0], ok: done ? !!s.ok : null, why: '', done: done };
+  if (s.t === 'tiles') return { q: 'Build the sentence: ' + s.vi, a: done ? s.val || '' : '', r: s.answers[0], ok: done ? !!s.ok : null, why: '', done: done };
+  return { q: s.instr + ' ' + s.prompt, a: s.paper ? '(written on paper)' : (s.val || ''), r: s.answers[0], ok: done ? !!s.ok : null, why: tx(s.aiWhy || s.why), done: done };
+}
+function qiPill() {
+  var r = G.run; if (!r || r.result) return '';
+  var list = scoredSteps(); if (!list.length) return '';
+  var cur = r.steps[r.i], at = list.indexOf(cur), doneN = list.filter(function (s) { return s.done || s.state === 'done'; }).length;
+  return K.qindex.pill(at > -1 ? at + 1 : Math.min(list.length, doneN + (cur && cur.t === 'free' ? 0 : 1)), list.length);
+}
+K.qindex.provide(function () {
+  var r = G.run; if (!r || K.state.view !== 'grammar') return null;
+  var cur = r.steps[r.i];
+  return { title: ttl(r.L), items: scoredSteps().map(function (s) { var x = stepItem(s); x.cur = s === cur; return x; }) };
+});
+function historySave(d) {
+  var r = G.run, items = scoredSteps().filter(function (s) { return s.done || s.state === 'done'; }).map(stepItem);
+  var fr = r.steps.filter(function (s) { return s.t === 'free' && s.fb; })[0];
+  if (fr) items.push({ q: tx(r.L.free), a: fr.val, r: fr.fb.corrections.map(function (c) { return c.original + ' → ' + c.better; }).join('\n'), ok: null, why: tx(fr.fb.comment) });
+  K.history.save({ kind: 'grammar', title: 'Grammar: ' + r.L.title + (r.L.kind === 'review' ? ' (review)' : ''), right: d.right, total: d.total, minutes: d.minutes, items: items });
+}
+function shell(body) {
+  var r = G.run, n = r.steps.length;
+  return '<article class="card sk-grammar gr-run"><div class="row-between" style="gap:10px;margin-bottom:12px"><button class="btn btn-ghost btn-sm" data-action="gr-exit">' + ic('i-back', 'ic-sm') + 'Exit</button><span class="small muted" style="flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(ttl(r.L)) + ' · ' + (r.L.kind === 'review' ? 'Review' : 'Lesson') + '</span>' + qiPill() + langSeg() + '</div>' +
+    '<div class="wd-bar"><i style="width:' + Math.round(r.i / n * 100) + '%"></i></div>' + body + '</article>';
+}
+function nextBtn(label, dis) { return '<div class="row-between mt"><span></span><button class="btn btn-primary" data-action="gr-next"' + (dis ? ' disabled' : '') + '>' + (label || 'Continue') + '</button></div>'; }
+function theoryHtml(L, short) {
+  return '<div class="gr-rule">' + esc(tx(L.rule)) + '</div>' +
+    '<div class="gr-forms">' + L.forms.map(function (f) { return '<div class="num">' + esc(f) + '</div>'; }).join('') + '</div>' +
+    '<h3 class="gr-h">Examples</h3>' + L.examples.slice(0, short ? 2 : 4).map(function (e) { return '<div class="gr-ex"><div>' + esc(e.en) + '</div>' + (lang() === 'vi' && e.vi ? '<div class="tiny muted">' + esc(e.vi) + '</div>' : '') + '</div>'; }).join('') +
+    (short || !L.mistakes.length ? '' : '<h3 class="gr-h">Common mistakes</h3>' + L.mistakes.map(function (m) { return '<div class="gr-err"><div class="o">' + esc(m.wrong) + '</div><div class="b">' + esc(m.right) + '</div><div class="tiny muted">' + esc(tx(m.why)) + '</div></div>'; }).join('')) +
+    (L.own.length && !short ? '<h3 class="gr-h">From your own writing</h3>' + L.own.map(function (o) { return '<div class="gr-err"><div class="o">' + esc(o.original) + '</div><div class="b">' + esc(o.better) + '</div>' + (o.why ? '<div class="tiny muted">' + esc(o.why) + '</div>' : '') + '</div>'; }).join('') : '');
+}
+function draw() {
+  var r = G.run; if (!r) return drawHome();
+  if (r.result) return drawDone();
+  var s = r.steps[r.i], L = r.L, h = '';
+  if (s.t === 'theory') {
+    h = '<h2>' + esc(ttl(L)) + '</h2><p class="tiny muted" style="margin:4px 0 14px">' + L.cefr + (L.kind === 'review' ? ' · A quick look back before you write' : ' · Read this first') + '</p>' + theoryHtml(L, L.kind === 'review') + nextBtn(L.kind === 'review' ? 'Start the review' : 'Continue');
+  } else if (s.t === 'note') {
+    h = '<h2>' + ic('i-pen', 'ic-sm') + ' For your notebook</h2><p class="small muted" style="margin:6px 0 14px">If you have pen and paper, copy this card. Writing it by hand helps you remember. No paper? Just continue.</p>' +
+      '<div class="gr-note"><b>' + esc(L.title) + '</b>' + L.forms.map(function (f) { return '<div class="num">' + esc(f) + '</div>'; }).join('') + L.examples.slice(0, 2).map(function (e) { return '<div class="e">' + esc(e.en) + '</div>'; }).join('') + '</div>' + nextBtn('Continue');
+  } else if (s.t === 'mcq') h = mcqHtml(s);
+  else if (s.t === 'listen') h = listenHtml(s);
+ else if (s.t === 'write') h = writeHtml(s);
+  else if (s.t === 'tiles') h = tilesHtml(s);
+  else if (s.t === 'free') h = freeHtml(s);
+  root().innerHTML = shell(h);
+  if (s.t === 'listen' && !s.state && !s.heard) { s.heard = true; setTimeout(function () { if (cur() === s) playListen(); }, 350); }
+  var inp = $('#gr-input'); if (inp && !inp.disabled && !('ontouchstart' in window)) inp.focus();
+}
+function inputHtml(ph, val, dis) {
+  return '<textarea class="input mt" id="gr-input" rows="2" style="min-height:64px" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="' + ph + '"' + (dis ? ' disabled' : '') + '>' + esc(val || '') + '</textarea>';
+}
+function writeHtml(s) {
+  var model = s.answers[0];
+  var h = '<div class="small muted">' + esc(s.instr) + '</div><div class="wd-q mt' + (s.kind === 'fix' || s.kind === 'own' ? ' gr-wrongline' : '') + (s.viPrompt ? ' gr-vi' : '') + '">' + esc(s.prompt) + '</div>' +
+    (s.hint && !s.state ? '<div class="gr-hint num" aria-label="First letters of each word">' + esc(s.hint) + '</div>' : '');
+  if (!s.state) {
+    return h + inputHtml('Write the full sentence', s.val) + '<div class="row-between mt" style="gap:10px;flex-wrap:wrap"><button class="linkbtn" data-action="gr-paper">' + ic('i-pen', 'ic-sm') + 'I wrote it on paper</button><button class="btn btn-primary" data-action="gr-check">Check</button></div>';
+  }
+  if (s.state === 'paper') {
+    return h + '<div class="gr-fb"><div class="tiny muted">Compare with your page. Look closely at the marked words.</div><div class="gr-model">' + focusHtml(model, s.focus) + '</div>' + (s.answers.length > 1 ? '<div class="tiny muted">Also right: ' + s.answers.slice(1).map(esc).join(' / ') + '</div>' : '') + '<div class="tiny muted" style="margin-top:6px">' + esc(tx(s.why)) + '</div></div>' +
+      '<div class="row-between mt" style="gap:10px"><button class="btn" data-action="gr-self" data-ok="0">I got it wrong</button><button class="btn btn-primary" data-action="gr-self" data-ok="1">I got it right</button></div>';
+  }
+  if (s.ok) return h + inputHtml('', s.val, true) + '<div class="sheet ok"><div class="gr-fb ok"><b>' + (s.byAi ? 'Your sentence is also correct.' : 'Correct.') + '</b> ' + esc(tx(s.byAi ? s.aiWhy : s.why)) + '</div>' + nextBtn() + '</div>';
+  // wrong
+  h += '<div class="gr-fb no"><b>Not quite.</b>' + (s.paper ? '' : '<div class="gr-yours">' + diffHtml(s.val, model) + '</div>') + '<div class="tiny muted">Correct sentence</div><div class="gr-model">' + focusHtml(model, s.focus) + '</div><div class="tiny muted" style="margin-top:6px">' + esc(tx(s.aiWhy || s.why)) + '</div>' +
+    (!s.paper && !s.asked ? '<button class="linkbtn" style="margin-top:8px" data-action="gr-judge">' + ic('i-sparkle', 'ic-sm') + 'I think mine is also correct. Ask the AI</button>' : '') + '</div>';
+  if (s.retyped) return h + nextBtn();
+  return h + '<div class="small muted mt">' + (s.paper ? 'Write the correct sentence once on your page, then continue.' : 'Type the correct sentence once.') + '</div>' + (s.paper ? nextBtn() : inputHtml('Type the correct sentence', '') + '<div class="row-between mt"><button class="linkbtn" data-action="gr-next">Skip</button><button class="btn btn-primary" data-action="gr-retype">Check</button></div>');
+}
+function freeHtml(s) {
+  var L = G.run.L, h = '<div class="small muted">Now use it yourself</div><div class="wd-q mt">' + esc(tx(L.free)) + '</div>';
+  if (s.fb) {
+    return h + '<div class="gr-fb ' + (s.fb.used && !s.fb.corrections.length ? 'ok' : '') + '"><b>' + (s.fb.corrections.length ? s.fb.corrections.length + (s.fb.corrections.length === 1 ? ' thing' : ' things') + ' to fix.' : 'No mistakes found.') + '</b> ' + esc(tx(s.fb.comment)) + '</div>' +
+      s.fb.corrections.map(function (c) { return '<div class="gr-err"><div class="o">' + esc(c.original) + '</div><div class="b">' + esc(c.better) + '</div><div class="tiny muted">' + esc(tx(c.why)) + '</div></div>'; }).join('') +
+      (s.fb.corrections.length ? '<p class="tiny muted mt">These are now in your mistake notebook.</p>' : '') + (s.social > -1 && K.social ? K.social.view(s.social) : '') + nextBtn('Finish');
+  }
+  return h + '<textarea class="input mt" id="gr-input" style="min-height:120px" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Write 3 to 5 sentences"' + (s.busy ? ' disabled' : '') + '>' + esc(s.val || '') + '</textarea>' +
+    (s.read ? '<p class="tiny muted" style="margin:6px 0 0">This is what was read from your photo. Fix any word that was read wrongly, then check.</p>' : '') +
+    '<input type="file" id="gr-photo" accept="image/*" capture="environment" hidden>' +
+    (K.social ? K.social.tagBox('grammar') : '') +
+    '<div class="row-between mt" style="gap:10px;flex-wrap:wrap"><span style="display:flex;gap:14px;flex-wrap:wrap"><button class="linkbtn" data-action="gr-photo"' + (s.busy ? ' disabled' : '') + '>' + ic('i-eye', 'ic-sm') + 'Use a photo of my page</button><button class="linkbtn" data-action="gr-next"' + (s.busy ? ' disabled' : '') + '>Skip</button></span>' +
+    '<button class="btn btn-primary" data-action="gr-free"' + (s.busy ? ' disabled' : '') + '>' + (s.busy ? s.busy : 'Check my writing') + '</button></div>';
+}
+
+/* ---------- answering ---------- */
+function cur() { var r = G.run; return r && !r.result ? r.steps[r.i] : null; }
+function settle(s, ok) {
+  var r = G.run; s.ok = ok; s.state = 'done';
+  if (s.own && ok) r.fixed.push(s.own);
+  if (!ok && !s.paper && s.kind !== 'own' && s.val) s.wrong = { original: s.val, better: s.answers[0], why: (s.why && s.why.en) || '' };
+}
+function check() {
+  var s = cur(); if (!s || s.t !== 'write' || s.state) return;
+  var v = ($('#gr-input').value || '').trim(); if (v.split(/\s+/).length < 2) return K.toast('Write the full sentence first.');
+  s.val = v; settle(s, matches(v, s.answers)); draw();
+  if (!s.ok && (s.kind === 'build' || s.kind === 'hint') && K.live) { var b = $('[data-action="gr-judge"]'); if (b) judge(b); }   // a different sentence can still be right: the AI checks it
+}
+function paper() { var s = cur(); if (!s || s.t !== 'write' || s.state) return; s.paper = true; s.state = 'paper'; draw(); }
+function self(el) { var s = cur(); if (!s || s.state !== 'paper') return; settle(s, el.dataset.ok === '1'); if (s.ok) return next(); draw(); }
+function retype() {
+  var s = cur(); if (!s || s.ok) return;
+  if (matches($('#gr-input').value, s.answers)) { s.retyped = true; return next(); }
+  K.toast('Not the same yet. Copy the correct sentence word by word.');
+}
+function judge(el) {
+  var s = cur(), r = G.run; if (!s || s.ok || s.asked) return;
+  s.asked = true; el.disabled = true; el.textContent = 'Asking the AI…';
+  K.Api.call('grammarJudge', { topic: r.L.topic, instruction: s.kind === 'transform' ? s.instr : s.viPrompt ? 'Translate this Vietnamese sentence into natural English.' : '', prompt: s.prompt, model: s.answers[0], answer: s.val }).then(function (d) {
+    if (cur() !== s) return;
+    s.aiWhy = d.why; if (d.correct) { s.ok = true; s.byAi = true; s.wrong = null; if (s.own) r.fixed.push(s.own); }
+    draw();
+  }).catch(function (e) { s.asked = false; K.toast((e && e.message) || 'The AI could not check it now.'); if (cur() === s) draw(); });
+}
+function next() {
+  var r = G.run; if (!r) return;
+  var s = r.steps[r.i];
+  if (s && s.wrong) { r.wrongs.push(s.wrong); s.wrong = null; }
+  if (s && s.t === 'write' && s.state === 'done' && !s.ok) queueRetry(s);
+  r.i++;
+  if (r.i >= r.steps.length) return finish();
+  draw(); try { window.scrollTo(0, 0); } catch (e) {}
+}
+/* A photo of the page: made small in the browser, read by the AI, then shown as text to correct before it is checked. */
+function shrink(file) {
+  return new Promise(function (res, rej) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      try {
+        var k = Math.min(1, 1400 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        res(c.toDataURL('image/jpeg', 0.8).split(',')[1]);
+      } catch (e) { rej(e); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('bad image')); };
+    img.src = url;
+  });
+}
+function photo(file) {
+  var s = cur(); if (!s || s.t !== 'free' || !file) return;
+  s.val = ($('#gr-input') || {}).value || ''; s.busy = 'Reading your page…'; draw();
+  shrink(file).then(function (b64) { return K.Api.call('grammarRead', { image: b64 }); }).then(function (d) {
+    s.busy = ''; s.val = d.text; s.read = true; if (cur() === s) draw();
+  }).catch(function (e) { s.busy = ''; K.toast((e && e.message) || 'The photo could not be read. Try again, or type your sentences.'); if (cur() === s) draw(); });
+}
+function freeCheck() {
+  var s = cur(), r = G.run; if (!s || s.t !== 'free' || s.busy) return;
+  var v = ($('#gr-input').value || '').trim(); if (v.split(/\s+/).length < 5) return K.toast('Write a few sentences first.');
+  s.val = v; s.busy = 'Checking…'; draw();
+  K.Api.call('grammarFree', { topic: r.L.topic, text: v }).then(function (d) {
+    s.busy = ''; s.fb = d;
+    s.social = K.social ? K.social.after('grammar', { skill: 'grammar', title: 'Grammar: ' + (r.L.title || r.L.topic), question: tx(r.L.free), answer: v }) : -1;
+    if (cur() === s) draw(); })
+    .catch(function (e) { s.busy = ''; K.toast((e && e.message) || 'The AI could not check it now. You can skip this part.'); if (cur() === s) draw(); });
+}
+function finish() {
+  var r = G.run, scored = r.steps.filter(function (s) { return s.scored && (s.done || s.state === 'done'); }), right = scored.filter(function (s) { return s.ok; }).length;
+  r.result = { loading: true, right: right, total: scored.length }; draw();
+  if (!scored.length) { r.result = { none: true }; return draw(); }
+  K.Api.call('grammarSubmit', { topic: r.L.topic, right: right, total: scored.length, wrongs: r.wrongs, fixed: r.fixed, seconds: Math.round((Date.now() - r.started) / 1000) }).then(function (d) {
+    r.result = d; G.home = null; try { historySave(d); } catch (e) {} draw(); K.loadOverview(true);
+  }).catch(function (e) { r.result = { error: (e && e.message) || 'Could not save the lesson.', right: right, total: scored.length }; draw(); });
+}
+function drawDone() {
+  var r = G.run, d = r.result, h;
+  if (d.loading) h = '<h2>Saving your lesson…</h2>';
+  else if (d.none) h = '<h2>Lesson closed</h2><p class="muted mt">No answers were given, so nothing was saved.</p>';
+  else if (d.error) h = '<h2>' + d.right + ' of ' + d.total + ' correct</h2><p class="muted mt">' + esc(d.error) + '</p><button class="btn btn-soft mt" data-action="gr-save">Try to save again</button>';
+  else {
+    var missed = r.steps.filter(function (s) { return s.scored && s.state === 'done' && !s.ok; });
+    h = '<div class="bolt-hero"><h2>' + (d.pass ? 'Well done' : 'Good work. This one needs another look') + '</h2><p style="margin-top:6px">' + esc(ttl(r.L)) + '</p></div>' +
+      '<div class="wd-stats" style="grid-template-columns:repeat(3,1fr)"><div class="wd-stat"><b class="num">' + d.pct + '%</b><span class="small muted">' + d.right + ' of ' + d.total + ' correct</span></div><div class="wd-stat"><b class="num">Box ' + d.box + '</b><span class="small muted">' + (d.first ? 'First lesson done' : d.pass ? 'Moved up or kept' : 'Back to box 1') + '</span></div><div class="wd-stat"><b class="num">' + d.days + (d.days === 1 ? ' day' : ' days') + '</b><span class="small muted">until the next review</span></div></div>' +
+      (missed.length ? '<h3 class="gr-h">Sentences to look at again</h3>' + missed.map(function (s) { return '<div class="gr-err">' + (s.val && !s.paper ? '<div class="o">' + esc(s.val) + '</div>' : '') + '<div class="b">' + esc(s.answers[0]) + '</div><div class="tiny muted">' + esc(tx(s.aiWhy || s.why)) + '</div></div>'; }).join('') : '') +
+      (r.wrongs.length ? '<p class="tiny muted mt">Your wrong sentences are in the mistake notebook and will come back in later lessons.</p>' : '');
+  }
+  root().innerHTML = '<article class="card sk-grammar gr-run">' + h + (d.loading ? '' : '<div class="row-between mt"><span></span><button class="btn btn-primary" data-action="gr-close">Back to Grammar</button></div>') + '</article>';
+}
+function exit() { K.stopSpeech(); G.run = null; render(); }
+
+/* ---------- Home, Practice and Progress ---------- */
+function sum() { return K.state.ov && K.state.ov.grammar; }
+function dashCard() {
+  var el = $('#dash-grammar'); if (!el) return;
+  var g = sum(); if (!K.live || !g) { el.innerHTML = ''; return; }
+  var line = g.due ? g.due + (g.due === 1 ? ' lesson' : ' lessons') + ' to review' + (g.dueTitle ? ': ' + esc(g.dueTitle) : '') : g.next ? 'Next lesson: ' + esc(g.next.title) : 'All topics studied';
+  var why = g.due ? '' : g.next ? (g.next.reason === 'errors' ? 'From your mistakes (' + g.next.errors + ')' : g.next.reason === 'level' ? 'Right for your level' : g.next.reason === 'basics' ? 'A basic worth checking' : 'A step above your level') : '';
+  el.innerHTML = '<div class="up-row sk-grammar"><span class="tint up-ico">' + ic('i-spell', 'ic-sm') + '</span><div class="up-main"><div class="up-t"><b>Grammar</b>' + (g.open ? '<span class="pill sm">' + g.open + ' open ' + (g.open === 1 ? 'mistake' : 'mistakes') + '</span>' : '') + '</div>' +
+    '<div class="small">' + line + '</div>' + (why ? '<div class="tiny muted">' + why + '</div>' : '') + '</div>' +
+    '<span class="up-when' + (g.due ? ' now' : '') + '">' + (g.due ? 'Today' : 'Next') + '</span><button class="btn btn-skill btn-sm" data-go="grammar">' + (g.due ? 'Review' : 'Open') + '</button></div>';
+}
+function hubCard() {
+  var g = sum();
+  var sub = g && g.due ? '<b>' + g.due + '</b> to review' : g && g.open ? '<b>' + g.open + '</b> open ' + (g.open === 1 ? 'mistake' : 'mistakes') : 'Lessons';
+  return '<button class="hub-tile sk-grammar" data-go="grammar"><span class="tint ht-ico">' + ic('i-spell', 'ic-sm') + '</span><span class="ht-name">Grammar</span>' +
+    '<span class="ht-sub">' + sub + '</span><span class="bar ht-bar" style="visibility:hidden"><i></i></span></button>';
+}
+function progressCard() {
+  var p = $('#progress-root'), g = sum(); if (!p || !g || !g.byTopic || !g.byTopic.length || $('#prog-grammar')) return;
+  var mx = g.byTopic.reduce(function (m, x) { return Math.max(m, x.n); }, 1);
+  p.insertAdjacentHTML('beforeend', '<article class="card mt" id="prog-grammar"><div class="card-head"><h2>Grammar mistakes by topic</h2><span class="pill plain">' + g.open + ' open</span></div><div class="gr-bars">' + g.byTopic.map(function (b) {
+    return '<div class="r"><span class="lb">' + esc(b.title) + '</span><div class="t"><i class="o" style="width:' + b.open / mx * 100 + '%"></i><i class="f" style="width:' + (b.n - b.open) / mx * 100 + '%"></i></div><span class="muted num">' + b.n + '</span></div>';
+  }).join('') + '</div><div class="legend" style="margin-top:8px"><span><i style="border-color:var(--primary)"></i>Open</span><span><i style="border-color:#B5CEFF"></i>Fixed</span></div></article>');
+}
+
+K.register('grammar', { title: 'Grammar', render: render, refresh: function () { if (!G.run && !G.home) render(); } });
+K.setDash(dashCard);
+K.setHub(hubCard);
+K.onGo(function (v) { if (v === 'progress') setTimeout(progressCard, 0); });
+K.actions({
+  'gr-reload': function () { G.home = null; load(true); },
+  'gr-start': function (el) { start(el.dataset.t, el); },
+  'gr-lang': function (el) { setLang(el.dataset.l); var s = cur(), i = $('#gr-input'); if (s && i && !i.disabled) s.val = i.value; if (G.run) draw(); else drawHome(); },
+  'gr-next': function () { var s = cur(); if (s && s.t === 'free' && s.busy) return; next(); },
+  'gr-tile': tile, 'gr-tile-back': tileBack, 'gr-tile-reset': function () { var s = cur(); if (s && (s.t === 'tiles' || s.t === 'listen') && !s.state) { s.picked = []; draw(); } }, 'gr-tile-check': tileCheck, 'gr-mcq-check': mcqCheck, 'gr-listen': playListen, 'gr-nolisten': skipListen,
+  'gr-pick': pick, 'gr-check': check, 'gr-paper': paper, 'gr-self': self, 'gr-retype': retype, 'gr-judge': judge,
+  'gr-photo': function () { var f = $('#gr-photo'); if (f) f.click(); },
+  'gr-free': freeCheck,
+  'gr-save': function () { var r = G.run; if (r) { r.result = null; r.i = r.steps.length; finish(); } },
+  'gr-exit': function () { var r = G.run, any = r && r.steps.some(function (s) { return s.scored && (s.done || s.state === 'done'); }); if (any) { r.i = r.steps.length; return finish(); } exit(); },
+  'gr-close': exit
+});
+document.addEventListener('change', function (e) { if (e.target && e.target.id === 'gr-photo' && e.target.files && e.target.files[0]) photo(e.target.files[0]); });
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' || e.shiftKey || !e.target || e.target.id !== 'gr-input') return;
+  var s = cur(); if (!s || s.t !== 'write') return;
+  e.preventDefault(); if (!s.state) check(); else if (s.state === 'done' && !s.ok && !s.retyped) retype();
+});
+K.ex = { makeTiles: makeTiles, matches: matches, norm: norm, hintOf: hintOf, diffHtml: diffHtml, stage: stage, STK_BASE: STK_BASE };
+K.grammar = { state: G, norm: norm, matches: matches, peek: function () { var s = cur(); return s ? { t: s.t, kind: s.kind, answers: s.answers, state: s.state, ok: s.ok, i: G.run.i, n: G.run.steps.length } : (G.run && G.run.result ? { done: true, result: G.run.result } : null); } };
+})();
+</script>

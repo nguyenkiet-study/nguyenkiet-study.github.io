@@ -1,0 +1,84 @@
+<div class="auth">
+  <section class="auth-form" aria-labelledby="auth-title">
+    <div class="brand"><svg><use href="#logo"/></svg><span class="bt">Kelvin<small class="btag">English, skill by skill</small></span></div>
+
+    <h1 id="auth-title">Welcome back</h1>
+    <p class="muted" id="auth-sub">Sign in to continue where you left off.</p>
+
+    <div class="tabs" role="tablist" aria-label="Account">
+      <button role="tab" id="tab-login" aria-selected="true" data-action="auth-tab" data-tab="login">Sign in</button>
+      <button role="tab" id="tab-register" aria-selected="false" data-action="auth-tab" data-tab="register">Create account</button>
+    </div>
+
+    <form id="form-login" novalidate autocomplete="on">
+      <div class="form-banner" id="login-banner" role="alert"></div>
+      <label class="field" data-f="username">
+        <span class="lbl">Username</span>
+        <input class="input" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. alex.morgan">
+        <span class="err">Enter your username (3 to 20 letters, numbers, dot, dash or underscore).</span>
+      </label>
+      <label class="field" data-f="password">
+        <span class="lbl">Password</span>
+        <span class="input-wrap">
+          <input class="input" type="password" name="password" autocomplete="current-password" placeholder="Your password">
+          <button type="button" class="toggle-pass" data-action="toggle-pass" aria-label="Show password"><svg class="ic"><use href="#i-eye"/></svg></button>
+        </span>
+        <span class="err">Enter your password.</span>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit" id="login-btn">Sign in</button>
+    </form>
+
+    <form id="form-register" novalidate hidden autocomplete="on">
+      <div class="form-banner" id="register-banner" role="alert"></div>
+      <label class="field" data-f="name">
+        <span class="lbl">Full name</span>
+        <input class="input" type="text" name="name" autocomplete="name" placeholder="Alex Morgan">
+        <span class="err">Enter your full name (at least 2 characters).</span>
+      </label>
+      <label class="field" data-f="username">
+        <span class="lbl">Username</span>
+        <input class="input" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. alex.morgan">
+        <span class="err">Enter your username (3 to 20 letters, numbers, dot, dash or underscore).</span>
+      </label>
+      <label class="field" data-f="password">
+        <span class="lbl">Password</span>
+        <span class="input-wrap">
+          <input class="input" type="password" name="password" autocomplete="new-password" placeholder="Any password you like">
+          <button type="button" class="toggle-pass" data-action="toggle-pass" aria-label="Show password"><svg class="ic"><use href="#i-eye"/></svg></button>
+        </span>
+        <span class="err">Enter a password.</span>
+      </label>
+      <label class="field" data-f="confirm">
+        <span class="lbl">Confirm password</span>
+        <input class="input" type="password" name="confirm" autocomplete="new-password" placeholder="Repeat your password">
+        <span class="err">Passwords do not match.</span>
+      </label>
+      <label class="field" data-f="invite" hidden>
+        <span class="lbl">Invite code</span>
+        <input class="input" type="text" name="invite" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="From the person who invited you">
+        <span class="err">Enter the invite code.</span>
+      </label>
+      <button class="btn btn-primary btn-block" type="submit" id="register-btn">Create account</button>
+    </form>
+
+    <div class="auth-why" aria-label="Why Kelvin">
+      <div class="aw-head"><img data-stk="kel-studying" alt="" width="64" height="64"><p><b>Learn English with your friends</b><span>About 10 minutes a day. Kelvin plans the rest.</span></p></div>
+      <ul class="aw-list">
+        <li><img data-stk="kel-listening" alt="" width="34" height="34"><span>Real conversations</span></li>
+        <li><img data-stk="kel-writing" alt="" width="34" height="34"><span>Instant writing feedback</span></li>
+        <li><img data-stk="kel-yay" alt="" width="34" height="34"><span>Friends, stickers and streaks</span></li>
+      </ul>
+    </div>
+    <p class="auth-note" id="preview-note">Preview mode: the backend is not connected yet, so accounts are not saved. Any valid username and password will sign you in.</p>
+  </section>
+
+  <aside class="auth-panel" aria-hidden="true">
+    <div class="brand" style="color:#fff"><svg><use href="#logo-dark"/></svg><span class="bt">Kelvin<small class="btag">English, skill by skill</small></span></div>
+    <div>
+      <h2>Four skills. One honest picture of your English.</h2>
+      <p>Kelvin measures speaking, listening, reading and writing separately, then builds a plan around the gaps.</p>
+      <div class="auth-radar" id="auth-radar"></div>
+    </div>
+    <p class="tiny" style="margin:0;color:rgba(255,255,255,.6)">Levels are estimates on the CEFR scale, not an official certificate.</p>
+  </aside>
+</div>

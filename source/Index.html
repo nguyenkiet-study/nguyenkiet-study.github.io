@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>English, skill by skill</title>
+  <meta name="theme-color" content="#10234F">
+  <link rel="icon" href="favicon.ico?v=7" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=7">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=7">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=7">
+  <link rel="manifest" href="manifest.webmanifest?v=7">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <?!= include('CSS'); ?>
+</head>
+<body>
+  <?!= include('Icons'); ?>
+
+  <main id="screen-auth" class="screen"><?!= include('Login'); ?></main>
+
+  <main id="screen-onboarding" class="screen" hidden><?!= include('Onboarding'); ?></main>
+
+  <div id="screen-app" class="screen app" hidden>
+    <aside class="side" aria-label="Main navigation">
+      <div class="brand"><svg><use href="#logo"/></svg><span class="bt">Kelvin<small class="btag">English, skill by skill</small></span></div>
+      <nav class="nav" id="side-nav">
+        <div class="nav-group">
+          <a href="#" data-go="dashboard"><svg class="ic"><use href="#i-grid"/></svg><span class="lbl">Dashboard</span></a>
+          <a href="#" data-go="assessment"><svg class="ic"><use href="#i-target"/></svg><span class="lbl">Placement test</span></a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-title">Practice</div>
+          <a href="#" data-go="speaking" class="sk-speaking"><svg class="ic"><use href="#i-mic"/></svg><span class="lbl">Speaking</span></a>
+          <a href="#" data-go="listening" class="sk-listening"><svg class="ic"><use href="#i-headphones"/></svg><span class="lbl">Listening</span></a>
+          <a href="#" data-go="reading" class="sk-reading"><svg class="ic"><use href="#i-book"/></svg><span class="lbl">Reading</span></a>
+          <a href="#" data-go="writing" class="sk-writing"><svg class="ic"><use href="#i-pen"/></svg><span class="lbl">Writing</span></a>
+          <a href="#" data-go="words" class="sk-words"><svg class="ic"><use href="#i-cards"/></svg><span class="lbl">Words</span></a>
+          <a href="#" data-go="grammar" class="sk-grammar"><svg class="ic"><use href="#i-spell"/></svg><span class="lbl">Grammar</span></a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-title">Together</div>
+          <a href="#" data-go="community"><svg class="ic"><use href="#i-users"/></svg><span class="lbl">Community</span><i class="cm-dot nav-dot" hidden></i></a>
+          <a href="#" data-go="messages"><svg class="ic"><use href="#i-message"/></svg><span class="lbl">Messages</span><b class="msg-dot nav-badge" hidden></b></a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-title">You</div>
+          <a href="#" data-go="progress"><svg class="ic"><use href="#i-chart"/></svg><span class="lbl">My progress</span></a>
+          <a href="#" data-go="history"><svg class="ic"><use href="#i-history"/></svg><span class="lbl">History</span></a>
+          <a href="#" data-go="profile"><svg class="ic"><use href="#i-user"/></svg><span class="lbl">My profile</span></a>
+          <a href="#" data-go="settings"><svg class="ic"><use href="#i-sliders"/></svg><span class="lbl">Settings</span></a>
+        </div>
+      </nav>
+      <div class="side-foot">
+        <div class="me">
+          <div class="avatar" id="side-avatar">A</div>
+          <div class="tx"><div class="nm" id="side-name">Alex</div><div class="em" id="side-username"></div></div>
+        </div>
+        <button class="btn btn-ghost btn-sm btn-block" data-action="logout" style="justify-content:flex-start;margin-top:4px"><svg class="ic ic-sm"><use href="#i-logout"/></svg><span class="logout-t">Sign out</span></button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="top">
+        <div class="brand mobile-brand"><svg><use href="#logo"/></svg><span class="bt">Kelvin<small class="btag">English, skill by skill</small></span></div>
+        <h1 class="page-title" id="page-title">Dashboard</h1>
+        <div class="top-right">
+          <span class="chip" title="Learning streak"><svg class="ic ic-sm"><use href="#i-flame"/></svg><span id="top-streak">6</span> day streak</span>
+          <button class="top-msg" data-go="messages" aria-label="Messages"><svg class="ic"><use href="#i-message"/></svg><b class="msg-dot" hidden></b></button>
+          <div class="avatar" id="top-avatar" aria-hidden="true">A</div>
+        </div>
+      </header>
+      <div class="content">
+        <section id="view-dashboard" class="view" hidden><?!= include('Dashboard'); ?></section>
+        <section id="view-assessment" class="view" hidden><?!= include('Assessment'); ?></section>
+        <section id="view-learning" class="view" hidden><?!= include('Learning'); ?></section>
+        <section id="view-practice" class="view" hidden><div id="practice-hub"></div><div id="practice-study"></div></section>
+        <section id="view-words" class="view" hidden><?!= include('Words'); ?></section>
+        <section id="view-grammar" class="view" hidden><div id="grammar-root"></div></section>
+        <section id="view-drill" class="view" hidden><div id="drill-root"></div></section>
+        <section id="view-progress" class="view" hidden><?!= include('Progress'); ?></section>
+        <section id="view-profile" class="view" hidden>
+          <nav class="you-menu card mobile-only" aria-label="More">
+            <a href="#" data-go="progress"><svg class="ic"><use href="#i-chart"/></svg><span>My progress</span><svg class="ic ic-sm chev"><use href="#i-arrow"/></svg></a>
+            <a href="#" data-go="history"><svg class="ic"><use href="#i-history"/></svg><span>History</span><svg class="ic ic-sm chev"><use href="#i-arrow"/></svg></a>
+            <a href="#" data-go="assessment"><svg class="ic"><use href="#i-target"/></svg><span>Placement test</span><svg class="ic ic-sm chev"><use href="#i-arrow"/></svg></a>
+            <a href="#" data-go="settings"><svg class="ic"><use href="#i-sliders"/></svg><span>Settings</span><svg class="ic ic-sm chev"><use href="#i-arrow"/></svg></a>
+            <button data-action="logout"><svg class="ic"><use href="#i-logout"/></svg><span>Sign out</span></button>
+          </nav>
+          <?!= include('Profile'); ?></section>
+        <section id="view-settings" class="view" hidden><div id="settings-root"></div></section>
+        <section id="view-history" class="view" hidden><div id="history-root"></div></section>
+        <section id="view-community" class="view" hidden><div id="community-root"></div></section>
+        <section id="view-messages" class="view" hidden><div id="messages-root"></div></section>
+      </div>
+    </div>
+
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Main navigation">
+      <button data-go="dashboard"><svg class="ic"><use href="#i-grid"/></svg><span>Home</span></button>
+      <button data-go="practice"><svg class="ic"><use href="#i-layers"/></svg><span>Learn</span></button>
+      <button data-go="words"><svg class="ic"><use href="#i-cards"/></svg><span>Words</span></button>
+      <button data-go="community"><svg class="ic"><use href="#i-users"/></svg><span>Community</span><i class="cm-dot nav-dot" hidden></i></button>
+      <button data-go="profile"><svg class="ic"><use href="#i-user"/></svg><span>You</span></button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <?!= include('JavaScript'); ?>
+  <?!= include('HistoryJS'); ?>
+  <?!= include('PracticeJS'); ?>
+  <?!= include('WordsJS'); ?>
+  <?!= include('StudyJS'); ?>
+  <?!= include('GrammarJS'); ?>
+  <?!= include('CommunityJS'); ?>
+  <?!= include('WaitJS'); ?>
+  <?!= include('ConversationJS'); ?>
+  <?!= include('DrillJS'); ?>
+</body>
+</html>

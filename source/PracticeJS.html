@@ -1,0 +1,308 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Practice module (real data)
+   - Reading and Listening: questions come from the QuestionBank, graded by the server,
+     with the right answer and an explanation after each question. No AI call.
+   - Writing and Speaking: one AI call per piece. Numbers such as word count and pace are
+     measured by the code, not by the AI.
+   - The server holds the answers. This file never sees an answer key before you answer.
+   ===================================================================== */
+
+var K = window.Kelvin, $ = K.$, $$ = K.$$, esc = K.esc, ic = K.ic, SK = K.SK, LV = K.LV, SKILLS = K.SKILLS;
+var P = null;      // the practice in progress
+var curSpeech = null;
+
+var INTRO = {
+  reading: ['Read and answer', 'Five questions about short texts, matched to your level. Each answer is marked at once and explained.', 'about 8 min', 'Marked by the app. No AI call.'],
+  listening: ['Listen and answer', 'Four short clips, matched to your level. You can replay each clip. The script appears after you answer.', 'about 6 min', 'Marked by the app. No AI call.'],
+  writing: ['Write and get feedback', 'One short task. An AI rater reads your text, shows corrections and a better version, and updates your level a little.', 'about 10 min', 'Your text is sent to an AI service. Do not include private details.'],
+  speaking: ['Speak and get feedback', 'One speaking task. Your speech is turned into text, then an AI rater gives corrections and a better version. Pace is measured from your own words.', 'about 8 min', 'Your transcript is sent to an AI service. Do not include private details.']
+};
+
+function stopAll() {
+  try { if (P && P.sp && P.sp.rec && P.sp.running) P.sp.rec.stop(); } catch (e) {}
+  if (P && P.sp && P.sp.tm) clearInterval(P.sp.tm);
+  if (curSpeech) { curSpeech.cancel(); curSpeech = null; }
+  K.stopSpeech();
+}
+
+/* ---------- page shell and side column ---------- */
+function learn(k) {
+  stopAll(); P = { skill: k, mode: 'intro' };
+  var s = K.state.skills[k], next = LV[K.li(s.level) + 1];
+  $('#learning-root').innerHTML =
+    '<div class="sk-' + k + '"><article class="card"><div class="skill-head"><div class="big tint">' + ic(SK[k].icon) + '</div>' +
+    '<div><h2 style="font-size:22px">' + SK[k].label + '</h2><p class="muted">' + SK[k].blurb + '</p><div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><span class="pill lvl" id="pr-level">Level ' + s.level + '</span><span class="pill ' + (s.measured ? 'ok' : 'warn') + '">' + (s.measured ? 'Measured' : 'Your estimate') + '</span></div></div>' +
+    '<div class="ladder-wrap"><div class="row-between tiny muted" style="margin:0 0 6px"><span id="pr-toward">' + (next ? 'Progress toward ' + next : 'Top level reached') + '</span><b class="num" style="color:var(--text)" id="pr-pct">' + s.progress + '%</b></div><div class="bar"><i id="pr-bar" style="width:' + s.progress + '%"></i></div></div></div></article>' +
+    '<div class="practice mt"><article class="card" id="practice-card"></article><div class="grid" style="align-content:start" id="practice-side"></div></div></div>';
+  side(k); intro();
+}
+function side(k) {
+  var el = $('#practice-side'); if (!el || K.state.view !== k) return;
+  var pl = K.planOf(), h = '';
+  if (!pl) { el.innerHTML = '<article class="card"><h2 style="margin-bottom:10px">This week</h2><p class="muted small">Loading your plan…</p></article>'; return; }
+  var t = pl.targets[k] || 10, d = Math.round(pl.done[k] || 0), pct = Math.min(100, Math.round(d / t * 100));
+  h += '<article class="card"><div class="card-head"><h2>This week</h2><span class="small muted num">' + d + ' of ' + t + ' min</span></div><div class="bar"><i style="width:' + pct + '%"></i></div>' +
+    '<p class="small muted" style="margin-top:10px">' + (pl.priority[0] === k ? 'This is your top priority this week.' : pl.priority.indexOf(k) < 2 ? 'This is one of your two focus skills this week.' : 'A lighter week for this skill. Keep it ticking over.') + '</p></article>';
+  h += '<article class="card"><div class="card-head"><h2>Today</h2><span class="small muted">' + pl.today.filter(function (i) { return i.done; }).length + ' of ' + pl.today.length + ' done</span></div>' +
+    pl.today.map(function (i, n) {
+      var go = i.skill === 'words' ? 'words' : i.skill;
+      return '<button class="check' + (i.done ? ' done' : '') + '" data-go="' + go + '" style="width:100%;text-align:left;background:none;border:0;border-top:' + (n ? '1px solid var(--line-2)' : '0') + '"><span class="cb">' + ic('i-check', 'ic-sm') + '</span><span><div class="t">' + esc(i.title) + '</div><div class="m">' + i.minutes + ' min' + (i.skill === 'words' && i.ready ? ', ' + i.due + ' to review, ' + i.fresh + ' new' : '') + '</div></span></button>';
+    }).join('') + '</article>';
+  if ((pl.grammar && pl.grammar.length) || (pl.vocabulary && pl.vocabulary.length)) {
+    h += '<article class="card">' + (pl.vocabulary && pl.vocabulary.length ? '<h2 style="margin-bottom:12px">Word themes</h2><div class="chips">' + pl.vocabulary.map(function (w) { return '<span class="tag sk">' + esc(w) + '</span>'; }).join('') + '</div>' : '') +
+      (pl.grammar && pl.grammar.length ? '<h2 style="margin:' + (pl.vocabulary && pl.vocabulary.length ? '20px' : '0') + ' 0 10px">Grammar to review</h2>' + pl.grammar.map(function (g) { return '<div class="small" style="padding:8px 0;border-top:1px solid var(--line-2)">' + esc(g) + '</div>'; }).join('') : '') + '</article>';
+  }
+  el.innerHTML = h;
+}
+function setLevel(after) {
+  if (!after || !P) return;
+  K.setSkill(P.skill, { level: after.level, progress: after.progress, measured: true });
+  var s = K.state.skills[P.skill], next = LV[K.li(s.level) + 1];
+  var a = $('#pr-level'); if (a) a.textContent = 'Level ' + s.level;
+  var b = $('#pr-toward'); if (b) b.textContent = next ? 'Progress toward ' + next : 'Top level reached';
+  var c = $('#pr-pct'); if (c) c.textContent = s.progress + '%';
+  var d = $('#pr-bar'); if (d) d.style.width = s.progress + '%';
+}
+
+/* ---------- start ---------- */
+function intro() {
+  var pc = $('#practice-card'); if (pc) pc.removeAttribute('data-session');
+  var k = P.skill, c = INTRO[k], s = K.state.skills[k];
+  $('#practice-card').innerHTML = '<div class="card-head" style="margin-bottom:6px"><h2>' + c[0] + '</h2><span class="pill plain">' + c[2] + '</span></div><p class="muted" style="margin-bottom:16px">' + c[1] + '</p>' +
+    '<div class="callout" style="margin-bottom:16px"><span class="ico">' + ic(s.measured ? 'i-target' : 'i-alert') + '</span><div class="grow small"><b>' + (s.measured ? 'Your level moves as you practise' : 'Your level is still an estimate') + '</b><div class="muted">' +
+    (s.measured ? 'Each set nudges your ' + k + ' level a little. Questions come from around level ' + s.level + '.' : 'Take the placement test first, so practice can measure and move your ' + k + ' level.') + '</div></div></div>' +
+    '<div class="form-banner" id="pr-banner" role="alert"></div>' +
+    '<div class="row-between"><span class="small muted">' + c[3] + '</span><button class="btn btn-skill" id="pr-start" data-action="pr-start">Start practice</button></div>' +
+    (k === 'listening' && K.conv ? K.conv.entry() : '') +
+    (K.drill ? K.drill.entry({ listening: 'listen', speaking: 'speak', writing: 'translate', reading: 'gap' }[k]) : '');
+}
+function start(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  K.Api.call('practiceStart', { skill: P.skill }).then(function (r) {
+    var k = P.skill; P = { skill: k, sess: r.sessionId, kind: r.kind, items: r.items || [], task: r.task || null, i: 0, right: 0, started: Date.now(), sel: -1, fb: null, plays: 0, mode: 'run' };
+    if (r.kind === 'mcq') {
+      var done = {}; (r.answered || []).forEach(function (a) { done[a.id] = a; if (a.correct) P.right++; });
+      P.done = done; P.i = P.items.findIndex(function (q) { return !done[q.id]; }); if (P.i < 0) P.i = 0;
+      if (r.resumed) K.toast('Continuing your set.');
+      return mcq();
+    }
+    if (P && P.sp && P.sp.tm) clearInterval(P.sp.tm);
+    P.sp = { text: '', secs: 0, running: false, typed: false, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition) };
+    task();
+  }).catch(function (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Start practice'; }
+    var b = $('#pr-banner'); if (b) { b.textContent = (e && e.message) || 'Could not start. Please try again.'; b.classList.add('show'); }
+  });
+}
+
+/* ---------- the question index and History ---------- */
+function qItem(q, idx) {
+  var d = P.done[q.id], listening = P.skill === 'listening';
+  return { q: q.stem, ctx: listening ? (d ? q.audioText : '') : (q.passage || ''), a: d ? (d.choice === -1 ? 'Not sure' : q.options[d.choice]) : '', r: d && d.key !== undefined && d.key !== null ? q.options[d.key] : '',
+    ok: d ? !!d.correct : null, why: d ? d.explanation || '' : '', done: !!d, cur: idx === P.i };
+}
+K.qindex.provide(function () {
+  if (!P || P.kind !== 'mcq' || P.mode !== 'run' || K.state.view !== P.skill) return null;
+  return { title: SK[P.skill].label + ' practice', items: P.items.map(qItem) };
+});
+function saveMcq(s) {
+  try {
+    K.history.save({ kind: P.skill, title: SK[P.skill].label + ' practice', right: s.right, total: s.total, minutes: s.minutes,
+      items: P.items.filter(function (q) { return P.done[q.id]; }).map(qItem) });
+  } catch (e) {}
+}
+function saveTask(r) {
+  try {
+    var items = [{ q: P.task.prompt, a: P.sentText || '', r: r.improved || '', ok: null, why: r.summary || '' }];
+    (r.corrections || []).forEach(function (c) { items.push({ q: 'Correction', a: c.original, r: c.better, ok: false, why: c.why || '' }); });
+    K.history.save({ kind: P.skill, title: SK[P.skill].label + ' task', score: r.level || (r.after && r.after.level) || null, minutes: Math.max(1, Math.round((Date.now() - P.started) / 60000)), items: items });
+  } catch (e) {}
+}
+
+/* ---------- reading and listening ---------- */
+function bar() { var n = P.items.length; return '<div class="wd-bar"><i style="width:' + (Object.keys(P.done).length / n * 100) + '%"></i></div>'; }
+function mcq() {
+  stopAll();
+  var q = P.items[P.i], n = P.items.length, listening = P.skill === 'listening', fb = P.fb, h = '';
+  P.shownAt = Date.now();
+  h += '<div class="row-between run-head" style="margin-bottom:10px"><button class="btn btn-ghost btn-sm" data-action="pr-exit">' + ic('i-back', 'ic-sm') + 'Exit</button>' + K.qindex.pill(P.i + 1, n) + '<span class="pill plain">Level ' + esc(q.level) + '</span></div>' + bar();
+  if (listening) {
+    h += '<div class="player"><button class="play" data-action="pr-play" aria-label="Play audio">' + ic('i-play', 'ic-lg') + '</button><div class="wave" id="wave">' + K.waveBars() + '</div>' +
+      '<select class="input" id="pr-speed" style="width:auto;height:36px" aria-label="Speed"><option value="0.85">Slower</option><option value="1" selected>Normal</option><option value="1.15">Faster</option></select></div>';
+    if (!('speechSynthesis' in window)) h += '<div class="passage mt cap"><b>Audio is not available in this browser. Read the script instead:</b> ' + esc(q.audioText) + '</div>';
+  } else if (q.passage) {
+    if (!fb) h += '<div class="pane-tabs" role="tablist" aria-label="Show"><button role="tab" data-action="pr-pane" data-p="text" aria-selected="' + (P.pane !== 'q') + '">Passage</button><button role="tab" data-action="pr-pane" data-p="q" aria-selected="' + (P.pane === 'q') + '">Question</button></div>';
+    h += '<div class="passage cap pane-text">' + esc(q.passage) + '</div><div class="tiny muted pane-text" style="margin-top:8px">Select a word or phrase to save it for Words.</div>';
+    if (!fb) h += '<button class="btn btn-soft btn-block pane-next" data-action="pr-pane" data-p="q">Go to the question</button>';
+  }
+  h += '<div class="q" style="margin-top:16px"><div class="qt cap">' + esc(q.stem) + '</div><div class="opts">' + q.options.map(function (o, i) {
+    var cls = fb ? (i === fb.key ? ' right' : (i === fb.choice ? ' wrong' : '')) : '';
+    return '<button class="opt' + cls + '" data-action="pr-pick" data-o="' + i + '" aria-pressed="' + (!fb && P.sel === i) + '"' + (fb ? ' disabled' : '') + '><span class="k">' + 'ABCD'[i] + '</span><span>' + esc(o) + '</span></button>';
+  }).join('') + '</div></div>';
+  if (fb) {
+    if (listening) h += '<div class="passage mt cap"><b>Script:</b> ' + esc(q.audioText) + '</div><div class="tiny muted" style="margin-top:8px">Select a word or phrase to save it for Words.</div>';
+    h += '<div class="sheet ' + (fb.correct ? 'ok' : 'no') + '"><div class="fbk cap ' + (fb.correct ? 'ok' : 'no') + '"><b>' + (fb.choice === -1 ? 'No problem.' : fb.correct ? 'Right.' : 'Not quite.') + '</b> ' + (fb.choice === -1 || !fb.correct ? 'The answer is ' + 'ABCD'[fb.key] + '. ' : '') + esc(fb.explanation || '') + '</div>';
+    h += '<div class="row-between mt"><span></span><button class="btn btn-skill" data-action="pr-next">' + (fb.summary ? 'See results' : 'Next question') + '</button></div></div>';
+  } else {
+    h += '<div class="form-banner" id="pr-banner" role="alert" style="margin-top:14px"></div><div class="row-between mt"><button class="btn btn-ghost" data-action="pr-unsure">Not sure</button><button class="btn btn-skill" id="pr-check" data-action="pr-check">Check</button></div>';
+  }
+  $('#practice-card').innerHTML = h;
+  $('#practice-card').setAttribute('data-session', '1');
+  $('#practice-card').setAttribute('data-pane', fb || !q.passage ? 'all' : (P.pane === 'q' ? 'q' : 'text'));
+}
+function pickOpt(i) { if (P.fb) return; P.sel = i; $$('#practice-card .opt').forEach(function (b) { b.setAttribute('aria-pressed', String(parseInt(b.dataset.o, 10) === i)); }); }
+function check(choice, btn) {
+  var q = P.items[P.i];
+  if (choice !== -1) choice = P.sel;
+  if (choice === undefined || choice < 0) return K.toast('Choose an answer first.');
+  $$('#practice-card [data-action^="pr-"]').forEach(function (b) { b.disabled = true; });
+  K.Api.call('practiceAnswer', { sessionId: P.sess, questionId: q.id, choice: choice, ms: Date.now() - P.shownAt }).then(function (r) {
+    P.done[q.id] = { id: q.id, choice: choice, correct: r.correct, key: r.key, explanation: r.explanation }; if (r.correct) P.right++;
+    P.fb = { choice: choice, key: r.key, correct: r.correct, explanation: r.explanation, summary: r.done ? r.summary : null };
+    if (r.done) P.final = r.summary;
+    mcq();
+  }).catch(function (e) {
+    if (e && e.code === 'invalid') { K.toast(e.message); return start(); }
+    mcq(); var b = $('#pr-banner'); if (b) { b.textContent = (e && e.message) || 'Could not save that answer. Try again.'; b.classList.add('show'); }
+  });
+}
+function nextQ() {
+  if (P.fb && P.fb.summary) return summary(P.fb.summary);
+  P.fb = null; P.sel = -1; P.pane = 'text';
+  var n = P.items.length, j;
+  for (j = 1; j <= n; j++) { var x = (P.i + j) % n; if (!P.done[P.items[x].id]) { P.i = x; return mcq(); } }
+  mcq();
+}
+function play(btn) {
+  var q = P.items[P.i], wave = $('#wave');
+  if (curSpeech) { curSpeech.cancel(); curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); return; }
+  var rate = parseFloat($('#pr-speed').value) || 1;
+  curSpeech = K.speakNatural([{ s: 0, t: q.audioText }], rate, function () { curSpeech = null; var w = $('#wave'); if (w) w.classList.remove('live'); var b = $('[data-action="pr-play"]'); if (b) b.innerHTML = ic('i-play', 'ic-lg'); });
+  if (!curSpeech) { if (!$('#pr-script')) $('#practice-card .player').insertAdjacentHTML('afterend', '<div class="passage mt cap" id="pr-script"><b>Audio is not available in this browser. Read the script instead:</b> ' + esc(q.audioText) + '</div>'); return; }
+  wave.classList.add('live'); btn.innerHTML = ic('i-stop', 'ic-lg');
+}
+function summary(s) {
+  saveMcq(s);
+  stopAll(); P.mode = 'done'; $('#practice-card').removeAttribute('data-session');
+  var lv = s.measured && s.after ? s.after : null, msg;
+  if (s.levelUp) msg = 'You moved up to <b>' + s.after.level + '</b>. Nice work.';
+  else if (s.levelDown) msg = 'Your level moved to <b>' + s.after.level + '</b>. A few steady sets will bring it back.';
+  else if (lv) msg = 'Level ' + lv.level + ', ' + lv.progress + '% toward the next level' + (s.before && s.before.progress !== lv.progress ? ' (was ' + s.before.progress + '%).' : '.');
+  else msg = 'Your level is only an estimate, so this set did not move it. Take the placement test to start measuring.';
+  setLevel(lv);
+  $('#practice-card').innerHTML = '<div class="bolt-hero"><h2>Set complete</h2><div style="display:flex;align-items:baseline;gap:12px;margin:10px 0 0"><b class="num" style="font-family:var(--head);font-size:40px;letter-spacing:-.03em">' + s.right + ' of ' + s.total + '</b><span>correct (' + s.pct + '%)</span></div></div><div class="bar"><i style="width:' + s.pct + '%"></i></div>' +
+    '<p style="margin-top:16px">' + msg + '</p><p class="small muted" style="margin-top:6px">About ' + s.minutes + ' min logged to this week.</p>' +
+    '<div class="row-between mt"><button class="btn btn-ghost" data-go="dashboard">Back to dashboard</button><button class="btn btn-skill" data-action="pr-again">Practise again</button></div>';
+  K.loadOverview(true).then(function () { side(P && P.skill); });
+  if (K.afterPractice) K.afterPractice();
+}
+
+/* ---------- writing and speaking ---------- */
+function task() {
+  var k = P.skill, t = P.task, h;
+  if (k === 'writing') {
+    h = '<div class="card-head" style="margin-bottom:6px"><h2>Write</h2><span class="pill plain">Level ' + esc(t.level) + '</span></div><p class="cap" style="font-size:17px;margin:6px 0 14px">' + esc(t.prompt) + '</p>' +
+      '<textarea class="input" id="pr-text" style="min-height:190px" aria-label="Your answer"></textarea><div class="wc"><span id="pr-count">0 words</span><span class="muted">Aim for at least ' + t.minWords + ' words</span></div>' +
+      (K.social ? K.social.tagBox('writing') : '');
+    if (K.social) K.social.clear('writing');
+  } else {
+    h = '<div class="card-head" style="margin-bottom:6px"><h2>Speak</h2><span class="pill plain">Level ' + esc(t.level) + '</span></div><p class="cap" style="font-size:17px;margin:6px 0 16px">' + esc(t.prompt) + '</p>' +
+      '<div style="display:flex;align-items:center;gap:20px;margin:6px 0 16px"><button class="mic" id="pr-mic" data-action="pr-mic" aria-label="Start recording">' + ic('i-mic', 'ic-lg') + '</button><div><div class="num" style="font-size:28px;font-weight:650" id="pr-time">0:00</div><div class="small muted" id="pr-state">' + (P.sp.supported ? 'Tap the microphone and start speaking.' : 'Speech recognition is not available here. Type your answer instead.') + '</div></div></div>' +
+      '<div class="transcript" id="pr-sptext" data-empty="Your words appear here as you speak."></div>' + (P.sp.supported ? '' : '<textarea class="input mt" id="pr-type" placeholder="Type what you would say…" style="min-height:120px"></textarea>');
+    var sp = P.sp; clearInterval(sp.tm);
+    sp.tm = setInterval(function () {
+      if (P.sp !== sp) return clearInterval(sp.tm);
+      if (K.state.view !== P.skill) { try { if (sp.running) sp.rec.stop(); } catch (e) {} return; }
+      if (!sp.running) return; sp.secs++; var el = $('#pr-time'); if (el) el.textContent = K.fmtTime(sp.secs);
+    }, 1000); K.timers(sp.tm);
+  }
+  $('#practice-card').setAttribute('data-session', '1');
+  h = '<div class="row-between run-head" style="margin-bottom:6px"><button class="btn btn-ghost btn-sm" data-action="pr-exit">' + ic('i-back', 'ic-sm') + 'Exit</button><span></span></div>' + h;
+  $('#practice-card').innerHTML = h + '<div class="form-banner" id="pr-banner" role="alert" style="margin-top:14px"></div><div class="row-between mt"><span class="small muted">Count and pace are measured from your own words.</span><button class="btn btn-skill" id="pr-send" data-action="pr-send">Get feedback</button></div><div id="pr-fb"></div>';
+  var ta = $('#pr-text'); if (ta) ta.addEventListener('input', function () { var n = ta.value.trim() ? ta.value.trim().split(/\s+/).length : 0; $('#pr-count').textContent = n + (n === 1 ? ' word' : ' words'); });
+}
+function mic() {
+  var sp = P.sp, btn = $('#pr-mic'), st = $('#pr-state'), tx = $('#pr-sptext');
+  if (!sp.supported) return K.toast('Speech recognition is not available. Type your answer instead.');
+  if (sp.running) { try { sp.rec.stop(); } catch (e) {} return; }
+  sp.rec = K.makeRecognizer({
+    text: function (f, i) { sp.text = f; if (tx) tx.textContent = (f + i).trim(); },
+    error: function (err) {
+      sp.running = false; if (btn) btn.classList.remove('rec');
+      var blocked = err === 'not-allowed' || err === 'service-not-allowed';
+      if (st) st.textContent = blocked ? 'Microphone access is blocked in this view. Type your answer instead.' : 'Recording stopped (' + err + '). Try again or type your answer.';
+      if (blocked && tx && !$('#pr-type')) { sp.supported = false; tx.insertAdjacentHTML('afterend', '<textarea class="input mt" id="pr-type" placeholder="Type what you would say…" style="min-height:120px"></textarea>'); }
+    },
+    end: function () { sp.running = false; if (btn) btn.classList.remove('rec'); if (st) st.textContent = 'Recording stopped. Tap again to continue, or get feedback.'; }
+  });
+  try { sp.rec.start(); } catch (e) { return K.toast('Could not start the microphone.'); }
+  sp.running = true; btn.classList.add('rec'); st.textContent = 'Listening…';
+}
+function send(btn) {
+  var sp = P.sp, text, typed = false, secs = 0;
+  if (P.skill === 'writing') text = ($('#pr-text').value || '').trim();
+  else {
+    var ty = $('#pr-type'); typed = !!(ty && ty.value.trim() && !(sp.text || '').trim()); text = typed ? ty.value.trim() : (sp.text || '').trim();
+    if (!typed && ty && ty.value.trim() && !text) typed = true;
+    if (sp.running) { try { sp.rec.stop(); } catch (e) {} } secs = sp.secs;
+  }
+  var n = text ? text.split(/\s+/).length : 0;
+  if (n < 3) return K.toast(P.skill === 'writing' ? 'Write a few words first.' : 'Say or type a few words first.');
+  btn.disabled = true; btn.textContent = 'Scoring…'; P.sentText = text;
+  K.Api.call('practiceSubmit', { sessionId: P.sess, text: text, seconds: secs, typed: typed }).then(function (r) { feedback(r.result); })
+    .catch(function (e) {
+      btn.disabled = false; btn.textContent = 'Get feedback';
+      var b = $('#pr-banner'); if (b) { b.textContent = ((e && e.message) || 'Something went wrong.') + ' Your text is kept. You can try again.'; b.classList.add('show'); }
+    });
+}
+function feedback(r) {
+  saveTask(r);
+  stopAll(); P.mode = 'done'; $('#practice-card').removeAttribute('data-session'); setLevel(r.measured ? r.after : null);
+  var crit = [['Task', r.criteria.task], ['Grammar', r.criteria.grammar], ['Vocabulary', r.criteria.vocabulary], ['Coherence', r.criteria.coherence]];
+  var lvMsg = r.levelUp ? 'You moved up to <b>' + r.after.level + '</b>.' : r.measured ? 'Level ' + r.after.level + ', ' + r.after.progress + '% toward the next level.' : r.capped ? 'This was shorter than ' + r.minWords + ' words, so it did not move your level.' : 'Your level is only an estimate, so this did not move it.';
+  var h = '<div class="bolt-hero"><h2>Your feedback</h2><p style="margin-top:6px">' + (r.levelUp ? 'You moved up a level.' : 'Here is how this piece reads.') + '</p></div><div class="report-grid" style="margin-top:14px"><div class="card report" style="padding:16px"><div class="small muted">This piece reads like</div><div class="lv" style="--c:var(--primary)">' + esc(r.level) + '</div><div class="small muted" style="margin-top:6px">' + r.words + ' words' + (r.wpm ? ', ' + r.wpm + ' words/min' : '') + (r.typed && r.minutes !== undefined && P.skill === 'speaking' ? ', typed' : '') + '</div></div>' +
+    '<div class="card" style="padding:16px">' + crit.map(function (c) { return '<div class="row-between small" style="padding:4px 0"><span class="muted">' + c[0] + '</span><b>' + esc(c[1]) + '</b></div>'; }).join('') + '</div></div>' +
+    '<p class="cap" style="margin-top:16px">' + esc(r.summary) + '</p><p class="small muted" style="margin-top:4px">' + lvMsg + '</p>';
+  if (r.strengths.length || r.weaknesses.length) h += '<div class="report-grid report" style="margin-top:6px">' + (r.strengths.length ? '<div><div class="lbl">Strengths</div><ul>' + r.strengths.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '') + (r.weaknesses.length ? '<div><div class="lbl">To improve</div><ul>' + r.weaknesses.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '') + '</div>';
+  if (r.corrections.length) h += '<h3 style="margin:18px 0 8px">Corrections</h3>' + r.corrections.map(function (c) {
+    return '<div style="padding:10px 0;border-top:1px solid var(--line-2)"><div class="small" style="color:#B91C1C;text-decoration:line-through">' + esc(c.original) + '</div><div class="small cap" style="color:#166534;font-weight:600">' + esc(c.better) + '</div><div class="tiny muted">' + esc(c.why) + '</div></div>'; }).join('');
+  h += '<h3 style="margin:18px 0 8px">A better version</h3><div class="passage cap">' + esc(r.improved).replace(/\n/g, '<br>') + '</div><div class="tiny muted" style="margin-top:6px">Select a word or phrase to save it for Words.</div><p class="small" style="margin-top:12px"><b>Try next:</b> ' + esc(r.tip) + '</p>' +
+    '<p class="tiny muted" style="margin-top:8px">Scored by ' + esc(r.model || 'AI') + '. A rater can be wrong; treat the level as a guide.</p>' +
+    (P.skill === 'writing' && K.social ? K.social.view(K.social.after('writing', { skill: 'writing', title: 'Writing', question: P.task && P.task.prompt, answer: P.sentText })) : '') +
+    '<div class="row-between mt"><button class="btn btn-ghost" data-go="dashboard">Back to dashboard</button><button class="btn btn-skill" data-action="pr-again">Another task</button></div>';
+  $('#practice-card').innerHTML = h;
+  K.loadOverview(true).then(function () { side(P && P.skill); });
+  if (K.afterPractice) K.afterPractice();
+}
+
+/* ---------- wiring ---------- */
+K.learn(learn, side);
+K.prIntro = function () { if (P) intro(); };
+K.actions({
+  'pr-start': function (el) { start(el); },
+  'pr-pick': function (el) { pickOpt(parseInt(el.dataset.o, 10)); },
+  'pr-check': function (el) { check(undefined, el); },
+  'pr-unsure': function (el) { check(-1, el); },
+  'pr-next': nextQ,
+  'pr-play': function (el) { play(el); },
+  'pr-mic': mic,
+  'pr-send': function (el) { send(el); },
+  'pr-pane': function (el) {
+    P.pane = el.dataset.p; var c = $('#practice-card'); c.setAttribute('data-pane', P.pane);
+    $$('#practice-card .pane-tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.p === P.pane)); });
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+  },
+  'pr-exit': function () {
+    var t = $('#pr-text'), sp = P && P.sp;
+    if (((t && t.value.trim()) || (sp && (sp.text || '').trim())) && !window.confirm('Leave this task? What you wrote or said will not be kept.')) return;
+    learn(P.skill);
+  },
+  'pr-again': function () { var k = P.skill; learn(k); start(); }
+});
+
+})();
+</script>

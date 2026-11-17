@@ -1,0 +1,287 @@
+<script>
+(function () {
+'use strict';
+
+/* =====================================================================
+   Practice sets made of the shared exercise kinds (Drill.gs builds them):
+   Daily mix (Home), Listen and build (Listening), Repeat after Kel (Speaking), Translate sentences (Writing),
+   Fill the gap (Reading) and Practise your words (Words).
+   Kinds: tiles, write, gap, listen, repeat, meaning, spell. Kel says each one in a speech bubble; the button at the
+   bottom checks, then a sheet shows right or wrong and why. A sentence still wrong after writing comes back as tiles
+   at the end of the set.
+   ===================================================================== */
+var K = window.Kelvin, $ = K.$, $$ = K.$$, esc = K.esc, ic = K.ic;
+var D = null;   // the open set
+var ENTRY = {
+  mix:       ['Daily mix', 'About 10 minutes: words, grammar, listening, speaking and writing in one short set.', 'kel-studying'],
+  listen:    ['Listen and build', 'Hear a sentence, then build it from word tiles. Some words are spelled from sound.', 'kel-listening'],
+  speak:     ['Repeat after Kel', 'Hear a sentence, then say it. Kelvin listens and shows which words came through.', 'kel-speaking'],
+  translate: ['Translate sentences', 'Vietnamese into English: build it from tiles, then write it yourself.', 'kel-writing'],
+  gap:       ['Fill the gap', 'Choose the word that fits, then see why.', 'kel-reading'],
+  words:     ['Practise your words', 'Your own words: choose the word for a meaning, and spell words you hear.', 'kel-studying']
+};
+var KEL = { tiles: 'kel-writing', write: 'kel-writing', gap: 'kel-reading', listen: 'kel-listening', repeat: 'kel-speaking', meaning: 'kel-studying', spell: 'kel-listening' };
+var TITLE = { tiles: 'Write this in English', write: 'Write this in English', gap: 'Fill in the blank', listen: 'Listen and build the sentence', repeat: 'Say this sentence', meaning: 'Which word means this?', spell: 'Type the word you hear' };
+function base() { return (K.ex && K.ex.STK_BASE) || 'stickers/'; }
+function kelImg(name, cls) { return '<img class="' + (cls || 'gx-kel') + '" src="' + base() + name + '.webp" alt="" draggable="false">'; }
+function stage(kind, bubble) { return '<div class="gx-stage">' + kelImg(KEL[kind] || 'kel-wave') + '<div class="gx-bubble">' + bubble + '</div></div>'; }
+function root() { return $('#drill-root'); }
+function lvl() { var s = K.state && K.state.skills; return (s && s.writing && s.writing.level) || 'B1'; }
+function cur() { return D && !D.done ? D.steps[D.i] : null; }
+function noUntil(key) { try { return Number(localStorage.getItem(key) || 0) > Date.now(); } catch (e) { return false; } }
+function setNo(key) { try { localStorage.setItem(key, String(Date.now() + 15 * 60e3)); } catch (e) {} }
+
+/* ---------- entry cards (used by Home and the skill pages) ---------- */
+function entry(mode, small) {
+  var e = ENTRY[mode];
+  return '<div class="dr-entry' + (small ? ' sm' : '') + '">' + kelImg(e[2], 'dr-kel') + '<div class="grow"><b>' + esc(e[0]) + '</b><span class="small muted">' + esc(e[1]) + '</span></div>' +
+    '<button class="btn btn-primary" data-action="dr-start" data-mode="' + mode + '">' + ic('i-play', 'ic-sm') + 'Start</button></div>';
+}
+
+function start(mode, btn) {
+  if (!K.live) return K.toast('Practice sets need the Kelvin server.');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Preparing…'; }
+  K.Api.call('drillStart', { mode: mode }).then(function (d) {
+    var pool = [];
+    d.steps.forEach(function (s) { pool = pool.concat(String(s.en || (s.answers && s.answers[0]) || '').split(/\s+/)); });
+    var skipL = noUntil('kelvin_nolisten'), skipS = noUntil('kelvin_nospeak');
+    var steps = d.steps.filter(function (s) { return !((s.t === 'listen' || s.t === 'spell') && skipL) && !(s.t === 'repeat' && skipS); }).map(function (s) {
+      s.scored = true;
+      if (s.t === 'tiles') { s.tiles = K.ex.makeTiles(s.answers[0], lvl(), pool); s.picked = []; }
+      if (s.t === 'listen') { s.answers = [s.en]; s.tiles = K.ex.makeTiles(s.en, lvl(), pool); s.picked = []; }
+      if (s.t === 'gap' || s.t === 'meaning') {
+        var o = s.options.map(function (t, i) { return { t: t, ok: i === s.answer }; });
+        for (var i = o.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = o[i]; o[i] = o[j]; o[j] = x; }
+        s.opts = o;
+      }
+      return s;
+    });
+    if (!steps.length) { if (btn) { btn.disabled = false; btn.innerHTML = ic('i-play', 'ic-sm') + 'Start'; } return K.toast('Nothing to practise right now. Try again in a few minutes.'); }
+    D = { mode: d.mode, title: d.title, steps: steps, i: 0, started: Date.now(), done: false, result: null };
+    if (K.state.view !== 'drill') K.go('drill'); else draw();
+    autoPlay();
+  }).catch(function (e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = ic('i-play', 'ic-sm') + 'Start'; }
+    K.toast((e && e.message) || 'Could not start. Try again.');
+  });
+}
+
+/* ---------- drawing ---------- */
+function shell(body) {
+  var n = D.steps.length;
+  return '<article class="card gr-run dr-run"><div class="cv-top"><button class="iconbtn" data-action="dr-exit" aria-label="Exit">' + ic('i-x') + '</button><div class="wd-bar grow"><i style="width:' + Math.round((D.done ? n : D.i) / n * 100) + '%"></i></div><span class="pill plain num">' + Math.min(D.i + 1, n) + ' / ' + n + '</span></div>' + body + '</article>';
+}
+function foot(action, label, dis, left) { return '<div class="gx-foot">' + (left || '') + '<button class="btn btn-primary gx-go" data-action="' + action + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>'; }
+function sheet(ok, body, label) { return '<div class="sheet ' + (ok ? 'ok' : 'no') + '"><div class="gr-fb ' + (ok ? 'ok' : 'no') + '"><b>' + (ok ? 'Correct!' : 'Not quite.') + '</b>' + body + '</div>' + foot('dr-next', label || 'Continue') + '</div>'; }
+function tx(o) { if (!o) return ''; if (typeof o === 'string') return o; var vi = true; try { vi = localStorage.getItem('kelvin_gl') !== 'en'; } catch (e) {} return (vi ? o.vi : o.en) || o.en || o.vi || ''; }
+function tileOf(s, id) { return s.tiles.filter(function (x) { return x.id === id; })[0]; }
+function bank(s) {
+  var built = s.picked.map(function (id) { return '<button class="gx-t on" data-action="dr-back" data-id="' + id + '"' + (s.state ? ' disabled' : '') + '>' + esc(tileOf(s, id).w) + '</button>'; }).join('');
+  var h = '<div class="gx-lines' + (s.state ? (s.ok ? ' ok' : ' no') : '') + '">' + built + '</div>';
+  if (!s.state) h += '<div class="gx-bank">' + s.tiles.map(function (t) { var used = s.picked.indexOf(t.id) > -1; return '<span class="gx-slot"><button class="gx-t' + (used ? ' gone' : '') + '" data-action="dr-tile" data-id="' + t.id + '"' + (used ? ' disabled tabindex="-1"' : '') + '>' + esc(t.w) + '</button></span>'; }).join('') + '</div>';
+  return h;
+}
+function audioBtn(action, label, playing) { return '<button class="gx-audio" data-action="' + action + '" aria-label="' + label + '">' + ic('i-volume', 'ic-lg') + '<span class="wave' + (playing ? ' live' : '') + '">' + K.waveBars() + '</span></button>'; }
+function stepHtml(s) {
+  var h = '<div class="gx-title">' + (s.retry ? 'Try this one again' : TITLE[s.t]) + '</div>';
+  if (s.t === 'tiles' || s.t === 'listen') {
+    h += s.t === 'tiles' ? stage('tiles', '<span class="gx-say">' + esc(s.vi) + '</span>') : stage('listen', audioBtn('dr-play', 'Play the sentence', s.playing)) + '<div class="gx-slow"><button class="linkbtn" data-action="dr-play" data-slow="1">' + ic('i-volume', 'ic-sm') + 'Slow</button></div>';
+    h += bank(s);
+    if (!s.state) return h + foot('dr-tilecheck', 'Check', !s.picked.length, s.t === 'listen' ? '<button class="linkbtn" data-action="dr-nolisten">Can\'t listen now</button>' : '<button class="linkbtn" data-action="dr-reset"' + (s.picked.length ? '' : ' hidden') + '>Start again</button>');
+    return h + sheet(s.ok, '<div class="gr-model">' + esc(s.answers[0]) + '</div>' + (s.t === 'listen' && s.vi ? '<div class="tiny muted">' + esc(s.vi) + '</div>' : ''));
+  }
+  if (s.t === 'write') {
+    h += stage('write', '<span class="gx-say">' + esc(s.vi) + '</span>');
+    if (!s.state) return h + '<textarea class="input mt" id="dr-input" rows="3" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" placeholder="Write the English sentence">' + esc(s.val || '') + '</textarea>' + foot('dr-write', s.busy ? 'Checking…' : 'Check', !!s.busy);
+    return h + '<div class="dr-yours">' + esc(s.val) + '</div>' + sheet(s.ok, (s.ok && s.byAi ? '<div class="small">Your sentence is also correct.</div>' : '') + (s.ok && !s.byAi ? '' : '<div class="tiny muted">' + (s.ok ? 'Model answer' : 'Correct sentence') + '</div><div class="gr-model">' + esc(s.answers[0]) + '</div>') +
+      (s.why ? '<div class="gx-why">' + ic('i-bulb', 'ic-sm') + '<span>' + esc(tx(s.why)) + '</span></div>' : '') + (!s.ok ? '<div class="tiny muted">You will see this sentence again at the end, as word tiles.</div>' : ''));
+  }
+  if (s.t === 'gap' || s.t === 'meaning') {
+    var sel = s.sel !== undefined ? s.opts[s.sel].t : '';
+    var bub = s.t === 'gap' ? (function () { var parts = String(s.q).split(/_{2,}/), b = '<span class="gx-blank' + (sel ? ' on' : '') + (s.done ? (s.ok ? ' ok' : ' no') : '') + '">' + (sel ? esc(sel) : '&nbsp;') + '</span>'; return '<span class="gx-say">' + esc(parts[0]) + b + esc(parts.slice(1).join('___')) + '</span>'; })()
+      : '<span class="gx-say">' + (s.pos ? '<span class="pill sm">' + esc(s.pos) + '</span> ' : '') + esc(s.def) + '</span>' + (s.vi && s.showVi ? '<div class="small muted">' + esc(s.vi) + '</div>' : (s.vi ? '<button class="linkbtn tiny" data-action="dr-vi">Show Vietnamese</button>' : ''));
+    h += stage(s.t, bub) + '<div class="gx-opts">' + s.opts.map(function (o, i) {
+      var cls = s.done ? (o.ok ? ' right' : s.sel === i ? ' wrong' : ' dim') : (s.sel === i ? ' sel' : '');
+      return '<button class="gx-opt' + cls + '" data-action="dr-pick" data-i="' + i + '"' + (s.done ? ' disabled' : '') + '>' + esc(o.t) + '</button>';
+    }).join('') + '</div>';
+    if (!s.done) return h + foot('dr-pickcheck', 'Check', s.sel === undefined);
+    var right = s.opts.filter(function (o) { return o.ok; })[0];
+    return h + sheet(s.ok, (s.ok ? '' : '<div class="tiny muted">Correct answer</div><div class="gr-model">' + esc(right.t) + '</div>') + (s.why ? '<div class="gx-why">' + ic('i-bulb', 'ic-sm') + '<span>' + esc(tx(s.why)) + '</span></div>' : '') + (s.t === 'meaning' && s.vi ? '<div class="tiny muted">' + esc(right.t) + ': ' + esc(s.vi) + '</div>' : ''));
+  }
+  if (s.t === 'spell') {
+    h += stage('spell', audioBtn('dr-say', 'Hear the word', false)) + '<div class="small muted dr-hint">Meaning: ' + esc(s.def) + '</div>';
+    if (!s.state) return h + '<input class="input mt" id="dr-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type the word" value="' + esc(s.val || '') + '">' + foot('dr-spell', 'Check', false, '<button class="linkbtn" data-action="dr-nolisten">Can\'t listen now</button>');
+    return h + sheet(s.ok, '<div class="gr-model">' + esc(s.w) + '</div>' + (s.ok ? '' : '<div class="tiny muted">You wrote “' + esc(s.val) + '”.</div>') + (s.vi ? '<div class="tiny muted">' + esc(s.vi) + '</div>' : ''));
+  }
+  if (s.t === 'repeat') {
+    h += stage('repeat', '<span class="gx-say">' + (s.heard ? s.marks : esc(s.en)) + '</span><div class="dr-replay"><button class="linkbtn" data-action="dr-play">' + ic('i-volume', 'ic-sm') + 'Listen</button><button class="linkbtn" data-action="dr-play" data-slow="1">Slow</button></div>');
+    if (!s.state) {
+      var sup = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      if (!sup) return h + '<p class="small muted mt">This browser cannot hear you. Say the sentence out loud, then tap the button.</p>' + foot('dr-said', 'I said it', false);
+      return h + '<div class="dr-mic"><button class="dr-micbtn' + (s.rec ? ' live' : '') + '" data-action="dr-mic" aria-label="' + (s.rec ? 'Stop' : 'Speak') + '">' + ic(s.rec ? 'i-stop' : 'i-mic', 'ic-lg') + '</button><div class="small muted">' + (s.rec ? 'Listening… tap to stop' : s.tries ? 'Tap and try again' : 'Tap and say the sentence') + '</div>' +
+        (s.live ? '<div class="small dr-live">' + esc(s.live) + '</div>' : '') + '</div>' + '<div class="dr-links"><button class="linkbtn" data-action="dr-nospeak">Can\'t speak now</button><button class="linkbtn" data-action="dr-next">Skip this one</button></div>';
+    }
+    return h + sheet(s.ok, '<div class="small">' + (s.selfMark ? 'Well done for saying it aloud.' : s.pct + '% of the words came through.') + '</div>' + (s.vi ? '<div class="tiny muted">' + esc(s.vi) + '</div>' : ''));
+  }
+  return h;
+}
+function doneHtml() {
+  var r = D.result || {}, scored = D.steps.filter(function (s) { return s.scored && s.state === 'done'; }), right = scored.filter(function (s) { return s.ok; }).length, total = scored.length;
+  var pct = total ? Math.round(right / total * 100) : 0;
+  return '<div class="cv-result">' + kelImg(pct >= 80 ? 'kel-party' : pct >= 50 ? 'kel-thumbs-up' : 'kel-calm', 'dr-big') + '<div><div class="cv-score num">' + right + ' / ' + total + '</div><b>' + (pct >= 80 ? 'Brilliant!' : pct >= 50 ? 'Good work.' : 'Keep going, it gets easier.') + '</b><div class="small muted">' + esc(D.title) + (r.saved ? ' · saved to your progress' : '') + '</div></div></div>' +
+    '<div class="dr-list">' + scored.map(function (s) { return '<div class="dr-li ' + (s.ok ? 'ok' : 'no') + '">' + ic(s.ok ? 'i-check' : 'i-x', 'ic-sm') + '<span>' + esc(s.en || (s.answers && s.answers[0]) || s.w || (s.t === 'gap' ? String(s.q).replace(/_{2,}/, s.opts.filter(function (o) { return o.ok; })[0].t) : s.q) || s.def) + '</span></div>'; }).join('') + '</div>' +
+    '<div class="row-between mt" style="gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-action="dr-exit">Done</button><button class="btn btn-primary" data-action="dr-again">' + (D.mode === 'mix' ? 'One more set' : 'Another set') + '</button></div>';
+}
+function draw() {
+  var el = root(); if (!el) return;
+  if (!D) { el.innerHTML = '<article class="card"><h2>Practice sets</h2><p class="muted mt">Short sets that mix the ways of learning.</p>' + Object.keys(ENTRY).map(function (m) { return entry(m); }).join('') + '</article>'; return; }
+  el.innerHTML = shell(D.done ? doneHtml() : stepHtml(D.steps[D.i]));
+  var inp = $('#dr-input'); if (inp && !('ontouchstart' in window)) inp.focus();
+}
+
+/* ---------- answering ---------- */
+function speakTile(w) { var st = K.state && K.state.settings; if (st && st.tapVoice === false) return; try { K.speakLines([{ s: 0, t: w }], 0.95); } catch (e) {} }
+function play(el) {
+  var s = cur(); if (!s) return;
+  var slow = el && el.dataset && el.dataset.slow === '1';
+  s.playing = true; draw();
+  var end = function () { if (cur() === s) { s.playing = false; draw(); } };
+  if (K.speakNatural([{ s: 0, t: s.en }], slow ? 0.7 : 1, end, false) === false) end();
+}
+function settle(s, ok) { s.ok = ok; s.state = 'done'; s.done = true; }
+function next() {
+  K.stopSpeech && K.stopSpeech();
+  var s = cur();
+  if (s && s.t === 'write' && s.state === 'done' && !s.ok && !s.retried) {
+    s.retried = true;
+    D.steps.push({ t: 'tiles', vi: s.vi, answers: s.answers, tiles: K.ex.makeTiles(s.answers[0], lvl(), []), picked: [], scored: false, retry: true });
+  }
+  if (s && s.rec) { try { s.rec.stop(); } catch (e) {} }
+  D.i++;
+  while (D.i < D.steps.length && D.steps[D.i].skip) D.i++;
+  if (D.i >= D.steps.length) return finish();
+  draw(); try { window.scrollTo(0, 0); } catch (e) {}
+  autoPlay();
+}
+/* listening steps play by themselves when they open */
+function autoPlay() {
+  var n = cur(); if (!n || n.auto) return;
+  if (n.t === 'listen' || n.t === 'repeat') { n.auto = true; setTimeout(function () { if (cur() === n) play(); }, 350); }
+  if (n.t === 'spell') { n.auto = true; setTimeout(function () { if (cur() === n) K.say(n.w, 0.85); }, 350); }
+}
+function finish() {
+  D.done = true; draw();
+  var scored = D.steps.filter(function (s) { return s.scored && s.state === 'done'; }), right = scored.filter(function (s) { return s.ok; }).length, kinds = {};
+  scored.forEach(function (s) { kinds[s.t] = (kinds[s.t] || 0) + 1; });
+  if (!scored.length) return;
+  var secs = Math.round((Date.now() - D.started) / 1000);
+  K.Api.call('drillFinish', { mode: D.mode, right: right, total: scored.length, seconds: secs, kinds: kinds }).then(function (r) {
+    if (D) { D.result = r; draw(); }
+    try { K.loadOverview(true); } catch (e) {}
+  }).catch(function () {});
+  try { K.history.save({ kind: 'drill', title: D.title, right: right, total: scored.length, minutes: Math.max(1, Math.round(secs / 60)), items: scored.map(function (s) { return { q: TITLE[s.t] + ': ' + (s.vi || s.def || s.q || s.en || ''), a: s.val || (s.sel !== undefined && s.opts ? s.opts[s.sel].t : '') || '', r: s.answers ? s.answers[0] : s.w || (s.opts ? s.opts.filter(function (o) { return o.ok; })[0].t : s.en), ok: !!s.ok, why: tx(s.why) }; }) }); } catch (e) {}
+}
+/* repeat: compare the words that came through with the sentence */
+function words(t) { return K.ex.norm(t).split(' ').filter(Boolean); }
+function compare(s, said) {
+  var want = String(s.en).split(/\s+/), heard = {}, hits = 0;
+  words(said).forEach(function (w) { heard[w] = (heard[w] || 0) + 1; });
+  var marks = want.map(function (w) {
+    var k = words(w), ok = k.length && k.every(function (x) { return heard[x] > 0; });
+    if (ok) { k.forEach(function (x) { heard[x]--; }); hits++; }
+    return '<span class="' + (ok ? 'dr-hit' : 'dr-miss') + '">' + esc(w) + '</span>';
+  }).join(' ');
+  s.pct = Math.round(hits / want.length * 100); s.marks = marks; s.heard = true;
+  return s.pct;
+}
+function mic() {
+  var s = cur(); if (!s || s.t !== 'repeat' || s.state) return;
+  if (s.rec) { try { s.rec.stop(); } catch (e) {} return; }
+  K.stopSpeech && K.stopSpeech();
+  var r = K.makeRecognizer({
+    text: function (fin, interim) { s.live = (fin + ' ' + interim).trim(); var l = $('.dr-live'); if (l) l.textContent = s.live; else draw(); },
+    error: function (e) { s.rec = null; s.live = ''; if (e === 'not-allowed' || e === 'service-not-allowed') K.toast('Allow the microphone for this site, then try again.'); draw(); },
+    end: function (fin) {
+      s.rec = null; s.tries = (s.tries || 0) + 1;
+      var said = (fin || s.live || '').trim(); s.live = '';
+      if (!said) { draw(); return; }
+      var pct = compare(s, said); s.val = said;
+      if (pct >= 80 || s.tries >= 3) settle(s, pct >= 80);
+      draw();
+    }
+  });
+  if (!r) return K.toast('This browser cannot use the microphone.');
+  r.continuous = false;
+  s.rec = r; s.live = '';
+  try { r.start(); } catch (e) { s.rec = null; return K.toast('Could not start the microphone.'); }
+  draw();
+}
+
+K.register('drill', { title: 'Practice', render: draw, refresh: function () {} });
+K.onGo(function (v) { if (v !== 'drill' && D && D.done) D = null; });
+K.drill = { entry: entry, start: start, state: function () { return D; } };
+K.setDash(function () {
+  var el = $('#dash-mix'); if (!el) return;
+  el.innerHTML = K.live ? entry('mix') : '';
+});
+K.actions({
+  'dr-start': function (el) { start(el.dataset.mode, el); },
+  'dr-exit': function () {
+    if (D && !D.done && D.i > 0 && !window.confirm('Leave this set? Your answers are not saved.')) return;
+    var s = cur(); if (s && s.rec) { try { s.rec.stop(); } catch (e) {} }
+    K.stopSpeech && K.stopSpeech();
+    var m = D && D.mode; D = null;
+    K.go(m === 'mix' ? 'dashboard' : m === 'words' ? 'words' : m === 'gap' ? 'reading' : m === 'speak' ? 'speaking' : m === 'translate' ? 'writing' : m === 'listen' ? 'listening' : 'dashboard');
+  },
+  'dr-again': function () { var m = D.mode; D = null; draw(); start(m, null); },
+  'dr-next': next,
+  'dr-play': play,
+  'dr-say': function () { var s = cur(); if (s) K.say(s.w, 0.85); },
+  'dr-tile': function (el) { var s = cur(); if (!s || !s.tiles || s.state) return; var id = Number(el.dataset.id); if (s.picked.indexOf(id) < 0) { s.picked.push(id); speakTile(tileOf(s, id).w); } draw(); },
+  'dr-back': function (el) { var s = cur(); if (!s || !s.tiles || s.state) return; var id = Number(el.dataset.id); s.picked = s.picked.filter(function (x) { return x !== id; }); draw(); },
+  'dr-reset': function () { var s = cur(); if (s && s.tiles && !s.state) { s.picked = []; draw(); } },
+  'dr-tilecheck': function () {
+    var s = cur(); if (!s || !s.tiles || s.state) return;
+    s.val = s.picked.map(function (id) { return tileOf(s, id).w; }).join(' ');
+    settle(s, K.ex.matches(s.val, s.answers)); draw();
+  },
+  'dr-pick': function (el) { var s = cur(); if (!s || !s.opts || s.done) return; var i = Number(el.dataset.i); s.sel = s.sel === i ? undefined : i; draw(); },
+  'dr-pickcheck': function () { var s = cur(); if (!s || !s.opts || s.done || s.sel === undefined) return; settle(s, !!s.opts[s.sel].ok); draw(); },
+  'dr-vi': function () { var s = cur(); if (s) { s.showVi = true; draw(); } },
+  'dr-write': function () {
+    var s = cur(); if (!s || s.t !== 'write' || s.state || s.busy) return;
+    var v = ($('#dr-input').value || '').trim(); if (v.split(/\s+/).length < 2) return K.toast('Write the full sentence first.');
+    s.val = v;
+    if (K.ex.matches(v, s.answers)) { settle(s, true); return draw(); }
+    s.busy = true; draw();
+    K.Api.call('grammarJudge', { topic: s.topic || '', instruction: 'Translate this Vietnamese sentence into natural English.', prompt: s.vi, model: s.answers[0], answer: v }).then(function (d) {
+      s.busy = false; if (cur() !== s) return; s.why = d.why; s.byAi = !!d.correct; settle(s, !!d.correct); draw();
+    }).catch(function () { s.busy = false; if (cur() !== s) return; settle(s, false); draw(); });
+  },
+  'dr-spell': function () {
+    var s = cur(); if (!s || s.t !== 'spell' || s.state) return;
+    var v = ($('#dr-input').value || '').trim(); if (!v) return K.toast('Type the word you hear.');
+    s.val = v; settle(s, v.toLowerCase().replace(/[^a-z' -]/g, '') === String(s.w).toLowerCase()); draw();
+  },
+  'dr-mic': mic,
+  'dr-said': function () { var s = cur(); if (!s) return; s.selfMark = true; s.scored = false; settle(s, true); draw(); },
+  'dr-nolisten': function () {
+    setNo('kelvin_nolisten'); K.toast('No listening for 15 minutes.');
+    D.steps.forEach(function (x, k) { if (k >= D.i && (x.t === 'listen' || x.t === 'spell')) { x.scored = false; x.skip = true; } });
+    while (D.i < D.steps.length && D.steps[D.i].skip) D.i++;
+    if (D.i >= D.steps.length) return finish(); draw();
+  },
+  'dr-nospeak': function () {
+    var s = cur(); if (s && s.rec) { try { s.rec.stop(); } catch (e) {} }
+    setNo('kelvin_nospeak'); K.toast('No speaking for 15 minutes.');
+    D.steps.forEach(function (x, k) { if (k >= D.i && x.t === 'repeat') { x.scored = false; x.skip = true; } });
+    while (D.i < D.steps.length && D.steps[D.i].skip) D.i++;
+    if (D.i >= D.steps.length) return finish(); draw();
+  }
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Enter' || !ev.target) return;
+  if (ev.target.id === 'dr-input' && ev.target.tagName === 'INPUT') { ev.preventDefault(); var b = $('[data-action="dr-spell"]'); if (b) b.click(); }
+});
+})();
+</script>

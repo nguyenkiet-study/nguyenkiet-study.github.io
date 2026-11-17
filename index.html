@@ -73,8 +73,8 @@ a{color:var(--primary);text-decoration:none}
 .btn-primary{background:var(--gradient-primary);border-color:transparent;color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.22) inset,0 10px 20px -10px rgba(40,100,232,.75)}
 .btn-primary:hover{filter:brightness(1.05) saturate(1.05);border-color:transparent;box-shadow:0 1px 0 rgba(255,255,255,.22) inset,0 12px 24px -10px rgba(40,100,232,.85)}
 .btn-primary:active{filter:brightness(.96)}
-.btn-soft{background:var(--wash);border-color:transparent;color:var(--primary-d)}
-.btn-soft:hover{background:var(--ice);border-color:transparent;box-shadow:none}
+.btn-soft{background:#DDE8FF;border-color:rgba(46,103,230,.38);color:#1546B8;font-weight:700}
+.btn-soft:hover{background:#CBDCFF;border-color:rgba(46,103,230,.55);box-shadow:none}
 .btn-ghost{border-color:transparent;background:transparent;color:var(--muted)}
 .btn-ghost:hover{background:var(--line-2);box-shadow:none;color:var(--ink)}
 .btn-sm{height:36px;padding:0 14px;font-size:13px;border-radius:10px;white-space:nowrap}
@@ -1024,7 +1024,12 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
 .ms-time{text-align:center;font-size:11.5px;color:var(--faint);margin:12px 0 6px}
 .ms-msg{display:flex;flex-direction:column;margin:2px 0;position:relative}
 .ms-msg.me{align-items:flex-end}.ms-msg.them{align-items:flex-start}
-.ms-b{position:relative;max-width:min(78%,520px);padding:9px 13px;border-radius:18px;font-size:15px;line-height:1.45;word-wrap:break-word;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text}
+.ms-b{position:relative;max-width:min(78%,520px);padding:11px 15px;border-radius:18px;font-size:15px;line-height:1.45;word-wrap:break-word;overflow-wrap:anywhere;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.ms-t{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.ms-b{transition:transform .26s cubic-bezier(.2,1.4,.4,1);z-index:1}.ms-b.swiping{transition:none}
+.ms-swic{position:absolute;top:50%;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#EAF0FA;color:var(--muted);opacity:0;transform:translateY(-50%) scale(.5);transition:opacity .2s,background .15s,color .15s;pointer-events:none;z-index:0}
+.ms-swic.l{left:6px}.ms-swic.r{right:6px}
+.ms-swic.hit{background:var(--primary);color:#fff}
 .ms-msg.me .ms-b{background:var(--navy);color:#fff;border-bottom-right-radius:6px}
 .ms-msg.them .ms-b{background:#fff;border:1px solid var(--line);border-bottom-left-radius:6px}
 .ms-quote{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;opacity:.78;border-left:2px solid currentColor;padding-left:8px;margin-bottom:6px}
@@ -1211,13 +1216,18 @@ img.stk.sm{width:64px;height:64px}
 .ms-rxbar .rx-more{color:var(--muted);display:grid;place-items:center}
 @media (max-width:760px){ .stk-grid{grid-template-columns:repeat(3,1fr)} img.stk{width:120px;height:120px} .emo-btn{width:40px} }
 /* Waiting card (WaitJS) */
-.wt{margin:14px 0;padding:14px 16px 16px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 10px 30px -18px rgba(16,35,79,.25);opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease}
+.wt{position:relative;margin:14px 0;padding:14px 16px 14px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 10px 30px -18px rgba(16,35,79,.25);opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease}
 .wt.on{opacity:1;transform:none}.wt-src{display:none!important}.wt.off{opacity:0}
 .wt-top{display:flex;align-items:center;gap:10px}
 .wt-dot{width:10px;height:10px;border-radius:50%;background:var(--primary);flex:none;animation:wtBob 1.2s ease-in-out infinite}
-.wt-step{flex:1;font-weight:650;color:var(--ink);font-size:14.5px}
+.wt-step{flex:1;font-weight:600;color:var(--muted);font-size:12.5px}
+.wt-head{font-weight:800;color:var(--primary-d);font-size:14.5px;margin:0 56px 10px 0;line-height:1.35}
+.wt .wt-hide{position:absolute;top:12px;right:14px}
+.wt.ready .wt-dot{background:var(--success);animation:none}.wt.ready .wt-bar i{width:100%;animation:none;background:var(--success)}
+.wt.ready .wt-step{color:#0B7A6D;font-weight:700}
+.wt-go{margin-left:auto}
 .wt-hide{font-size:13px}
-.wt-bar{height:4px;border-radius:4px;background:var(--line-2);overflow:hidden;margin:10px 0 14px}
+.wt-bar{height:4px;border-radius:4px;background:var(--line-2);overflow:hidden;margin:14px 0 8px}
 .wt-bar i{display:block;height:100%;width:40%;border-radius:4px;background:linear-gradient(90deg,var(--primary),var(--cyan));animation:wtSlide 1.4s ease-in-out infinite}
 .wt-row{display:flex;gap:14px;align-items:flex-start}
 .wt-kelimg{width:84px;height:84px;flex:0 0 84px;object-fit:contain;animation:wtBob 1.6s ease-in-out infinite}
@@ -1337,11 +1347,18 @@ img.stk.sm{width:64px;height:64px}
 @media (max-width:760px){ .cv-face{width:46px;height:46px} .cv-txt{font-size:16px} .cv-title span{font-size:21px} }
 .dr-entry{display:flex;align-items:center;gap:14px;margin-top:14px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,#F4F8FF,#EAF6FB);border:1px solid var(--line)}
 .dr-entry.sm{margin-top:10px;background:var(--wash-2)}
+.gr-row .btn-ghost{background:#EAF1FF;border:1.5px solid rgba(46,103,230,.4);color:#1546B8;font-weight:700}
+.gr-row .btn-ghost:hover{background:#DCE8FF}
+.gr-row.due .btn-ghost,.gr-row .btn-ghost.now{background:var(--primary);border-color:var(--primary);color:#fff}
+.dr-entry .btn{min-width:112px}
 .dr-entry .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
 .dr-entry b{font:700 16px/1.3 var(--head);color:var(--ink)}
 .dr-kel{width:58px;height:58px;flex:none;object-fit:contain}
 #dash-mix .dr-entry{margin:0 0 16px;padding:16px 18px;background:linear-gradient(120deg,#fff 0%,#EEF5FF 60%,#E2F6FB 100%);box-shadow:0 10px 30px -22px rgba(16,35,79,.35)}
 #dash-mix .dr-kel{width:72px;height:72px}
+#dash-mix .dr-entry{display:grid;grid-template-columns:1fr auto;grid-template-areas:'text kel' 'btn btn';align-items:center;gap:6px 14px}
+#dash-mix .dr-entry .grow{grid-area:text}#dash-mix .dr-entry .dr-kel{grid-area:kel;width:76px;height:76px}#dash-mix .dr-entry .btn{grid-area:btn;margin-top:8px}
+@media (min-width:761px){ #dash-mix .dr-entry{grid-template-columns:1fr auto auto;grid-template-areas:'text kel btn'} #dash-mix .dr-entry .btn{margin-top:0} }
 .dr-yours{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--wash-2);font-size:16px}
 .dr-hint{margin:2px 0 4px}
 .dr-replay{display:flex;gap:16px;margin-top:6px}
@@ -1366,6 +1383,46 @@ img.stk.sm{width:64px;height:64px}
 .wd-sub{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
 .tag.syn{background:#E7F0FF;color:#1F55C9}.tag.ant{background:#FDEBF3;color:#B4235F}.tag.fam{background:#EEF2F8;color:var(--ink)}.tag.fam i{font-style:normal;color:var(--muted);font-size:12px}
 .wd-note{margin-top:6px}
+.cv-face img{display:block;width:100%;height:100%;object-fit:contain}
+.cv-face{background:transparent!important}
+.cv-row.b{flex-direction:row-reverse}
+.cv-row.b .cv-bub::before{left:auto;right:-10px;transform:rotate(-135deg)}
+.cv-row.b .cv-name{text-align:right}
+.cv-ln.b{flex-direction:row-reverse;text-align:right}
+.cv-tile{background:linear-gradient(135deg,#E3EEFF,#D5F2F8)}
+.cv-tile span img{width:118px;height:118px}
+.cv-tile .t{position:absolute;left:-14px;bottom:-14px;top:auto;width:56px;height:56px;display:block;padding:4px;border-radius:18px;background:#fff;box-shadow:0 6px 16px -8px rgba(16,35,79,.35)}
+.cv-tile .t img{width:48px;height:48px}
+.cv-spk{position:relative}
+.cv-spk .cv-dots{display:none;position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);gap:2px}
+.cv-spk .cv-dots i{display:block;width:4px;height:4px;border-radius:50%;background:var(--primary);animation:cvDot 1s ease-in-out infinite}
+.cv-spk .cv-dots i:nth-child(2){animation-delay:.15s}.cv-spk .cv-dots i:nth-child(3){animation-delay:.3s}
+.cv-spk.loading{opacity:.75}.cv-spk.loading .cv-dots{display:flex}
+.cv-spk.loading .ic{animation:cvWait 1.2s ease-in-out infinite}
+.cv-spk.playing .ic{color:var(--primary);animation:cvPlay .7s ease-in-out infinite alternate}
+@keyframes cvDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+@keyframes cvWait{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes cvPlay{from{transform:scale(1)}to{transform:scale(1.18)}}
+.cv-spk.sm{border:0;background:none;padding:0 0 0 4px;color:var(--primary);cursor:pointer;vertical-align:-3px}
+.cv-w{cursor:pointer;border-bottom:1.5px dotted rgba(46,103,230,.35);border-radius:3px;transition:background .15s}
+.cv-w:hover{background:rgba(62,123,250,.08)}.cv-w.key{border-bottom:2px solid rgba(46,103,230,.55);font-weight:600}.cv-w.on{background:rgba(62,123,250,.16);border-bottom-color:var(--primary)}
+.cv-gloss{position:fixed;left:50%;bottom:calc(16px + var(--safe-b,0px));transform:translate(-50%,20px);width:min(420px,calc(100vw - 24px));z-index:80;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.cv-gloss.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.cv-gl-in{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:0 18px 40px -16px rgba(16,35,79,.4)}
+.cv-gl-w{font:800 19px var(--head);color:var(--ink)}
+.cv-gl-vi{font-size:18px;font-weight:700;color:var(--primary-d);margin:4px 0 2px}
+.ms-quote.rp{display:flex;align-items:flex-start;gap:6px;width:100%;text-align:left;border:0;cursor:pointer;margin:0 0 6px;padding:6px 10px;border-radius:10px;background:rgba(62,123,250,.1);border-left:3px solid var(--primary);font-size:13px;color:var(--ink-2,#3B4766);line-height:1.4}
+.ms-msg.me .ms-quote.rp{background:rgba(255,255,255,.22);border-left-color:#fff;color:inherit}
+.ms-quote.rp span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ms-re.rp b{font-weight:700}
+.cm-cb .ms-quote.rp{margin:4px 0 6px}
+.cm-rp{border:0;background:none;color:var(--muted);font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer;margin-left:10px;padding:2px 4px}
+.cm-rp:hover{color:var(--primary)}
+.rx-reply{border:0;background:var(--wash);color:var(--primary-d);border-radius:999px;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;margin-right:4px}
+.qt-btn{position:fixed;z-index:90;display:none;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:0;background:var(--ink);color:#fff;font:600 13px var(--font);box-shadow:0 10px 24px -10px rgba(16,35,79,.6);cursor:pointer}
+.qt-btn.on{display:inline-flex}
+.flash{animation:flashBg 1.4s ease}
+@keyframes flashBg{0%,100%{box-shadow:none}25%{box-shadow:0 0 0 3px rgba(62,123,250,.5)}}
 .cv-result{display:flex;align-items:center;gap:16px;padding:16px;border-radius:20px;background:var(--gradient-soft-blue, var(--wash));margin-bottom:10px}
 .cv-result img{width:96px;height:96px;flex:none}
 .cv-score{font:800 30px/1 var(--head);color:var(--ink);margin-bottom:4px}
@@ -1618,11 +1675,11 @@ body.in-session .app::after,body.in-test .app::after{opacity:.45}
     </form>
 
     <div class="auth-why" aria-label="Why Kelvin">
-      <div class="aw-head"><img data-stk="kel-wave" alt="" width="64" height="64"><p><b>Learn English with your friends</b><span>About 10 minutes a day. Kelvin plans the rest.</span></p></div>
+      <div class="aw-head"><img data-stk="kel-studying" alt="" width="64" height="64"><p><b>Learn English with your friends</b><span>About 10 minutes a day. Kelvin plans the rest.</span></p></div>
       <ul class="aw-list">
-        <li><img data-stk="badge-headphones" alt="" width="34" height="34"><span>Real conversations</span></li>
-        <li><img data-stk="badge-notes" alt="" width="34" height="34"><span>Instant writing feedback</span></li>
-        <li><img data-stk="badge-fire" alt="" width="34" height="34"><span>Friends, stickers and streaks</span></li>
+        <li><img data-stk="kel-listening" alt="" width="34" height="34"><span>Real conversations</span></li>
+        <li><img data-stk="kel-writing" alt="" width="34" height="34"><span>Instant writing feedback</span></li>
+        <li><img data-stk="kel-yay" alt="" width="34" height="34"><span>Friends, stickers and streaks</span></li>
       </ul>
     </div>
     <p class="auth-note" id="preview-note">Preview mode: the backend is not connected yet, so accounts are not saved. Any valid username and password will sign you in.</p>
@@ -2629,8 +2686,28 @@ function pcmToWavUrl(b64, rate) {
   return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
 }
 /** force: use the natural voice even when Settings say "Browser voice" (used when the browser voice stays silent). */
-function speakNatural(lines, rate, onEnd, force, cast) {
+/* Audio clips asked for in advance (the next lines of a conversation), so they play at once when needed. */
+var ttsPending = {};
+function ttsKey(lines, cast) { return (state.settings.accent === 'uk' ? 'uk' : 'us') + '|' + JSON.stringify(lines) + (cast ? '|' + JSON.stringify(cast) : ''); }
+function fetchTts(lines, cast) {
+  var key = ttsKey(lines, cast);
+  if (ttsCache[key]) return Promise.resolve(ttsCache[key]);
+  if (ttsPending[key]) return ttsPending[key];
+  var accent = state.settings.accent === 'uk' ? 'uk' : 'us';
+  ttsPending[key] = Api.call('ttsAudio', cast ? { lines: lines, accent: accent, cast: cast } : { lines: lines, accent: accent }).then(function (r) {
+    delete ttsPending[key];
+    if (!r || !r.audio) throw new Error('empty');
+    ttsCache[key] = pcmToWavUrl(r.audio, r.rate || 24000); return ttsCache[key];
+  }, function (e) { delete ttsPending[key]; throw e; });
+  return ttsPending[key];
+}
+function prefetchNatural(lines, cast) {
+  if (!BACKEND_READY || Date.now() < ttsRestUntil || (state.settings.voiceMode === 'browser' && !IS_IOS)) return;
+  fetchTts(lines, cast).catch(function () {});
+}
+function speakNatural(lines, rate, onEnd, force, cast, onStart) {
   var silentOk = function () { voiceSilent = true; if (onEnd) onEnd(); };
+  if (onStart && (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil)) setTimeout(onStart, 0);
   if (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil || typeof Audio === 'undefined') return force ? false : speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk, cast);
   unlockAudio();
   stopSpeech();
@@ -2642,6 +2719,7 @@ function speakNatural(lines, rate, onEnd, force, cast) {
     if (!alive()) return;
     if (!e || e.code !== 'play') ttsRestUntil = Date.now() + ((e && e.code === 'limit') ? 3600e3 : 600e3);
     if (force) { toast('Sound is not available right now. Check that your phone is not on silent.'); if (onEnd) onEnd(); return; }
+    if (onStart) onStart();
     h.inner = speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk, cast); if (!h.inner && onEnd) onEnd();
   }
   function play(url) {
@@ -2651,14 +2729,12 @@ function speakNatural(lines, rate, onEnd, force, cast) {
     a.src = url; a.playbackRate = rate || 1; curAudio = a;
     a.onended = function () { if (curAudio === a) curAudio = null; if (alive() && onEnd) onEnd(); };
     a.onerror = function () { fallback({ code: 'play' }); };
+    a.onplaying = function () { a.onplaying = null; if (alive() && onStart) onStart(); };
     var pr = a.play(); if (pr && pr.catch) pr.catch(function () { fallback({ code: 'play' }); });
   }
   if (ttsCache[key]) { play(ttsCache[key]); return h; }
-  if (!ttsCache._told) { ttsCache._told = true; toast('Preparing the natural voice. This takes a few seconds the first time.'); }
-  Api.call('ttsAudio', cast ? { lines: lines, accent: accent, cast: cast } : { lines: lines, accent: accent }).then(function (r) {
-    if (!r || !r.audio) throw new Error('empty');
-    ttsCache[key] = pcmToWavUrl(r.audio, r.rate || 24000); play(ttsCache[key]);
-  }).catch(fallback);
+  if (!ttsCache._told && !ttsPending[key]) { ttsCache._told = true; toast('Preparing the natural voice. This takes a few seconds the first time.'); }
+  fetchTts(lines, cast).then(play).catch(fallback);
   return h;
 }
 /**
@@ -3204,7 +3280,7 @@ document.addEventListener('keydown', function (e) {
 });
 window.Kelvin = {
   state: state, $: $, $$: $$, esc: esc, ic: ic, toast: toast, go: go, persist: persist,
-  speakLines: speakLines, speakNatural: speakNatural, stopSpeech: stopSpeech, say: say, canSpeak: function () { return ('speechSynthesis' in window) || BACKEND_READY; }, SK: SK,
+  speakLines: speakLines, speakNatural: speakNatural, prefetchNatural: prefetchNatural, stopSpeech: stopSpeech, say: say, canSpeak: function () { return ('speechSynthesis' in window) || BACKEND_READY; }, SK: SK,
   register: function (name, view) { REG.views[name] = view; },
   ptLog: function () { return T && T.log ? T.log : null; },
   actions: function (map) { Object.keys(map).forEach(function (k) { REG.actions[k] = map[k]; }); },
@@ -3679,7 +3755,6 @@ function task() {
   var k = P.skill, t = P.task, h;
   if (k === 'writing') {
     h = '<div class="card-head" style="margin-bottom:6px"><h2>Write</h2><span class="pill plain">Level ' + esc(t.level) + '</span></div><p class="cap" style="font-size:17px;margin:6px 0 14px">' + esc(t.prompt) + '</p>' +
-      (K.social && K.live ? '<p class="small muted wr-hint">' + ic('i-bulb', 'ic-sm') + 'Tip: you can write it as a message to friends in Kelvin, for example inviting them to lunch or planning a trip, and tag them below.</p>' : '') +
       '<textarea class="input" id="pr-text" style="min-height:190px" aria-label="Your answer"></textarea><div class="wc"><span id="pr-count">0 words</span><span class="muted">Aim for at least ' + t.minWords + ' words</span></div>' +
       (K.social ? K.social.tagBox('writing') : '');
     if (K.social) K.social.clear('writing');
@@ -5227,7 +5302,7 @@ function drawHome() {
     }).join('') + '</div><div class="legend" style="margin-top:8px"><span><i style="border-color:var(--primary)"></i>Open</span><span><i style="border-color:#B5CEFF"></i>Fixed</span></div>'
       : '<p class="muted small">No mistakes filed yet. When you do a Writing or Speaking practice, each correction is filed here under its grammar topic, and your lessons follow them.</p>') + '</article>';
   var lessons = h.lessons.length ? '<article class="card mt"><div class="card-head"><h2>Lessons you have studied</h2><span class="pill plain">' + h.lessons.length + '</span></div>' + h.lessons.map(function (l) {
-    return '<div class="gr-row"><div class="grow"><div class="t">' + esc(ttl(l)) + '</div><div class="tiny muted">' + l.cefr + (l.score === null ? '' : ' · last score ' + l.score + '%') + '</div></div>' + boxes(l.box) + '<span class="due tiny muted">' + dueText(l.days) + '</span><button class="btn btn-ghost btn-sm" data-action="gr-start" data-t="' + l.topic + '">' + (l.days <= 0 ? 'Review' : 'Practise') + '</button></div>';
+    return '<div class="gr-row"><div class="grow"><div class="t">' + esc(ttl(l)) + '</div><div class="tiny muted">' + l.cefr + (l.score === null ? '' : ' · last score ' + l.score + '%') + '</div></div>' + boxes(l.box) + '<span class="due tiny muted">' + dueText(l.days) + '</span><button class="btn btn-ghost btn-sm' + (l.days <= 0 ? ' now' : '') + '" data-action="gr-start" data-t="' + l.topic + '">' + (l.days <= 0 ? 'Review' : 'Practise') + '</button></div>';
   }).join('') + '</article>' : '';
   var queue = h.queue.length > 1 ? '<article class="card mt"><div class="card-head"><h2>Coming up</h2><span class="pill plain">' + h.left + ' topics left</span></div>' + h.queue.slice(1).map(function (q) {
     return '<div class="gr-row"><div class="grow"><div class="t">' + esc(ttl(q)) + '</div><div class="tiny muted">' + q.cefr + ' · ' + reason(q) + '</div></div><button class="btn btn-ghost btn-sm" data-action="gr-start" data-t="' + q.topic + '">Start</button></div>';
@@ -5246,7 +5321,7 @@ var INSTR = { fix: 'Find the mistake and write the correct sentence.', translate
    bank, so the bank does not jump). Some tiles do not belong. Tapping a tile reads the word aloud with the
    browser voice (free, no network); this can be turned off in Settings. */
 var STK_BASE = location.protocol === 'file:' ? 'web/stickers/' : /github\.io$/.test(location.hostname) ? 'stickers/' : 'https://nguyenkiet-study.github.io/stickers/';
-var KEL = { tiles: 'kel-thinking', mcq: 'kel-wave', listen: 'kel-cool' };
+var KEL = { tiles: 'kel-writing', mcq: 'kel-reading', listen: 'kel-listening' };
 function kel(t) { return '<img class="gx-kel" src="' + STK_BASE + (KEL[t] || 'kel-wave') + '.webp" alt="" draggable="false">'; }
 function stage(t, bubble) { return '<div class="gx-stage">' + kel(t) + '<div class="gx-bubble">' + bubble + '</div></div>'; }
 function shuffled(a) { var b = a.slice(), i, j, x; for (i = b.length - 1; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); x = b[i]; b[i] = b[j]; b[j] = x; } return b; }
@@ -5694,7 +5769,9 @@ var KIND = { correct: ['Correct me', 'i-spell'], poll: ['Poll', 'i-chart'], word
 /* Stickers: pictures in the website's stickers/ folder, sent as the text "[[sticker:id]]". */
 var STK_BASE = location.protocol === 'file:' ? 'web/stickers/' : /github\.io$/.test(location.hostname) ? 'stickers/' : 'https://nguyenkiet-study.github.io/stickers/';
 var PACKS = [
-  { id: 'kel', name: 'Kelvin', ext: 'webp', items: ['wave', 'laugh', 'yay', 'thumbs-up', 'love', 'star-eyes', 'cool', 'party', 'thinking', 'surprised', 'shocked', 'calm', 'sleepy', 'worried', 'sad', 'angry'] },
+  { id: 'kel', name: 'Kelvin', ext: 'webp', items: ['wave', 'laugh', 'yay', 'thumbs-up', 'love', 'star-eyes', 'cool', 'party', 'thinking', 'surprised', 'shocked', 'calm', 'sleepy', 'worried', 'sad', 'angry',
+    'grandpa', 'grandma', 'dad', 'mom', 'brother', 'sister', 'son', 'daughter', 'young-man', 'young-woman', 'boss', 'manager', 'teacher', 'doctor', 'engineer', 'developer', 'designer', 'student', 'chef', 'pilot', 'police',
+    'reading', 'writing', 'listening', 'speaking', 'exam', 'travel', 'shopping', 'exercise', 'cooking', 'relax', 'sleep'] },
   { id: 'badge', name: 'Badges', ext: 'webp', items: ['fire', 'trophy', 'medal', 'star', 'check', 'yes', 'no', 'idea', 'rocket', 'goal', 'gift', 'bell', 'target', 'bullseye', 'growth', 'progress', 'calendar', 'headphones', 'microphone', 'book', 'notes', 'words', 'layers', 'info'] },
   { id: 'doodle', name: 'Doodles', ext: 'webp', items: ['doodle-grin', 'doodle-peace', 'doodle-please', 'doodle-point', 'doodle-shout', 'doodle-cry', 'doodle-cool', 'doodle-smug', 'doodle-dog', 'doodle-buddies', 'money'] },
   { id: 'bull', name: 'Niu Lai', ext: 'webp', items: ['bull-whatever', 'bull-shock', 'bull-cry', 'bull-side-eye', 'bull-arms-crossed', 'bull-nose', 'bull-doubt'] }
@@ -5988,6 +6065,43 @@ function openChat(id, name, re) {
   S.with = { id: id, name: name || '' }; S.thread = null; S.sig = ''; S.re = re || ''; S.rxFor = null;
   if (K.state.view !== 'messages') K.go('messages'); else drawChat(true);
 }
+/* ---------- replies: quote one message or comment, or the words selected in it ---------- */
+function replyQuote(r, action) {
+  if (!r || !r.text) return '';
+  return '<button class="ms-quote rp" data-action="' + action + '" data-id="' + esc(r.id) + '">' + ic('i-reply', 'ic-sm') + '<span><b>' + esc(r.name || '') + '</b> ' + esc(r.text) + '</span></button>';
+}
+function replyBar(r, xAction) {
+  return '<div class="ms-re rp">' + ic('i-reply', 'ic-sm') + '<span>Replying to <b>' + esc(r.name) + '</b>: “' + esc(r.quote || r.text) + '”</span><button class="iconbtn" data-action="' + xAction + '" aria-label="Cancel reply">' + ic('i-x', 'ic-sm') + '</button></div>';
+}
+function startReply(kind, id, name, quote, full) {
+  var q = String(quote || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (kind === 'chat') { S.reply = { id: id, name: name, quote: q, text: q || String(full || '').slice(0, 160) }; S.rxFor = null; drawChat(false); var i = $('#ms-input'); if (i) i.focus(); return; }
+  var d = S.curPost; if (!d) return;
+  S.creply = { post: d.post.id, id: id, name: name, quote: q, text: q || String(full || '').slice(0, 160) };
+  drawPost(d); var c = $('#cmp-input'); if (c) { c.focus(); try { c.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+}
+function flash(el) { if (!el) return; try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 1400); }
+/* select a few words in a message, comment or post: a small "Reply" button appears next to them */
+var QB = null, qbTimer = null;
+function selInfo() {
+  var sel = window.getSelection && window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  var t = sel.toString().replace(/\s+/g, ' ').trim(); if (t.length < 2 || t.length > 300) return null;
+  var n = sel.anchorNode; n = n && n.nodeType === 3 ? n.parentNode : n;
+  var box = n && n.closest && n.closest('[data-qkind]'); if (!box) return null;
+  var f = sel.focusNode; f = f && f.nodeType === 3 ? f.parentNode : f; if (!f || !box.contains(f)) return null;
+  return { box: box, text: t, rect: sel.getRangeAt(0).getBoundingClientRect() };
+}
+document.addEventListener('selectionchange', function () {
+  clearTimeout(qbTimer);
+  qbTimer = setTimeout(function () {
+    var si = selInfo();
+    if (!si) { if (QB) QB.classList.remove('on'); return; }
+    if (!QB) { QB = document.createElement('button'); QB.className = 'qt-btn'; QB.type = 'button'; QB.setAttribute('data-action', 'qt-reply'); QB.innerHTML = ic('i-reply', 'ic-sm') + 'Reply'; document.body.appendChild(QB); }
+    QB._si = { kind: si.box.dataset.qkind, id: si.box.dataset.qid, name: si.box.dataset.qname, text: si.text };
+    var r = si.rect, top = Math.max(8, r.top - 44), left = Math.min(window.innerWidth - 96, Math.max(8, r.left + r.width / 2 - 40));
+    QB.style.top = top + 'px'; QB.style.left = left + 'px'; QB.classList.add('on');
+  }, 180);
+});
 function bubble(m, prev) {
   var gap = !prev || prev.mine !== m.mine || (new Date(m.at) - new Date(prev.at)) > 10 * 60000;
   var reacts = Object.keys(m.reactions || {}).map(function (e) { return '<button class="ms-rx' + (m.my === e ? ' on' : '') + '" data-action="ms-react" data-id="' + m.id + '" data-e="' + e + '">' + e + (m.reactions[e] > 1 ? ' ' + m.reactions[e] : '') + '</button>'; }).join('');
@@ -6000,12 +6114,12 @@ function bubble(m, prev) {
   } else if (stickerId(m.text)) {
     body = stickerImg(stickerId(m.text));
   } else {
-    body = (m.ctx && m.ctx.re ? '<div class="ms-quote">' + ic('i-reply', 'ic-sm') + esc(m.ctx.re) + '</div>' : '') + '<div class="cap">' + txt(m.text) + '</div>';
+    body = (m.ctx && m.ctx.re ? '<div class="ms-quote">' + ic('i-reply', 'ic-sm') + esc(m.ctx.re) + '</div>' : '') + replyQuote(m.ctx && m.ctx.reply, 'ms-goto') + '<div class="cap"><span class="ms-t">' + txt(m.text) + '</span></div>';
   }
   return (gap ? '<div class="ms-time">' + esc(when(m.at) === 'now' ? 'now' : clock(m.at) + (when(m.at).match(/[a-z]/i) && when(m.at).length > 3 ? ' · ' + when(m.at) : '')) + '</div>' : '') +
-    '<div class="ms-msg ' + (m.mine ? 'me' : 'them') + (m.kind === 'tag' ? ' is-tag' : '') + (stickerId(m.text) ? ' is-stk' : '') + '" data-id="' + m.id + '"><div class="ms-b" data-id="' + m.id + '">' + body +
+    '<div class="ms-msg ' + (m.mine ? 'me' : 'them') + (m.kind === 'tag' ? ' is-tag' : '') + (stickerId(m.text) ? ' is-stk' : '') + '" data-id="' + m.id + '"><div class="ms-b" data-id="' + m.id + '" data-qkind="chat" data-qid="' + m.id + '" data-qname="' + esc(m.mine ? 'You' : (S.with && S.with.name) || '') + '">' + body +
     '<button class="ms-rx-open" data-action="ms-rx-open" data-id="' + m.id + '" aria-label="React">' + ic('i-smile', 'ic-sm') + '</button></div>' +
-    (S.rxFor === m.id ? '<div class="ms-rxbar">' + EMOJI.map(function (e) { return '<button data-action="ms-react" data-id="' + m.id + '" data-e="' + e + '"' + (m.my === e ? ' class="on"' : '') + '>' + e + '</button>'; }).join('') + '<button class="rx-more" data-action="emo-open" data-m="react" data-id="' + m.id + '" aria-label="More emoji">' + ic('i-plus', 'ic-sm') + '</button></div>' : '') +
+    (S.rxFor === m.id ? '<div class="ms-rxbar"><button class="rx-reply" data-action="ms-reply-to" data-id="' + m.id + '" aria-label="Reply">' + ic('i-reply', 'ic-sm') + '</button>' + EMOJI.map(function (e) { return '<button data-action="ms-react" data-id="' + m.id + '" data-e="' + e + '"' + (m.my === e ? ' class="on"' : '') + '>' + e + '</button>'; }).join('') + '<button class="rx-more" data-action="emo-open" data-m="react" data-id="' + m.id + '" aria-label="More emoji">' + ic('i-plus', 'ic-sm') + '</button></div>' : '') +
     (reacts ? '<div class="ms-rxs">' + reacts + '</div>' : '') + '</div>';
 }
 function drawChat(load) {
@@ -6015,7 +6129,7 @@ function drawChat(load) {
   var draft = $('#ms-input') ? $('#ms-input').value : '';
   r.innerHTML = '<div class="ms-chat"><div class="ms-head"><button class="iconbtn" data-action="ms-back" aria-label="Back">' + ic('i-back') + '</button>' + av(w) + '<b>' + esc(w.name) + '</b></div>' +
     '<div class="ms-scroll" id="ms-list">' + (t ? (t.messages.length ? t.messages.map(function (m, i) { return bubble(m, t.messages[i - 1]); }).join('') : '<p class="small muted ms-hello">Say hello to ' + esc(w.name.split(/\s+/)[0]) + '. English is encouraged, not required.</p>') : '<p class="small muted ms-hello">Loading…</p>') + '</div>' +
-    '<div class="ms-compose">' + (S.re ? '<div class="ms-re">' + ic('i-reply', 'ic-sm') + '<span>Replying about: ' + esc(S.re) + '</span><button class="iconbtn" data-action="ms-re-x" aria-label="Remove">' + ic('i-x', 'ic-sm') + '</button></div>' : '') +
+    '<div class="ms-compose">' + (S.reply ? replyBar(S.reply, 'ms-reply-x') : '') + (S.re ? '<div class="ms-re">' + ic('i-reply', 'ic-sm') + '<span>Replying about: ' + esc(S.re) + '</span><button class="iconbtn" data-action="ms-re-x" aria-label="Remove">' + ic('i-x', 'ic-sm') + '</button></div>' : '') +
     '<div class="ms-row-in"><button class="iconbtn emo-btn" data-action="emo-open" data-m="chat" aria-label="Emoji and stickers">' + ic('i-smile') + '</button><textarea class="input" id="ms-input" rows="1" placeholder="Message ' + esc(w.name.split(/\s+/)[0]) + '…" aria-label="Message"></textarea><button class="btn btn-primary ms-send" data-action="ms-send" aria-label="Send"' + (S.sending ? ' disabled' : '') + '>' + ic('i-send') + '</button></div></div></div>';
   var inp = $('#ms-input'); inp.value = draft; grow(inp); fitChat();
   list = $('#ms-list'); if (keepScroll) list.scrollTop = list.scrollHeight;
@@ -6050,10 +6164,10 @@ function startPoll() {
 function sendMsg() {
   var inp = $('#ms-input'), w = S.with; if (!inp || !w || S.sending) return;
   var text = inp.value.trim(); if (!text) return;
-  S.sending = true; var re = S.re;
+  S.sending = true; var re = S.re, rp = S.reply;
   var btn = $('.ms-send'); if (btn) btn.disabled = true;
-  api('msgSend', { to: w.id, text: text, re: re }).then(function (d) {
-    S.sending = false; S.re = ''; S.thread = d; S.sig = ''; var i = $('#ms-input'); if (i) i.value = '';
+  api('msgSend', rp ? { to: w.id, text: text, re: re, reply: { id: rp.id, quote: rp.quote } } : { to: w.id, text: text, re: re }).then(function (d) {
+    S.sending = false; S.re = ''; S.reply = null; S.thread = d; S.sig = ''; var i = $('#ms-input'); if (i) i.value = '';
     if (K.state.view === 'messages') drawChat(false);
     var l = $('#ms-list'); if (l) l.scrollTop = l.scrollHeight;
   }).catch(function (e) { S.sending = false; if (btn) btn.disabled = false; K.toast((e && e.message) || 'Could not send. Try again.'); });
@@ -6067,11 +6181,55 @@ function react(id, e) {
 }
 /* Long press on a bubble (phones) opens the reaction bar. */
 var lp = null;
+/* On a phone:
+   - press and hold ON THE WORDS of a message: the phone selects text as usual (then "Reply" quotes the selection);
+   - press and hold the edge or the background of the bubble: the reaction bar opens;
+   - swipe to reply, as in Messenger: someone else's message (on the left) is pulled to the right, your own message
+     (on the right) is pulled to the left. A reply arrow appears in the space behind it and fills in when far enough
+     (with a small buzz); let go and the bubble springs back and the reply starts. */
+var sw = null, SW_AT = 56;
 document.addEventListener('touchstart', function (ev) {
   var b = ev.target.closest && ev.target.closest('.ms-b'); if (!b || ev.target.closest('button')) return;
-  lp = setTimeout(function () { S.rxFor = b.dataset.id; drawChat(false); try { navigator.vibrate && navigator.vibrate(10); } catch (e) {} }, 450);
+  var row = b.closest('.ms-msg'), t = ev.touches[0];
+  sw = { b: b, row: row, dir: row.classList.contains('me') ? -1 : 1, x: t.clientX, y: t.clientY, dx: 0, on: false, hit: false, ic: null };
+  if (ev.target.closest('.ms-t')) return;          // on the words: leave it to text selection
+  lp = setTimeout(function () { sw = null; S.rxFor = b.dataset.id; drawChat(false); try { navigator.vibrate && navigator.vibrate(10); } catch (e) {} }, 450);
 }, { passive: true });
-['touchend', 'touchmove', 'touchcancel'].forEach(function (n) { document.addEventListener(n, function () { clearTimeout(lp); }, { passive: true }); });
+document.addEventListener('touchmove', function (ev) {
+  if (!sw) { clearTimeout(lp); return; }
+  var t = ev.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+  if (!sw.on) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    clearTimeout(lp);
+    // only the Messenger direction, mostly sideways, and not while text is selected
+    if (dx * sw.dir > 0 && Math.abs(dx) > Math.abs(dy) * 1.5 && !(window.getSelection && String(window.getSelection()))) {
+      sw.on = true; sw.x = t.clientX; dx = 0;
+      sw.ic = document.createElement('span'); sw.ic.className = 'ms-swic ' + (sw.dir > 0 ? 'l' : 'r'); sw.ic.innerHTML = ic('i-reply', 'ic-sm');
+      sw.row.appendChild(sw.ic); sw.b.classList.add('swiping');
+    } else { sw = null; return; }
+  }
+  var d = Math.max(0, dx * sw.dir), pull = d < SW_AT ? d : SW_AT + (d - SW_AT) * 0.3;   // gets heavier past the point
+  pull = Math.min(pull, 96); sw.dx = pull;
+  sw.b.style.transform = 'translateX(' + (pull * sw.dir) + 'px)';
+  var k = Math.min(1, pull / SW_AT);
+  sw.ic.style.opacity = String(k); sw.ic.style.transform = 'translateY(-50%) scale(' + (0.5 + 0.5 * k) + ')';
+  var hit = pull >= SW_AT;
+  if (hit !== sw.hit) { sw.hit = hit; sw.ic.classList.toggle('hit', hit); if (hit) { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} } }
+}, { passive: true });
+function endSwipe() {
+  clearTimeout(lp);
+  if (!sw) return;
+  var s0 = sw; sw = null;
+  if (!s0.on) return;
+  s0.b.classList.remove('swiping'); s0.b.style.transform = '';
+  if (s0.ic) { var icn = s0.ic; icn.style.opacity = '0'; setTimeout(function () { if (icn.parentNode) icn.parentNode.removeChild(icn); }, 220); }
+  if (s0.hit) {
+    var m = S.thread && S.thread.messages.filter(function (x) { return x.id === s0.b.dataset.id; })[0];
+    if (m) setTimeout(function () { startReply('chat', m.id, m.mine ? 'You' : S.with.name, '', stickerId(m.text) ? '[Sticker]' : m.text); }, 120);
+  }
+}
+document.addEventListener('touchend', endSwipe, { passive: true });
+document.addEventListener('touchcancel', endSwipe, { passive: true });
 document.addEventListener('keydown', function (ev) {
   if (ev.target && ev.target.id === 'ms-input' && ev.key === 'Enter' && !ev.shiftKey && !isTouch()) { ev.preventDefault(); sendMsg(); }
 });
@@ -6154,8 +6312,8 @@ function pollHtml(p) {
     (o.answer > -1 ? ' · answer shown' : (p.mine || (S.feed && S.feed.admin)) && voted ? ' · <button class="linkbtn" data-action="cm-reveal" data-id="' + p.id + '">Show the right answer</button>' : '') + '</div></div>';
 }
 function commentHtml(c, small) {
-  return '<div class="cm-c' + (c.hidden ? ' is-hidden' : '') + '">' + av(c.author, 'sm') + '<div class="cm-cb"><div class="cm-ch"><b>' + esc(c.author.name) + '</b><span class="tiny muted">' + when(c.at) + (c.hidden ? ' · hidden' : '') + '</span>' + (small ? '' : menuBtn('comment', c)) + '</div>' +
-    (stickerId(c.text) ? stickerImg(stickerId(c.text), small ? 'sm' : '') : '<div class="cap">' + txt(c.text) + '</div>') + (small ? '' : '<button class="cm-heart sm' + (c.liked ? ' on' : '') + '" data-action="cm-clike" data-id="' + c.id + '" aria-label="Heart">' + ic('i-heart', 'ic-sm') + (c.likes ? '<span>' + c.likes + '</span>' : '') + '</button>') + '</div></div>';
+  return '<div class="cm-c' + (c.hidden ? ' is-hidden' : '') + '" id="cmt-' + c.id + '">' + av(c.author, 'sm') + '<div class="cm-cb" data-qkind="comment" data-qid="' + c.id + '" data-qname="' + esc(c.author.name) + '"><div class="cm-ch"><b>' + esc(c.author.name) + '</b><span class="tiny muted">' + when(c.at) + (c.hidden ? ' · hidden' : '') + '</span>' + (small ? '' : menuBtn('comment', c)) + '</div>' + (small ? '' : replyQuote(c.reply, 'cm-goto')) +
+    (stickerId(c.text) ? stickerImg(stickerId(c.text), small ? 'sm' : '') : '<div class="cap">' + txt(c.text) + '</div>') + (small ? '' : '<button class="cm-heart sm' + (c.liked ? ' on' : '') + '" data-action="cm-clike" data-id="' + c.id + '" aria-label="Heart">' + ic('i-heart', 'ic-sm') + (c.likes ? '<span>' + c.likes + '</span>' : '') + '</button>' + (c.hidden ? '' : '<button class="cm-rp" data-action="cm-reply" data-id="' + c.id + '" data-name="' + esc(c.author.name) + '">' + ic('i-reply', 'ic-sm') + 'Reply</button>')) + '</div></div>';
 }
 function postCard(p) {
   var cLabel = p.kind === 'correct' ? (p.comments ? p.comments + (p.comments === 1 ? ' correction' : ' corrections') : 'Correct it') : (p.comments ? String(p.comments) : 'Comment');
@@ -6174,13 +6332,14 @@ function openPost(id) {
 }
 function drawPost(d) {
   var p = d.post, el = $('#cmp-body'); if (!el) return;
+  S.curPost = d; if (S.creply && S.creply.post !== p.id) S.creply = null;
   var draft = $('#cmp-input') ? $('#cmp-input').value : '';
   var top = p.kind === 'topic' || p.kind === 'pinned'
     ? '<div class="cm-sheet-topic ' + (p.kind === 'pinned' ? 'xmas' : '') + '"><span class="cm-label">' + ic(p.kind === 'pinned' ? 'i-gift' : 'i-users', 'ic-sm') + (p.kind === 'pinned' ? 'Christmas question' : 'Topic · ' + esc(left(p.topic && p.topic.endsAt))) + '</span><p class="cap">' + txt(p.text) + '</p></div>'
-    : '<div class="cm-ph">' + av(p.author) + '<div class="cm-pm"><b>' + esc(p.author.name) + '</b><span class="tiny muted">' + when(p.at) + '</span></div>' + kindTag(p) + '</div>' + body(p);
+    : '<div class="cm-ph">' + av(p.author) + '<div class="cm-pm"><b>' + esc(p.author.name) + '</b><span class="tiny muted">' + when(p.at) + '</span></div>' + kindTag(p) + '</div><div data-qkind="post" data-qid="' + p.id + '" data-qname="' + esc(p.author.name) + '">' + body(p) + '</div>';
   var ph = p.kind === 'correct' ? 'Write the corrected sentence…' : p.kind === 'topic' || p.kind === 'pinned' ? 'Write your answer…' : 'Write a comment…';
   el.innerHTML = top + '<div class="cm-cs">' + (d.comments.length ? d.comments.map(function (c) { return commentHtml(c, false); }).join('') : '<p class="small muted">' + (p.kind === 'correct' ? 'No corrections yet. Help them out.' : 'No comments yet.') + '</p>') + '</div>' +
-    (p.hidden ? '' : '<div class="cm-cin">' + tagHint(p) + '<div class="ms-row-in"><button class="iconbtn emo-btn" data-action="emo-open" data-m="comment" data-id="' + p.id + '" aria-label="Emoji and stickers">' + ic('i-smile') + '</button><textarea class="input" id="cmp-input" rows="1" placeholder="' + ph + '"></textarea><button class="btn btn-primary ms-send" data-action="cm-comment" data-id="' + p.id + '" aria-label="Send">' + ic('i-send') + '</button></div></div>');
+    (p.hidden ? '' : '<div class="cm-cin">' + tagHint(p) + (S.creply ? replyBar(S.creply, 'cm-reply-x') : '') + '<div class="ms-row-in"><button class="iconbtn emo-btn" data-action="emo-open" data-m="comment" data-id="' + p.id + '" aria-label="Emoji and stickers">' + ic('i-smile') + '</button><textarea class="input" id="cmp-input" rows="1" placeholder="' + ph + '"></textarea><button class="btn btn-primary ms-send" data-action="cm-comment" data-id="' + p.id + '" aria-label="Send">' + ic('i-send') + '</button></div></div>');
   var inp = $('#cmp-input'); if (inp) { inp.value = draft; grow(inp); }
 }
 function tagHint(p) { return p.kind === 'pinned' ? '<p class="tiny muted" style="margin:0 0 6px">Tip: name a friend you would like to celebrate with.</p>' : ''; }
@@ -6189,8 +6348,9 @@ document.addEventListener('input', function (ev) { if (ev.target && ev.target.id
 function sendComment(id, btn) {
   var inp = $('#cmp-input'); if (!inp) return; var text = inp.value.trim(); if (!text) return K.toast('Write something first.');
   btn.disabled = true;
-  api('cmComment', { postId: id, text: text }).then(function (d) {
-    inp.value = ''; S.posts[id] = d.post; drawPost(d);
+  var rp = S.creply && S.creply.post === id ? S.creply : null;
+  api('cmComment', rp ? { postId: id, text: text, reply: { id: rp.id, quote: rp.quote } } : { postId: id, text: text }).then(function (d) {
+    inp.value = ''; S.creply = null; S.posts[id] = d.post; drawPost(d);
     var l = $('#cm-post .cm-sheet'); if (l) l.scrollTop = l.scrollHeight;
     patchPost(d.post, d.comments);
   }).catch(function (e) { btn.disabled = false; K.toast((e && e.message) || 'Could not post your comment.'); });
@@ -6247,7 +6407,7 @@ function notifs() {
   sheet('cm-n', head('Notifications', 'cm-n') + '<div id="cmn-list"><p class="small muted">Loading…</p></div>', 'Notifications');
   api('cmNotifs').then(function (d) {
     S.badge.notifications = 0; setDots();
-    var say = { comment: 'commented on your post', like: 'liked your post', clike: 'liked your comment' };
+    var say = { comment: 'commented on your post', like: 'liked your post', clike: 'liked your comment', reply: 'replied to your comment' };
     $('#cmn-list').innerHTML = d.items.length ? d.items.map(function (n) {
       return '<button class="cmn-row' + (n.unread ? ' unread' : '') + '" data-action="cmn-open" data-id="' + esc(n.postId) + '">' + ic(n.kind === 'comment' ? 'i-message' : 'i-heart', 'ic-sm') + '<span><b>' + esc(n.from) + '</b> ' + (say[n.kind] || '') + (n.text ? ': <span class="muted">' + esc(n.text) + '</span>' : '') + '</span><span class="tiny muted">' + when(n.at) + '</span></button>';
     }).join('') : '<p class="small muted">Nothing yet. Hearts and comments on your posts show up here.</p>';
@@ -6356,6 +6516,25 @@ K.onGo(function (view) {
 K.social = { tagBox: tagBox, after: after, view: view, clear: clearTags, openChat: openChat, refreshBadge: refreshBadge };
 
 K.actions({
+  'ms-reply-to': function (el) {
+    var m = S.thread && S.thread.messages.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return;
+    var full = stickerId(m.text) ? '[Sticker]' : m.text;
+    startReply('chat', m.id, m.mine ? 'You' : S.with.name, '', full);
+  },
+  'ms-reply-x': function () { S.reply = null; drawChat(false); },
+  'ms-goto': function (el) { flash($('.ms-msg[data-id="' + el.dataset.id + '"] .ms-b')); },
+  'cm-reply': function (el) {
+    var c = S.curPost && S.curPost.comments.filter(function (x) { return x.id === el.dataset.id; })[0];
+    startReply('comment', el.dataset.id, el.dataset.name, '', c ? (stickerId(c.text) ? '[Sticker]' : c.text) : '');
+  },
+  'cm-reply-x': function () { S.creply = null; if (S.curPost) drawPost(S.curPost); },
+  'cm-goto': function (el) { flash($('#cmt-' + el.dataset.id) || $('#cmp-body [data-qkind="post"]')); },
+  'qt-reply': function (el) {
+    var si = el._si; el.classList.remove('on'); if (!si) return;
+    try { window.getSelection().removeAllRanges(); } catch (e) {}
+    if (si.kind === 'chat') { var m = S.thread && S.thread.messages.filter(function (x) { return x.id === si.id; })[0]; startReply('chat', si.id, si.name, si.text, m ? m.text : si.text); }
+    else startReply(si.kind === 'post' ? 'post' : 'comment', si.id, si.name, si.text, si.text);
+  },
   'cm-close': function (el) { closeSheet(el.dataset.s); },
   'emo-open': function (el) { emoOpen(el.dataset.m, el.dataset.id); },
   'emo-tab': function (el) { EMOP.tab = el.dataset.t; drawEmo(); },
@@ -6444,7 +6623,7 @@ document.addEventListener('click', function (ev) { if (S.rxFor && !ev.target.clo
 
 /* =====================================================================
    Waiting screen
-   When a call that uses the AI takes longer than WAIT_AFTER ms, a card opens with:
+   The card opens at once for every call listed in STEPS, with:
    - Kel and the steps of what is happening ("Reading your answer… Checking grammar…"), always;
    - one of four things to do meanwhile, never the same kind twice in a row:
        word  - one of your own words from Words: tap to see the meaning
@@ -6452,10 +6631,17 @@ document.addEventListener('click', function (ev) { if (S.rxFor && !ev.target.clo
        tip   - a mistake Vietnamese learners often make, and the fix
        kel   - Kel and a few kind words
    The card sits in the page itself, under the part that is loading (not a popup), with a Kel that fits the kind.
-   It closes the moment the answer arrives. "Hide" closes it early; the work carries on.
+       fact  - a short fact about English
+   While your work is being marked, only facts and tips are shown (no questions to answer).
+   A question or a word card waits for you: when the work is ready the card says "Ready" and the page opens when you
+   tap Continue. Facts and tips close by themselves. "Hide" closes it early; the work carries on.
    ===================================================================== */
 var K = window.Kelvin, $ = K.$, esc = K.esc, ic = K.ic;
-var WAIT_AFTER = 1300;
+var WAIT_AFTER = 0;
+// marking your work: facts only, no questions
+var GRADING = { practiceSubmit: 1, placementWriting: 1, placementSpeaking: 1, grammarFree: 1, grammarJudge: 1, grammarRead: 1, wordsCheck: 1, drillFinish: 1 };
+// quick page loads: something light that does not hold the page
+var LIGHT = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1 };
 var STEPS = {
   practiceSubmit: ['Reading your answer', 'Checking grammar and words', 'Writing your feedback'],
   practiceStart: ['Choosing your task', 'Getting it ready'],
@@ -6475,10 +6661,11 @@ var STEPS = {
   grammarHome: ['Loading your lessons'],
   historyList: ['Loading your history'],
   wordsToday: ['Getting today\'s words'],
-  mixStart: ['Mixing today\'s practice', 'Choosing words, sentences and sounds']
+  mixStart: ['Mixing today\'s practice', 'Choosing words, sentences and sounds'],
+  drillStart: ['Choosing sentences for you', 'Getting the exercises ready']
 };
 // the Kel that goes with each kind of waiting content
-var KEL_OF = { word: ['kel-star-eyes', 'kel-love'], quiz: ['kel-thinking'], tip: ['kel-surprised', 'kel-shocked'], kel: ['kel-wave', 'kel-thumbs-up', 'kel-yay', 'kel-party', 'kel-laugh', 'kel-cool'] };
+var KEL_OF = { word: ['kel-studying', 'kel-reading', 'kel-star-eyes'], quiz: ['kel-exam', 'kel-thinking'], tip: ['kel-teacher', 'kel-surprised'], fact: ['kel-reading', 'kel-thinking', 'kel-star-eyes'], kel: ['kel-wave', 'kel-thumbs-up', 'kel-yay', 'kel-party', 'kel-exercise', 'kel-relax'] };
 var QUIZ = [
   ['I look forward to ___ you.', ['see', 'seeing', 'saw'], 1, 'After "look forward to", use the -ing form.'],
   ['She ___ in Ho Chi Minh City since 2020.', ['lives', 'has lived', 'is living'], 1, '"Since + a time" needs the present perfect.'],
@@ -6543,6 +6730,35 @@ var TIPS = [
   ['The price is very expensive.', 'The price is very high.', 'Prices are high or low; things are expensive.'],
   ['Thank you for your helping.', 'Thank you for your help.', 'Help is the noun here.']
 ];
+var FACTS = [
+  'English has more than 170,000 words in use, but about 3,000 cover most of daily conversation.',
+  '"Set" has one of the longest entries in English dictionaries, with hundreds of meanings.',
+  'The most common English word is "the". Next come "be", "to", "of" and "and".',
+  'Native speakers link words: "an apple" sounds like "a napple".',
+  'The "-ed" ending has three sounds: /t/ in worked, /d/ in played, /ɪd/ in wanted.',
+  'English spelling and sound do not always match: "though", "through" and "tough" all end differently.',
+  'Phrasal verbs like "give up" and "look after" are among the most used verbs in spoken English.',
+  'Stress changes meaning: REcord is a noun, reCORD is a verb.',
+  'About 60 percent of English words come from French and Latin.',
+  'Learners remember a word better after meeting it 7 to 10 times in different sentences.',
+  'Saying a word out loud helps you remember it better than reading it silently.',
+  '"Schwa" /ə/ is the most common vowel sound in English, as in the first sound of "about".',
+  'British "flat" and American "apartment" mean the same thing.',
+  'Questions in English often go up at the end only when the answer is yes or no.',
+  'Short daily practice works better than one long session a week. Your brain sorts new words while you sleep.',
+  'The letter "e" is the most used letter in English writing.',
+  '"Fewer" is for things you can count (fewer cars). "Less" is for things you cannot (less traffic).',
+  'Many emails are judged by the first line. Start with the reason you are writing.',
+  'Listening to the same short audio several times helps more than many new ones once.',
+  'Contractions like "I\'m" and "don\'t" make your English sound natural in speaking.'
+];
+var HEAD = {
+  quiz: 'While Kelvin gets things ready, try this one:',
+  word: 'Meanwhile… do you still remember this word?',
+  tip: 'While you wait: a mistake many Vietnamese learners make',
+  fact: 'Did you know?',
+  kel: 'Kel says:'
+};
 var CHEERS = [
   'Small steps every day beat one big step once a week.',
   'Mistakes are how your brain learns. Keep going.',
@@ -6568,8 +6784,9 @@ function myWords() {
   return out;
 }
 function pickKind() {
-  var kinds = ['quiz', 'tip', 'kel'];
-  if (myWords().length) kinds.push('word', 'word'); // your own words come up more often
+  if (K.wait && K.wait._force) { var f = K.wait._force; K.wait._force = null; W.last = f; return f; }
+  var kinds = W.mode === 'grade' ? ['fact', 'tip', 'fact'] : W.mode === 'light' ? ['fact', 'tip', 'kel'] : ['quiz', 'tip', 'kel', 'fact'];
+  if (W.mode === 'full' && myWords().length) kinds.push('word', 'word'); // your own words come up more often
   kinds = kinds.filter(function (k) { return k !== W.last; });
   var k = kinds[Math.floor(Math.random() * kinds.length)];
   W.last = k; return k;
@@ -6587,9 +6804,12 @@ function body() {
   } else if (k === 'tip') {
     var t = rnd(TIPS);
     h = '<div class="wt-k">' + ic('i-bulb', 'ic-sm') + 'Common mistake</div><div class="wt-tip"><div class="no">' + ic('i-x', 'ic-sm') + esc(t[0]) + '</div><div class="ok">' + ic('i-check', 'ic-sm') + esc(t[1]) + '</div><div class="small muted">' + esc(t[2]) + '</div></div>';
+  } else if (k === 'fact') {
+    h = '<p class="wt-cheer">' + esc(rnd(FACTS)) + '</p>';
   } else {
-    h = '<div class="wt-k">' + ic('i-sparkle', 'ic-sm') + 'From Kel</div><p class="wt-cheer">' + esc(rnd(CHEERS)) + '</p>';
+    h = '<p class="wt-cheer">' + esc(rnd(CHEERS)) + '</p>';
   }
+  h = '<div class="wt-head">' + esc(HEAD[k]) + '</div>' + h.replace(/<div class="wt-k">[\s\S]*?<\/div>/, '');
   W.kind = k;
   return '<div class="wt-row"><img class="wt-kelimg" src="' + STK_BASE + rnd(KEL_OF[k]) + '.webp" alt="" draggable="false"><div class="wt-main">' + h + '</div></div>';
 }
@@ -6601,8 +6821,8 @@ document.addEventListener('click', function (e) { lastTap = e.target; tapAt = Da
 var ON_TAP = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1 };
 function spot() {
   var view = document.querySelector('.view:not([hidden])') || document.querySelector('main') || document.body;
-  var t = lastTap && lastTap.isConnected && view.contains(lastTap) ? lastTap.closest('article, .card, .sheet') : null;
-  if (t && t.closest('.sheet')) t = t.closest('article, .card') || null;
+  var t = lastTap && lastTap.isConnected && view.contains(lastTap) ? lastTap.closest('.dr-entry, .cv-entry, .gr-row, article, .card, .sheet') : null;
+  if (t && t.matches('.sheet')) t = t.closest('article, .card') || null;
   if (!t) {
     var all = view.querySelectorAll('article, .card'), i;
     for (i = 0; i < all.length; i++) if (/Loading|Preparing|Saving|Checking|Opening/i.test(all[i].textContent.slice(0, 200)) && all[i].offsetParent) { t = all[i]; break; }
@@ -6615,42 +6835,66 @@ function show(steps) {
   var old = $('#wait-card'); if (old) old.remove();
   var at = spot(), el = document.createElement('div');
   el.id = 'wait-card'; el.className = 'wt'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
-  el.innerHTML = '<div class="wt-top"><span class="wt-dot"></span><span class="wt-step">' + esc(stepText()) + '</span><button class="linkbtn wt-hide" data-action="wt-hide">Hide</button></div>' +
-    '<div class="wt-bar"><i></i></div><div class="wt-body">' + body() + '</div>';
+  el.innerHTML = '<button class="linkbtn wt-hide" data-action="wt-hide">Hide</button><div class="wt-body">' + body() + '</div>' +
+    '<div class="wt-bar"><i></i></div><div class="wt-top"><span class="wt-dot"></span><span class="wt-step">' + esc(stepText()) + '</span></div>';
   if (at.after && at.after.parentNode) at.after.parentNode.insertBefore(el, at.after.nextSibling); else at.view.insertBefore(el, at.view.firstChild);
   // a block that only says "Loading…" steps aside: the card says the same and more
   if (at.after && at.after.textContent.trim().length < 70 && /Loading|Preparing|Opening/i.test(at.after.textContent)) { at.after.classList.add('wt-src'); W.src = at.after; }
   requestAnimationFrame(function () {
     el.classList.add('on');
     var r = el.getBoundingClientRect();
-    if (r.top > window.innerHeight - 120) { try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {} }
+    if (r.top > window.innerHeight - 120 || r.bottom < 80) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} }
   });
+  // if the page redraws and wipes the card while work is still going on, put it back under the new content
+  W.el = el; clearInterval(W.keep);
+  W.keep = setInterval(function () {
+    if (!W.open) return clearInterval(W.keep);
+    if (!document.body.contains(W.el)) { var a2 = spot(); if (a2.after && a2.after.parentNode) a2.after.parentNode.insertBefore(W.el, a2.after.nextSibling); else a2.view.insertBefore(W.el, a2.view.firstChild); }
+  }, 300);
   clearInterval(W.stepTimer);
   W.stepTimer = setInterval(function () { if (W.si < W.steps.length - 1) { W.si++; var s = $('#wait-card .wt-step'); if (s) s.textContent = stepText(); } }, 2600);
 }
 function hide() {
-  W.open = false; clearInterval(W.stepTimer);
+  W.open = false; clearInterval(W.stepTimer); clearInterval(W.keep);
   if (W.src) { W.src.classList.remove('wt-src'); W.src = null; }
   var el = $('#wait-card'); if (!el) return;
   el.classList.remove('on'); el.classList.add('off');
   setTimeout(function () { if (el.parentNode && !el.classList.contains('on')) el.remove(); }, 220);
 }
-/* Wraps the API: slow calls in STEPS open the card after WAIT_AFTER ms; the card closes when the last of them returns. */
+/* Wraps the API: calls in STEPS open the card at once. When the last of them returns, facts and tips close by
+   themselves; a question or a word card says "Ready" and waits for Continue, so the learner can finish it. */
 var call = K.Api.call;
 K.Api.call = function (fn, payload) {
   var p = call.apply(K.Api, arguments);
   if (!STEPS[fn] || !K.live) return p;
   if (ON_TAP[fn] && Date.now() - tapAt > 2500) return p;
   W.n++;
-  var t = setTimeout(function () { if (!W.open && !W.hidden) show(STEPS[fn]); }, WAIT_AFTER);
-  var done = function () { clearTimeout(t); W.n = Math.max(0, W.n - 1); if (!W.n) { hide(); W.hidden = false; } };
-  p.then(done, done);
-  return p;
+  // shown right away: after the page has drawn its own 'loading' state (a few ms), so the card is not wiped by it
+  if (!W.open && !W.hidden && !W.soon) { W.soon = setTimeout(function () { W.soon = 0; if (W.n && !W.open && !W.hidden) { W.mode = GRADING[fn] ? 'grade' : LIGHT[fn] ? 'light' : 'full'; show(STEPS[fn]); } }, 40); }
+  return new Promise(function (res, rej) {
+    var end = function (go, failed) {
+      W.n = Math.max(0, W.n - 1);
+      if (W.n) return go();
+      if (!failed && W.open && !W.hidden && !window.__noWaitHold && (W.kind === 'quiz' || W.kind === 'word')) return ready(go);
+      hide(); W.hidden = false; go();
+    };
+    p.then(function (v) { end(function () { res(v); }); }, function (e) { end(function () { rej(e); }, true); });
+  });
 };
+function ready(go) {
+  W.go = go; clearInterval(W.stepTimer);
+  var el = $('#wait-card'); if (!el) { W.go = null; return go(); }
+  el.classList.add('ready');
+  var st = $('.wt-step', el); if (st) st.textContent = 'Ready';
+  var top = $('.wt-top', el);
+  if (top && !$('.wt-go', el)) top.insertAdjacentHTML('beforeend', '<button class="btn btn-primary btn-sm wt-go" data-action="wt-go">Continue' + ic('i-arrow', 'ic-sm') + '</button>');
+}
+function release() { var g = W.go; W.go = null; hide(); W.hidden = false; if (g) g(); }
 K.wait = { show: show, hide: hide, QUIZ: QUIZ, TIPS: TIPS };
 
 K.actions({
-  'wt-hide': function () { W.hidden = true; hide(); },
+  'wt-hide': function () { if (W.go) return release(); W.hidden = true; hide(); },
+  'wt-go': release,
   'wt-flip': function (el) { var b = $('.wt-back', el), h = $('.wt-hint', el); if (b) b.hidden = !b.hidden; if (h) h.hidden = !b.hidden; },
   'wt-quiz': function (el) {
     var q = W.item; if (!q || !q[1]) return;
@@ -6686,82 +6930,135 @@ function cast() { var s = C.lesson.speakers; return { names: [s[0].name, s[1].na
 function rate() { var r = $('#cv-speed'); return r ? parseFloat(r.value) || 1 : C.rate || 1; }
 function color(s) { return s ? 'var(--cyan)' : 'var(--primary)'; }
 function who(s) { return C.lesson.speakers[s] || { name: s ? 'B' : 'A', role: '' }; }
-/* A simple face drawn for each person: the same name always gets the same face. */
-var SKIN = ['#F6D3BD', '#EFC3A4', '#E2A983', '#C98E6B', '#A8714F'], HAIR = ['#3A3340', '#5B3A26', '#8A5530', '#C98B3A', '#E8B04E', '#C2582F'];
-function hash(t) { var h = 7; for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h; }
-function faceSvg(p, size) {
-  var n = String(p.name || ''), h = hash(n + '|' + (p.role || '')), f = p.g === 'f', role = (n + ' ' + (p.role || '')).toLowerCase();
-  var old = /grand|retired|elderly|\bold (man|woman|lady|friend)/.test(role), kid = /\b(boy|girl|kid|child|son|daughter|teen|student|[0-9]+-year-old)/.test(role) && !/(father|mother|teacher)/.test(role);
-  var skin = SKIN[h % SKIN.length], hair = old ? '#C9CDD6' : HAIR[(h >>> 3) % HAIR.length], style = (h >>> 6) % 3, shirt = ['#3E7BFA', '#12A594', '#E45B87', '#F59E0B', '#7C5CFA', '#1F3A8A'][(h >>> 9) % 6];
-  var bgc = ['#E3EEFF', '#DFF5F1', '#FDE8EF', '#FFF1D6', '#ECE6FF'][(h >>> 15) % 5];
-  var o = '<svg viewBox="0 0 100 100" width="' + size + '" height="' + size + '" aria-hidden="true">' + (size < 100 ? '<rect width="100" height="100" rx="26" fill="' + bgc + '"/>' : '');
-  o += '<path d="M18 100 Q20 76 50 74 Q80 76 82 100Z" fill="' + shirt + '"/>';
-  if (f) o += style === 0 ? '<path d="M22 46 Q20 86 34 88 L66 88 Q80 86 78 46Z" fill="' + hair + '"/>' : style === 1 ? '<circle cx="50" cy="16" r="11" fill="' + hair + '"/>' : '<path d="M24 46 Q22 74 32 76 L68 76 Q78 74 76 46Z" fill="' + hair + '"/>';
-  o += '<rect x="27" y="' + (kid ? 26 : 22) + '" width="46" height="' + (kid ? 46 : 50) + '" rx="16" fill="' + skin + '"/>';
-  o += '<circle cx="26" cy="50" r="5" fill="' + skin + '"/><circle cx="74" cy="50" r="5" fill="' + skin + '"/>';
-  // hair on top
-  if (!(old && !f && style === 2)) o += f ? '<path d="M25 44 Q24 16 50 15 Q76 16 75 44 Q66 30 50 28 Q36 28 25 44Z" fill="' + hair + '"/>' :
-    style === 0 ? '<path d="M26 40 Q24 16 50 16 Q76 16 74 40 Q70 28 56 26 Q40 30 26 40Z" fill="' + hair + '"/>' :
-    style === 1 ? '<path d="M26 36 Q28 14 52 16 Q74 18 74 36 L66 30 L58 34 L50 28 L42 34 L34 30Z" fill="' + hair + '"/>' : '<path d="M28 34 Q34 20 50 20 Q66 20 72 34 Q60 28 50 28 Q40 28 28 34Z" fill="' + hair + '"/>';
-  o += '<ellipse cx="40.5" cy="49" rx="4.6" ry="5.4" fill="#fff"/><ellipse cx="59.5" cy="49" rx="4.6" ry="5.4" fill="#fff"/><circle cx="41.3" cy="50" r="2.7" fill="#1B2440"/><circle cx="60.3" cy="50" r="2.7" fill="#1B2440"/><circle cx="42.2" cy="49" r=".9" fill="#fff"/><circle cx="61.2" cy="49" r=".9" fill="#fff"/>';
-  if (old) o += '<rect x="32" y="41" width="16" height="14" rx="5" fill="none" stroke="#1B2440" stroke-width="1.6"/><rect x="52" y="41" width="16" height="14" rx="5" fill="none" stroke="#1B2440" stroke-width="1.6"/><path d="M48 47 L52 47" stroke="#1B2440" stroke-width="1.6"/>';
-  if (!f && !kid && (h >>> 12) % 3 === 0) o += '<path d="M38 64 Q50 70 62 64 Q58 72 50 72 Q42 72 38 64Z" fill="' + hair + '"/>';
-  o += '<path d="M43 63 Q50 68 57 63" fill="none" stroke="#7A3E2E" stroke-width="2.4" stroke-linecap="round"/>';
-  if (f) o += '<circle cx="34" cy="58" r="3" fill="#F29C9C" opacity=".55"/><circle cx="66" cy="58" r="3" fill="#F29C9C" opacity=".55"/>';
-  return o + '</svg>';
+/* Each person gets a Kelvin mascot that fits who they are (family, job, age). Two people never share a mascot. */
+var AV = ['grandpa', 'grandma', 'dad', 'mom', 'brother', 'sister', 'son', 'daughter', 'man', 'woman', 'young-man', 'young-woman', 'pro-man', 'pro-woman',
+  'boss', 'manager', 'colleague-m', 'colleague-f', 'teacher', 'doctor', 'engineer', 'developer', 'designer', 'sales', 'student', 'chef', 'pilot', 'police', 'travel'];
+function avatarOf(p) {
+  if (p.av && AV.indexOf(p.av) > -1) return p.av;
+  var t = (String(p.name || '') + ' ' + String(p.role || '')).toLowerCase(), f = p.g === 'f';
+  var rules = [
+    [/grandpa|grandfather/, 'grandpa'], [/grandma|grandmother/, 'grandma'], [/\b(dad|father)\b/, 'dad'], [/\b(mum|mom|mother)\b/, 'mom'],
+    [/\b(brother)\b/, 'brother'], [/\b(sister)\b/, 'sister'], [/\b(son|boy)\b|1[0-7]-year-old boy/, f ? 'daughter' : 'son'], [/\b(daughter|girl|granddaughter)\b/, 'daughter'],
+    [/pilot|captain/, 'pilot'], [/police|officer/, 'police'], [/\bchef\b|\bcook\b|cafe worker|restaurant worker/, 'chef'],
+    [/doctor|nurse|surgeon|\bdr\b/, 'doctor'], [/engineer/, 'engineer'], [/developer|it support|software|tester|programmer/, 'developer'],
+    [/designer|architect|artist|curator|critic/, 'designer'], [/sales|shop assistant|seller|receptionist|customer service|ticket/, 'sales'],
+    [/\b(ceo|coo|director|founder|boss|owner)\b/, 'boss'], [/manager|team leader|head of|coordinator|hr officer/, f ? 'pro-woman' : 'manager'],
+    [/teacher|trainer|professor|tutor|mentor/, f ? 'teacher' : 'pro-man'], [/student|applicant|exchange/, 'student'],
+    [/tourist|traveller|traveler|passenger/, 'travel'],
+    [/retired|elderly|older neighbour|old man|old woman/, f ? 'grandma' : 'grandpa'],
+    [/accountant|lawyer|analyst|official|diplomat|consultant|economist|journalist|reporter|editor|investor|translator|executive|researcher|volunteer|purchasing/, f ? 'pro-woman' : 'pro-man'],
+    [/young|1[0-9]-year-old|university/, f ? 'young-woman' : 'young-man']
+  ];
+  for (var i = 0; i < rules.length; i++) if (rules[i][0].test(t)) return rules[i][1];
+  return f ? 'woman' : 'man';
 }
-function face(s, sm) { return '<span class="cv-face' + (sm ? ' sm' : '') + '">' + faceSvg(who(s), sm ? 34 : 52) + '</span>'; }
+var TWIN = { 'pro-man': 'colleague-m', 'pro-woman': 'colleague-f', man: 'young-man', woman: 'young-woman', 'young-man': 'man', 'young-woman': 'woman', manager: 'pro-man', boss: 'pro-man', student: 'young-woman', son: 'brother', daughter: 'sister', dad: 'man', mom: 'woman', sales: 'colleague-m' };
+function avatars() {
+  if (C.av) return C.av;
+  var sp = C.lesson.speakers, a = avatarOf(sp[0]), b = avatarOf(sp[1]);
+  if (a === b) b = TWIN[b] || (sp[1].g === 'f' ? 'woman' : 'man');
+  if (a === b) b = sp[1].g === 'f' ? 'young-woman' : 'young-man';
+  return (C.av = [a, b]);
+}
+function avImg(s, size) { return '<img src="' + STK_BASE + 'kel-' + avatars()[s] + '.webp" alt="" width="' + size + '" height="' + size + '" draggable="false">'; }
+function face(s, sm) { return '<span class="cv-face' + (sm ? ' sm' : '') + '">' + avImg(s, sm ? 36 : 56) + '</span>'; }
+/* a picture for the topic of the lesson, shown on the cover */
+var TOPIC_STK = [[/cook|kitchen|dinner|food|cafe|coffee|lunch|restaurant|menu/, 'cooking'], [/shop|buy|gift|order|return|price/, 'shopping'], [/gym|exercise|workout|run|sport/, 'exercise'],
+  [/travel|trip|train|flight|airport|hotel|tourist|direction|taxi/, 'travel'], [/holiday|weekend|relax|beach/, 'relax'], [/school|study|essay|exam|homework|class|presentation/, 'studying'],
+  [/sleep|night|noise/, 'sleep'], [/read|book|translat|journal|news/, 'reading'], [/write|report|contract|letter|email/, 'writing'], [/talk|interview|call|phone|meeting|negotiat|feedback|pitch|debate/, 'speaking']];
+function topicStk() { var t = (C.lesson.title + ' ' + (C.data.lesson.topic || '') + ' ' + C.lesson.scene).toLowerCase(); for (var i = 0; i < TOPIC_STK.length; i++) if (TOPIC_STK[i][0].test(t)) return TOPIC_STK[i][1]; return 'listening'; }
+/* the person who speaks first sits on the left, the other on the right, for the whole story */
+function side(s) { var first = C.lesson.lines.length ? C.lesson.lines[0].s : 0; return s === first ? 'a' : 'b'; }
 
 function entry() {
-  return '<div class="cv-entry"><img src="' + STK_BASE + 'badge-headphones.webp" alt="" width="52" height="52"><div class="grow"><b>Conversation</b><span class="small muted">Two people talk about everyday life or work. Listen, then answer 8 to 10 questions about it.</span></div>' +
+  return '<div class="cv-entry"><img src="' + STK_BASE + 'kel-listening.webp" alt="" width="52" height="52"><div class="grow"><b>Conversation</b><span class="small muted">Two people talk about everyday life or work. Listen, then answer 8 to 10 questions about it.</span></div>' +
     '<button class="btn btn-soft" data-action="cv-start" id="cv-start">' + ic('i-play', 'ic-sm') + 'Start</button></div>';
 }
 
 function start(btn) {
   if (btn) { btn.disabled = true; btn.innerHTML = 'Preparing…'; }
   K.Api.call('convStart', {}).then(function (d) {
-    C = { data: d, lesson: d.lesson, ex: d.exercises, res: {}, phase: 'cover', vi: false, rate: 1, order: {}, picks: {}, startedAt: Date.now() };
+    C = { data: d, lesson: d.lesson, ex: d.exercises, res: {}, loc: {}, phase: 'cover', vi: false, rate: 1, order: {}, picks: {}, startedAt: Date.now() };
     d.answered.forEach(function (a) { C.res[a.i] = a; });
     C.items = timeline();
     C.shown = 0;
     if (d.resumed && d.answered.length) { C.phase = 'story'; C.shown = resumeAt(); }
     draw();
+    prefetch(C.phase === 'cover' ? 0 : C.shown);
   }).catch(function (e) {
     if (btn) { btn.disabled = false; btn.innerHTML = ic('i-play', 'ic-sm') + 'Start'; }
     K.toast((e && e.message) || 'Could not start a conversation. Try again.');
   });
 }
-/* The story as a list: scene, lines, and questions placed right after the line they are about. */
+/* The story as a list: scene, lines, and questions placed right after the line they are about.
+   Between them come quick "missing word" questions (checked in the browser), so there is something to answer
+   about every second line. */
+var STOP = /^(the|and|but|you|your|with|this|that|have|what|they|them|their|there|then|than|from|about|would|could|should|will|just|very|really|some|into|been|were|when|where|which|while|also|because|maybe|yeah|okay)$/i;
+function quickGap(i, used) {
+  var L = C.lesson, l = L.lines[i], names = L.speakers.map(function (p) { return p.name.toLowerCase(); }).join(' ');
+  var toks = l.t.match(/[A-Za-z][A-Za-z'’-]*/g) || [];
+  if (toks.length < 5) return null;
+  var cands = toks.slice(1).filter(function (w) { return w.length >= 4 && !STOP.test(w) && names.indexOf(w.toLowerCase()) < 0 && !/^[A-Z]/.test(w) && !used[w.toLowerCase()]; });
+  if (!cands.length) return null;
+  cands.sort(function (x, y) { return y.length - x.length; });
+  var w = cands[Math.min(cands.length - 1, i % 2)], at = l.t.search(new RegExp('\\b' + w.replace(/[-'’]/g, '.') + '\\b'));
+  if (at < 0) return null;
+  used[w.toLowerCase()] = 1;
+  var pool = [], seen = {}; seen[w.toLowerCase()] = 1;
+  L.lines.forEach(function (o, j) {
+    if (j === i) return;
+    (o.t.match(/[A-Za-z][A-Za-z'’-]*/g) || []).forEach(function (x) { var lx = x.toLowerCase(); if (x.length >= 3 && !seen[lx] && !STOP.test(x) && names.indexOf(lx) < 0 && Math.abs(x.length - w.length) <= 3) { seen[lx] = 1; pool.push(lx); } });
+  });
+  var pick = pool.sort(function (x, y) { return Math.abs(x.length - w.length) - Math.abs(y.length - w.length) || (hashS(x + i) - hashS(y + i)); }).slice(0, 2);
+  if (pick.length < 2) return null;
+  var choices = [w].concat(pick).sort(function (x, y) { return hashS(x + 'c' + i) - hashS(y + 'c' + i); });
+  return { k: 'qg', i: i, w: w, before: l.t.slice(0, at), after: l.t.slice(at + w.length), choices: choices };
+}
+function hashS(t) { var h = 7; for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h; }
 function timeline() {
-  var L = C.lesson, out = [{ k: 'scene' }], byLine = {}, gapAt = {}, end = [];
+  var L = C.lesson, out = [{ k: 'scene' }], byLine = {}, gapAt = {}, end = [], used = {}, since = 0;
   C.ex.forEach(function (e) {
     if (e.type === 'gap') gapAt[e.line] = e;
-    else if ((e.type === 'mcq' && !e.gist) || e.type === 'tf') { var ln = typeof e.line === 'number' && e.line > -1 ? e.line : lineOf(e); (byLine[ln] = byLine[ln] || []).push(e); }
+    else if ((e.type === 'mcq' && !e.gist) || e.type === 'tf') { var ln = typeof e.line === 'number' && e.line > -1 ? e.line : L.lines.length - 1; (byLine[ln] = byLine[ln] || []).push(e); }
     else end.push(e);
   });
   L.lines.forEach(function (l, i) {
-    out.push(gapAt[i] ? { k: 'gap', i: i, e: gapAt[i] } : { k: 'line', i: i });
-    (byLine[i] || []).forEach(function (e) { out.push({ k: 'q', e: e }); });
+    var q = null;
+    if (gapAt[i]) { out.push({ k: 'gap', i: i, e: gapAt[i] }); since = 0; }
+    else if (since >= 1 && !byLine[i] && i > 0 && (q = quickGap(i, used))) { out.push(q); since = 0; }
+    else { out.push({ k: 'line', i: i }); since++; }
+    (byLine[i] || []).forEach(function (e) { out.push({ k: 'q', e: e }); since = 0; });
   });
   Object.keys(byLine).forEach(function (n) { if (Number(n) >= L.lines.length || Number(n) < 0) byLine[n].forEach(function (e) { out.push({ k: 'q', e: e }); }); });
   end.sort(function (a, b) { var r = function (e) { return e.gist ? 0 : e.type === 'who' ? 1 : 2; }; return r(a) - r(b); });
   end.forEach(function (e) { out.push({ k: 'q', e: e, end: true }); });
   return out;
 }
-function lineOf(e) { return C.lesson.lines.length - 1; }
-function needsAnswer(it) { return (it.k === 'q' || it.k === 'gap') && !C.res[it.e.i]; }
+function needsAnswer(it) { return ((it.k === 'q' || it.k === 'gap') && !C.res[it.e.i]) || (it.k === 'qg' && !C.loc[it.i]); }
 function resumeAt() { for (var k = 0; k < C.items.length; k++) if (needsAnswer(C.items[k])) return k; return C.items.length - 1; }
-function sayItem(it) {
+function lineOfItem(it) { return it && (it.k === 'line' || it.k === 'gap' || it.k === 'qg') ? C.lesson.lines[it.i] : null; }
+function linesOf(it) { if (!it) return null; if (it.k === 'scene') return [{ s: 0, t: C.lesson.scene }]; var l = lineOfItem(it); return l ? [{ s: l.s, t: l.t }] : null; }
+function sayItem(it, k) {
   if (!it) return;
-  if (it.k === 'scene') return speak([{ s: 0, t: C.lesson.scene }], null);
-  if (it.k === 'line' || (it.k === 'gap' && C.res[it.e.i])) { var l = C.lesson.lines[it.i]; speak([{ s: l.s, t: l.t }], cast()); }
+  if (it.k === 'scene') return speak([{ s: 0, t: C.lesson.scene }], null, k);
+  if (it.k === 'line' || (it.k === 'gap' && C.res[it.e.i]) || (it.k === 'qg' && C.loc[it.i])) { var l = C.lesson.lines[it.i]; speak([{ s: l.s, t: l.t }], cast(), k); }
 }
-function speak(lines, c) {
+/* ask for the next clips early, so they are ready when the learner taps Continue */
+function prefetch(from) {
+  if (!K.prefetchNatural) return;
+  for (var k = from; k < Math.min(C.items.length, from + 3); k++) { var ln = linesOf(C.items[k]); if (ln) K.prefetchNatural(ln, C.items[k].k === 'scene' ? null : cast()); }
+}
+/* the speaker icon shows the state of the sound: loading (pulsing dots), playing (waves), or still */
+function markSpk() {
+  $$('.cv-spk.loading, .cv-spk.playing').forEach(function (b) { b.classList.remove('loading', 'playing'); });
+  if (C && C.spk != null) { var b = $('.cv-it[data-k="' + C.spk + '"] .cv-spk'); if (b) b.classList.add(C.spkState || 'loading'); }
+}
+function speak(lines, c, k) {
   stop();
-  cur = K.speakNatural(lines, C.rate || 1, function () { cur = null; mark(); }, false, c);
-  mark();
+  C.spk = k == null ? null : k; C.spkState = 'loading'; markSpk();
+  cur = K.speakNatural(lines, C.rate || 1, function () { cur = null; if (C) { C.spk = null; markSpk(); } }, false, c, function () { if (C) { C.spkState = 'playing'; markSpk(); } });
 }
-function mark() { $$('.cv-bub.live').forEach(function (b) { b.classList.remove('live'); }); }
+function mark() {}
 
 function head() {
   var n = C.items ? C.items.length : 1, at = C.phase === 'cover' ? 0 : C.phase === 'done' ? n : C.shown + 1;
@@ -6769,42 +7066,66 @@ function head() {
 }
 function coverHtml() {
   var L = C.lesson;
-  return '<div class="cv-cover"><div class="cv-tile">' + '<span class="a">' + faceSvg(L.speakers[0], 120) + '</span><span class="b">' + faceSvg(L.speakers[1], 120) + '</span></div>' +
+  return '<div class="cv-cover"><div class="cv-tile"><span class="a">' + avImg(0, 118) + '</span><span class="b">' + avImg(1, 118) + '</span><span class="t">' + '<img src="' + STK_BASE + 'kel-' + topicStk() + '.webp" alt="" width="56" height="56">' + '</span></div>' +
     '<button class="cv-title" data-action="cv-say-title">' + ic('i-volume') + '<span>' + esc(L.title) + '</span></button>' +
     '<div class="cv-cast big">' + L.speakers.map(function (p, s) { return '<span class="cv-who">' + face(s, true) + '<span><b>' + esc(p.name) + '</b><span class="small muted">' + esc(p.role) + '</span></span></span>'; }).join('') + '</div>' +
     (L.words.length ? '<div class="cv-words"><div class="tiny muted">Words you will hear</div>' + L.words.map(function (w) { return '<div class="cv-word"><span><b class="cap">' + esc(w.w) + '</b> <span class="small muted cap">' + esc(w.m) + '</span></span><button class="iconbtn" data-action="cv-save" data-w="' + esc(w.w) + '" data-c="' + esc(w.m) + '" aria-label="Save ' + esc(w.w) + ' to Words">' + ic('i-bookmark', 'ic-sm') + '</button></div>'; }).join('') + '</div>' : '') +
-    '</div>' + foot('cv-begin', 'Continue', false);
+    '<p class="tiny muted mt">Tip: tap an underlined word in the story to see its meaning in Vietnamese.</p></div>' + foot('cv-begin', 'Continue', false);
 }
 function foot(action, label, dis) { return '<div class="cv-foot"><button class="btn btn-primary btn-block" data-action="' + action + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>'; }
+/* words you can tap for the Vietnamese meaning */
+/* only the key words of the lesson and words that are in the dictionary can be tapped */
+function normTok(t) { return String(t || '').toLowerCase().replace(/[’]/g, "'").replace(/[^a-z'-]/g, '').replace(/^'+|'+$/g, ''); }
+function keyFor(tok) {
+  var keys = (C.data.tap && C.data.tap.key) || [];
+  for (var i = 0; i < keys.length; i++) { if (keys[i] === tok || (' ' + keys[i] + ' ').indexOf(' ' + tok + ' ') > -1) return keys[i]; }
+  return null;
+}
+function tappable(t, ctxLine) {
+  var bank = (C.data.tap && C.data.tap.bank) || [], out = '', last = 0, re = /[A-Za-z][A-Za-z'’-]*/g, m;
+  while ((m = re.exec(t))) {
+    var tok = normTok(m[0]), key = keyFor(tok), ok = key || bank.indexOf(tok) > -1;
+    out += esc(t.slice(last, m.index)) + (ok ? '<span class="cv-w' + (key ? ' key' : '') + '" data-action="cv-word" data-w="' + esc(key && key.indexOf(' ') > -1 ? key : m[0]) + '" data-k="' + (key ? 1 : 0) + '" data-l="' + ctxLine + '">' + esc(m[0]) + '</span>' : esc(m[0]));
+    last = m.index + m[0].length;
+  }
+  return out + esc(t.slice(last));
+}
+function spkBtn(k, small) { return '<button class="cv-spk" data-action="cv-say" data-k="' + k + '" aria-label="Hear it">' + ic('i-volume', small ? 'ic-sm' : '') + '<span class="cv-dots"><i></i><i></i><i></i></span></button>'; }
 function itemHtml(it, k) {
   var L = C.lesson;
-  if (it.k === 'scene') return '<div class="cv-scene"><button class="cv-spk" data-action="cv-say" data-k="' + k + '" aria-label="Hear it">' + ic('i-volume') + '</button><span>' + esc(L.scene) + '</span></div>';
-  if (it.k === 'line' || it.k === 'gap') {
-    var l = L.lines[it.i], r = it.k === 'gap' ? C.res[it.e.i] : null, text;
-    if (it.k === 'line' || r) text = esc(l.t);
-    else {
-      var pick = C.picks[it.e.i];
-      text = esc(it.e.before) + '<span class="cv-blank' + (pick ? ' on' : '') + '">' + (pick ? esc(pick) : '&nbsp;') + '</span>' + esc(it.e.after);
+  if (it.k === 'scene') return '<div class="cv-scene">' + spkBtn(k) + '<span>' + tappable(L.scene, -1) + '</span></div>';
+  if (it.k === 'line' || it.k === 'gap' || it.k === 'qg') {
+    var l = L.lines[it.i], open = it.k === 'line' || (it.k === 'gap' && C.res[it.e.i]) || (it.k === 'qg' && C.loc[it.i]), text, pickKey = it.k === 'gap' ? it.e.i : 'q' + it.i;
+    var before = it.k === 'gap' ? it.e.before : it.before, after = it.k === 'gap' ? it.e.after : it.after;
+    if (it.k === 'line') text = tappable(l.t, it.i);
+    else if (open) {
+      var r = it.k === 'gap' ? C.res[it.e.i] : C.loc[it.i], word = it.k === 'gap' ? r.key : it.w;
+      text = tappable(before, it.i) + '<span class="cv-gapw ' + (r.correct ? 'ok' : 'no') + '">' + esc(word) + '</span>' + tappable(after, it.i);
+    } else {
+      var pick = C.picks[pickKey];
+      text = esc(before) + '<span class="cv-blank' + (pick ? ' on' : '') + '">' + (pick ? esc(pick) : '&nbsp;') + '</span>' + esc(after);
     }
-    if (r) text = esc(it.e.before) + '<span class="cv-gapw ' + (r.correct ? 'ok' : 'no') + '">' + esc(r.key) + '</span>' + esc(it.e.after);
-    var h = '<div class="cv-row ' + (l.s ? 'b' : 'a') + '">' + face(l.s) + '<div class="cv-bub"><div class="cv-name">' + esc(who(l.s).name) + '</div><div class="cv-txt">' +
-      (it.k === 'line' || r ? '<button class="cv-spk" data-action="cv-say" data-k="' + k + '" aria-label="Hear it">' + ic('i-volume', 'ic-sm') + '</button>' : '') + text + '</div>' +
-      (C.vi && l.vi && (it.k === 'line' || r) ? '<div class="small muted cv-vi">' + esc(l.vi) + '</div>' : '') + '</div></div>';
-    if (it.k === 'gap' && !r) h += '<div class="cv-qbox"><div class="cv-qk">Choose the missing word</div><div class="cv-chips">' + gapChoices(it).map(function (w) {
-      return '<button class="gx-t' + (C.picks[it.e.i] === w ? ' on' : '') + '" data-action="cv-gappick" data-w="' + esc(w) + '">' + esc(w) + '</button>'; }).join('') + '</div></div>';
-    if (it.k === 'gap' && r && !r.correct) h += '<div class="cv-note no">You chose “' + esc(r.answer) + '”. The word is <b>' + esc(r.key) + '</b>.</div>';
+    var h = '<div class="cv-row ' + side(l.s) + '">' + face(l.s) + '<div class="cv-bub"><div class="cv-name">' + esc(who(l.s).name) + '</div><div class="cv-txt">' +
+      (open ? spkBtn(k, true) : '') + text + '</div>' + (C.vi && l.vi && open ? '<div class="small muted cv-vi">' + esc(l.vi) + '</div>' : '') + '</div></div>';
+    if (!open) {
+      var choices = it.k === 'gap' ? gapChoices(it) : it.choices;
+      h += '<div class="cv-qbox"><div class="cv-qk">' + (it.k === 'qg' ? 'Which word did you hear?' : 'Choose the missing word') + '</div>' +
+        (it.k === 'qg' ? '<button class="linkbtn tiny" data-action="cv-hear" data-k="' + k + '">' + ic('i-volume', 'ic-sm') + 'Hear the line</button>' : '') +
+        '<div class="cv-chips">' + choices.map(function (w) { return '<button class="gx-t' + (C.picks[pickKey] === w ? ' on' : '') + '" data-action="cv-gappick" data-w="' + esc(w) + '">' + esc(w) + '</button>'; }).join('') + '</div></div>';
+    } else if (it.k !== 'line') {
+      var rr = it.k === 'gap' ? C.res[it.e.i] : C.loc[it.i];
+      if (rr && !rr.correct) h += '<div class="cv-note no">You chose “' + esc(rr.answer) + '”. The word is <b>' + esc(it.k === 'gap' ? rr.key : it.w) + '</b>.</div>';
+    }
     return h;
   }
   return qHtml(it.e);
 }
 function gapChoices(it) {
   if (it.choices) return it.choices;
-  var w = it.e.word || null, pool = [], seen = {}, right = it.e.ans;
-  // the right word is not sent to the browser before you answer: it is known only by its length, so the choices are
-  // the real word (taken from the line text) plus words of a similar length from the other lines
-  var full = C.lesson.lines[it.i].t, guess = full.slice(it.e.before.length, full.length - it.e.after.length);
+  var pool = [], seen = {}, guess = it.e.key || '';
+  if (!guess) { var full = C.lesson.lines[it.i].t; guess = full.slice(it.e.before.length, full.length - it.e.after.length); }
   seen[guess.toLowerCase()] = 1;
-  C.lesson.lines.forEach(function (l, i) { if (i === it.i) return; l.t.split(/\s+/).forEach(function (x) { x = x.replace(/[^A-Za-z'-]/g, ''); var lx = x.toLowerCase(); if (x.length >= 3 && !seen[lx] && Math.abs(x.length - guess.length) <= 3 && !/^(the|and|but|you|your|with|this|that|have|what)$/i.test(x)) { seen[lx] = 1; pool.push(/^[A-Z]/.test(guess) ? x.charAt(0).toUpperCase() + x.slice(1) : lx); } }); });
+  C.lesson.lines.forEach(function (l, i) { if (i === it.i) return; l.t.split(/\s+/).forEach(function (x) { x = x.replace(/[^A-Za-z'-]/g, ''); var lx = x.toLowerCase(); if (x.length >= 3 && !seen[lx] && Math.abs(x.length - guess.length) <= 3 && !STOP.test(x)) { seen[lx] = 1; pool.push(/^[A-Z]/.test(guess) ? x.charAt(0).toUpperCase() + x.slice(1) : lx); } }); });
   pool.sort(function () { return Math.random() - .5; });
   var list = [guess].concat(pool.slice(0, 2)); list.sort(function () { return Math.random() - .5; });
   it.choices = list; return list;
@@ -6836,8 +7157,9 @@ function storyHtml() {
   h += '</div>';
   var it = C.items[C.shown], last = C.shown >= C.items.length - 1;
   if (it && needsAnswer(it)) {
-    var ready = it.k === 'gap' ? !!C.picks[it.e.i] : it.e.type === 'order' ? (C.order[it.e.i] || []).length === it.e.items.length : false;
-    if (it.k === 'gap' || it.e.type === 'order') return h + foot('cv-check', 'Check', !ready);
+    var pk = it.k === 'gap' ? it.e.i : it.k === 'qg' ? 'q' + it.i : null;
+    var ready = pk != null ? !!C.picks[pk] : it.e.type === 'order' ? (C.order[it.e.i] || []).length === it.e.items.length : false;
+    if (pk != null || it.e.type === 'order') return h + foot('cv-check', 'Check', !ready);
     return h + foot('cv-check', 'Choose an answer', true);
   }
   return h + foot('cv-more', last ? 'See my result' : 'Continue', false);
@@ -6859,60 +7181,102 @@ function more() {
   if (C.shown >= C.items.length - 1) return finish();
   C.shown++;
   draw(); scrollNew();
-  sayItem(C.items[C.shown]);
+  sayItem(C.items[C.shown], C.shown);
+  prefetch(C.shown + 1);
 }
 function finish() {
   stop();
   C.phase = 'done'; card().removeAttribute('data-session'); draw();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
 }
+function tally() {
+  var right = 0, total = 0;
+  Object.keys(C.res).forEach(function (k) { total++; if (C.res[k].correct) right++; });
+  Object.keys(C.loc).forEach(function (k) { total++; if (C.loc[k].correct) right++; });
+  return { right: right, total: total };
+}
 function doneHtml() {
-  var s = C.summary || {}, L = C.lesson, right = s.right || 0, total = s.total || C.ex.length, pct = s.pct || Math.round(right / total * 100);
-  var msg = s.levelUp ? 'Your Listening level went up to ' + esc(s.after && s.after.level) + '.' : s.measured ? 'Your Listening level moved a little.' : 'Take the placement test so conversations can move your level.';
+  var s = C.summary || {}, L = C.lesson, t = tally(), right = t.right, total = Math.max(1, t.total), pct = Math.round(right / total * 100);
+  var msg = s.levelUp ? 'Your Listening level went up to ' + esc(s.after && s.after.level) + '.' : s.measured ? 'Your Listening level moved a little.' : C.summary ? 'Take the placement test so conversations can move your level.' : 'Saving your result…';
   return '<div class="cv-result"><img src="' + STK_BASE + (pct >= 80 ? 'kel-party' : pct >= 50 ? 'kel-thumbs-up' : 'kel-calm') + '.webp" alt="" width="96" height="96"><div><div class="cv-score num">' + right + ' / ' + total + '</div><b>' + (pct >= 80 ? 'Great listening!' : pct >= 50 ? 'Good work.' : 'Keep going, it gets easier.') + '</b><div class="small muted">' + msg + '</div></div></div>' +
     '<div class="row-between mt" style="margin-bottom:8px"><h3 style="font-size:16px">' + esc(L.title) + '</h3><button class="btn btn-ghost btn-sm" data-action="cv-vi" aria-pressed="' + C.vi + '">' + ic('i-eye', 'ic-sm') + (C.vi ? 'Hide' : 'Show') + ' Vietnamese</button></div>' +
-    '<p class="tiny muted" style="margin-bottom:8px">Tap a line to hear it again. Select a word or phrase to save it for Words.</p>' +
+    '<p class="tiny muted" style="margin-bottom:8px">Tap a line to hear it again, or a word to see its meaning.</p>' +
     '<div class="cv-script">' + L.lines.map(function (l, i) {
-      return '<div class="cv-ln ' + (l.s ? 'b' : 'a') + '" data-action="cv-line" data-l="' + i + '">' + face(l.s, true) + '<div class="grow"><b>' + esc(who(l.s).name) + '</b><div class="cap">' + esc(l.t) + '</div>' + (C.vi && l.vi ? '<div class="small muted">' + esc(l.vi) + '</div>' : '') + '</div></div>';
+      return '<div class="cv-ln ' + side(l.s) + '">' + face(l.s, true) + '<div class="grow"><b>' + esc(who(l.s).name) + ' <button class="cv-spk sm" data-action="cv-line" data-l="' + i + '" aria-label="Hear it">' + ic('i-volume', 'ic-sm') + '</button></b><div class="cap">' + tappable(l.t, i) + '</div>' + (C.vi && l.vi ? '<div class="small muted">' + esc(l.vi) + '</div>' : '') + '</div></div>';
     }).join('') + '</div>' +
     '<div class="row-between mt" style="gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-action="cv-back">Back to Listening</button><button class="btn btn-primary" data-action="cv-again">Another conversation</button></div>';
 }
 
-function playLine(i) {
+function playLine(i, k) {
   var l = C.lesson.lines[i]; if (!l) return;
-  speak([{ s: l.s, t: l.t }], cast());
+  speak([{ s: l.s, t: l.t }], cast(), k);
 }
 function exById(i) { return C.ex.filter(function (e) { return e.i === i; })[0]; }
+function normW(w) { return String(w || '').toLowerCase().replace(/[^a-z'-]/g, ''); }
+/* the answer is marked at once in the browser; the server gets it in the background, one at a time */
 function send(e, answer) {
-  if (C.busy) return; C.busy = true;
-  K.Api.call('convAnswer', { sessionId: C.data.sessionId, i: e.i, answer: answer }).then(function (d) {
-    C.busy = false; C.res[e.i] = { i: e.i, answer: answer, correct: d.correct, key: d.key, line: d.line };
-    if (d.done) C.summary = d.summary;
-    if (d.done && d.summary && d.summary.measured && d.summary.after && K.setSkill) K.setSkill('listening', { level: d.summary.after.level, progress: d.summary.after.progress, measured: true });
-    draw();
-    var it = C.items[C.shown]; if (it && it.k === 'gap') sayItem(it);
-  }).catch(function (er) { C.busy = false; K.toast((er && er.message) || 'Could not save your answer. Try again.'); });
+  if (C.res[e.i]) return;
+  var correct = e.type === 'gap' ? normW(answer) === normW(e.key) : e.type === 'order' ? answer.length === e.items.length && answer.every(function (k, j) { return k === j; }) : answer === e.key;
+  C.res[e.i] = { i: e.i, answer: answer, correct: correct, key: e.type === 'order' ? null : e.key };
+  draw();
+  var it = C.items[C.shown]; if (it && it.k === 'gap') sayItem(it, C.shown);
+  var c = C;
+  c.queue = (c.queue || Promise.resolve()).then(function () {
+    return K.Api.call('convAnswer', { sessionId: c.data.sessionId, i: e.i, answer: answer }).then(function (d) {
+      if (d.done) { c.summary = d.summary; if (d.summary && d.summary.measured && d.summary.after && K.setSkill) K.setSkill('listening', { level: d.summary.after.level, progress: d.summary.after.progress, measured: true }); if (C === c && C.phase === 'done') draw(); }
+    }).catch(function (er) { if (!c.warned) { c.warned = true; K.toast((er && er.message) || 'Could not save an answer. Your score here still counts.'); } });
+  });
 }
+/* tap a word: its Vietnamese meaning in a small card */
+function gloss(el) {
+  var w = el.dataset.w, ln = Number(el.dataset.l), ctx = ln > -1 ? C.lesson.lines[ln].t : C.lesson.scene;
+  $$('.cv-w.on').forEach(function (x) { x.classList.remove('on'); }); el.classList.add('on');
+  var box = $('#cv-gloss'); if (!box) { box = document.createElement('div'); box.id = 'cv-gloss'; box.className = 'cv-gloss'; document.body.appendChild(box); }
+  box.innerHTML = '<div class="cv-gl-in"><div class="row-between"><b class="cv-gl-w">' + esc(w) + '</b><button class="iconbtn" data-action="cv-gl-close" aria-label="Close">' + ic('i-x', 'ic-sm') + '</button></div><div class="small muted">Looking it up…</div></div>';
+  box.classList.add('on');
+  C.glossFor = w;
+  K.Api.call('wordGloss', { word: w, context: ctx, key: el.dataset.k === '1' }).then(function (d) {
+    if (!C || C.glossFor !== w) return;
+    box.innerHTML = '<div class="cv-gl-in"><div class="row-between"><span><b class="cv-gl-w">' + esc(d.base || w) + '</b>' + (d.pos ? ' <span class="tiny muted">' + esc(d.pos) + '</span>' : '') + '</span><span class="row-btns"><button class="iconbtn" data-action="cv-gl-say" data-w="' + esc(d.base || w) + '" aria-label="Hear it">' + ic('i-volume', 'ic-sm') + '</button><button class="iconbtn" data-action="cv-gl-close" aria-label="Close">' + ic('i-x', 'ic-sm') + '</button></span></div>' +
+      '<div class="cv-gl-vi">' + esc(d.vi) + '</div>' + (d.def ? '<div class="small muted">' + esc(d.def) + '</div>' : '') +
+      '<button class="btn btn-soft btn-sm mt" data-action="cv-save" data-w="' + esc(d.base || w) + '" data-c="' + esc(ctx) + '">' + ic('i-bookmark', 'ic-sm') + 'Save to Words</button></div>';
+  }).catch(function (e) { if (C && C.glossFor === w) box.innerHTML = '<div class="cv-gl-in"><div class="row-between"><b class="cv-gl-w">' + esc(w) + '</b><button class="iconbtn" data-action="cv-gl-close" aria-label="Close">' + ic('i-x', 'ic-sm') + '</button></div><div class="small muted">' + esc((e && e.message) || 'Could not look it up right now.') + '</div></div>'; });
+}
+function closeGloss() { var b = $('#cv-gloss'); if (b) b.classList.remove('on'); $$('.cv-w.on').forEach(function (x) { x.classList.remove('on'); }); if (C) C.glossFor = null; }
 function exit() {
-  stop();
+  stop(); closeGloss();
   if (C && C.phase === 'story' && Object.keys(C.res).length && !window.confirm('Leave this conversation? Your answers so far are kept for 3 hours.')) return;
   C = null; var el = card(); if (el) el.removeAttribute('data-session');
   if (K.prIntro) K.prIntro();
 }
 
+document.addEventListener('click', function (ev) {
+  var b = $('#cv-gloss'); if (!b || !b.classList.contains('on')) return;
+  if (b.contains(ev.target) || (ev.target.closest && ev.target.closest('.cv-w'))) return;
+  closeGloss();
+}, true);
 K.conv = { entry: entry, start: start, state: function () { return C; } };
-K.onGo(function () { stop(); });
+K.onGo(function () { stop(); closeGloss(); });
 K.actions({
   'cv-start': function (el) { start(el); },
   'cv-say-title': function () { speak([{ s: 0, t: C.lesson.title }], null); },
-  'cv-begin': function () { C.phase = 'story'; C.shown = 0; draw(); sayItem(C.items[0]); },
-  'cv-say': function (el) { var it = C.items[Number(el.dataset.k)]; if (it && it.k === 'scene') sayItem(it); else if (it) playLine(it.i); },
+  'cv-begin': function () { C.phase = 'story'; C.shown = 0; draw(); sayItem(C.items[0], 0); prefetch(1); },
+  'cv-say': function (el) { var k = Number(el.dataset.k), it = C.items[k]; if (it && it.k === 'scene') sayItem(it, k); else if (it) playLine(it.i, k); },
+  'cv-hear': function (el) { var k = Number(el.dataset.k), it = C.items[k]; if (it) playLine(it.i, k); },
+  'cv-word': function (el) { gloss(el); },
+  'cv-gl-close': closeGloss,
+  'cv-gl-say': function (el) { K.say(el.dataset.w, 0.9); },
   'cv-more': more,
   'cv-pick': function (el) { var e = exById(Number(el.dataset.q)); if (e && !C.res[e.i]) send(e, Number(el.dataset.k)); },
-  'cv-gappick': function (el) { var it = C.items[C.shown]; if (!it || it.k !== 'gap' || C.res[it.e.i]) return; C.picks[it.e.i] = el.dataset.w; draw(); },
+  'cv-gappick': function (el) {
+    var it = C.items[C.shown]; if (!it) return;
+    if (it.k === 'gap' && !C.res[it.e.i]) { C.picks[it.e.i] = el.dataset.w; draw(); }
+    if (it.k === 'qg' && !C.loc[it.i]) { C.picks['q' + it.i] = el.dataset.w; draw(); }
+  },
   'cv-check': function () {
     var it = C.items[C.shown]; if (!it) return;
     if (it.k === 'gap') { if (C.picks[it.e.i]) send(it.e, C.picks[it.e.i]); return; }
+    if (it.k === 'qg') { var pk = C.picks['q' + it.i]; if (!pk || C.loc[it.i]) return; C.loc[it.i] = { answer: pk, correct: normW(pk) === normW(it.w) }; draw(); sayItem(it, C.shown); return; }
     if (it.e.type === 'order') send(it.e, (C.order[it.e.i] || []).slice());
   },
   'cv-order': function (el) {
@@ -6925,7 +7289,7 @@ K.actions({
   'cv-exit': exit,
   'cv-back': exit,
   'cv-line': function (el) { playLine(Number(el.dataset.l)); },
-  'cv-again': function () { C = null; var el = card(); if (el) el.innerHTML = '<p class="muted">Preparing a new conversation…</p>'; start(null); },
+  'cv-again': function () { closeGloss(); C = null; var el = card(); if (el) el.innerHTML = '<p class="muted">Preparing a new conversation…</p>'; start(null); },
   'cv-vi': function () { C.vi = !C.vi; draw(); },
   'cv-save': function (el) {
     el.disabled = true;
@@ -6953,14 +7317,14 @@ K.actions({
 var K = window.Kelvin, $ = K.$, $$ = K.$$, esc = K.esc, ic = K.ic;
 var D = null;   // the open set
 var ENTRY = {
-  mix:       ['Daily mix', 'About 10 minutes: words, grammar, listening, speaking and writing in one short set.', 'kel-party'],
-  listen:    ['Listen and build', 'Hear a sentence, then build it from word tiles. Some words are spelled from sound.', 'kel-cool'],
-  speak:     ['Repeat after Kel', 'Hear a sentence, then say it. Kelvin listens and shows which words came through.', 'kel-laugh'],
-  translate: ['Translate sentences', 'Vietnamese into English: build it from tiles, then write it yourself.', 'kel-thinking'],
-  gap:       ['Fill the gap', 'Choose the word that fits, then see why.', 'kel-star-eyes'],
-  words:     ['Practise your words', 'Your own words: choose the word for a meaning, and spell words you hear.', 'kel-love']
+  mix:       ['Daily mix', 'About 10 minutes: words, grammar, listening, speaking and writing in one short set.', 'kel-studying'],
+  listen:    ['Listen and build', 'Hear a sentence, then build it from word tiles. Some words are spelled from sound.', 'kel-listening'],
+  speak:     ['Repeat after Kel', 'Hear a sentence, then say it. Kelvin listens and shows which words came through.', 'kel-speaking'],
+  translate: ['Translate sentences', 'Vietnamese into English: build it from tiles, then write it yourself.', 'kel-writing'],
+  gap:       ['Fill the gap', 'Choose the word that fits, then see why.', 'kel-reading'],
+  words:     ['Practise your words', 'Your own words: choose the word for a meaning, and spell words you hear.', 'kel-studying']
 };
-var KEL = { tiles: 'kel-thinking', write: 'kel-thinking', gap: 'kel-wave', listen: 'kel-cool', repeat: 'kel-laugh', meaning: 'kel-star-eyes', spell: 'kel-cool' };
+var KEL = { tiles: 'kel-writing', write: 'kel-writing', gap: 'kel-reading', listen: 'kel-listening', repeat: 'kel-speaking', meaning: 'kel-studying', spell: 'kel-listening' };
 var TITLE = { tiles: 'Write this in English', write: 'Write this in English', gap: 'Fill in the blank', listen: 'Listen and build the sentence', repeat: 'Say this sentence', meaning: 'Which word means this?', spell: 'Type the word you hear' };
 function base() { return (K.ex && K.ex.STK_BASE) || 'stickers/'; }
 function kelImg(name, cls) { return '<img class="' + (cls || 'gx-kel') + '" src="' + base() + name + '.webp" alt="" draggable="false">'; }
@@ -6975,7 +7339,7 @@ function setNo(key) { try { localStorage.setItem(key, String(Date.now() + 15 * 6
 function entry(mode, small) {
   var e = ENTRY[mode];
   return '<div class="dr-entry' + (small ? ' sm' : '') + '">' + kelImg(e[2], 'dr-kel') + '<div class="grow"><b>' + esc(e[0]) + '</b><span class="small muted">' + esc(e[1]) + '</span></div>' +
-    '<button class="btn ' + (mode === 'mix' ? 'btn-primary' : 'btn-soft') + '" data-action="dr-start" data-mode="' + mode + '">' + ic('i-play', 'ic-sm') + 'Start</button></div>';
+    '<button class="btn btn-primary" data-action="dr-start" data-mode="' + mode + '">' + ic('i-play', 'ic-sm') + 'Start</button></div>';
 }
 
 function start(mode, btn) {

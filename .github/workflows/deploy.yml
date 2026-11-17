@@ -1,0 +1,20 @@
+name: Deploy Apps Script
+on:
+  push:
+    branches: [main]
+    paths: ['apps_script/**']
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g @google/clasp
+      - name: Login
+        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+      - name: Push code
+        run: clasp push --force
+      - name: Deploy to the same /exec link
+        run: clasp deploy -i ${{ secrets.DEPLOYMENT_ID }} -d "GitHub ${{ github.sha }}"

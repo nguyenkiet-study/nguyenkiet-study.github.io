@@ -20,9 +20,9 @@
 var K = window.Kelvin, $ = K.$, esc = K.esc, ic = K.ic;
 var WAIT_AFTER = 0;
 // marking your work: facts only, no questions
-var GRADING = { practiceSubmit: 1, placementWriting: 1, placementSpeaking: 1, grammarFree: 1, grammarJudge: 1, grammarRead: 1, wordsCheck: 1, drillFinish: 1 };
+var GRADING = { practiceSubmit: 1, placementWriting: 1, placementSpeaking: 1, grammarFree: 1, grammarJudge: 1, grammarRead: 1, wordsCheck: 1, drillFinish: 1, grammarSubmit: 1, wordsSubmit: 1, wordsCheckSave: 1 };
 // quick page loads: something light that does not hold the page
-var LIGHT = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1 };
+var LIGHT = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1, wordsList: 1, savedList: 1 };
 var STEPS = {
   practiceSubmit: ['Reading your answer', 'Checking grammar and words', 'Writing your feedback'],
   practiceStart: ['Choosing your task', 'Getting it ready'],
@@ -42,6 +42,14 @@ var STEPS = {
   grammarHome: ['Loading your lessons'],
   historyList: ['Loading your history'],
   wordsToday: ['Getting today\'s words'],
+  wordsList: ['Loading your words'],
+  savedList: ['Loading your saved words'],
+  wordsQuick: ['Getting your quick words ready'],
+  wordsDeck: ['Getting your cards ready'],
+  wordsSubmit: ['Saving your session', 'Updating your word boxes', 'Counting today\'s progress'],
+  wordsCheckSave: ['Saving your check', 'Building your word profile'],
+  grammarSubmit: ['Checking your answers', 'Saving your progress'],
+  drillFinish: ['Checking your answers', 'Saving your result'],
   mixStart: ['Mixing today\'s practice', 'Choosing words, sentences and sounds'],
   drillStart: ['Choosing sentences for you', 'Getting the exercises ready']
 };
@@ -199,7 +207,7 @@ function stepText() { return W.steps.length ? W.steps[Math.min(W.si, W.steps.len
 var lastTap = null, tapAt = 0;
 document.addEventListener('click', function (e) { lastTap = e.target; tapAt = Date.now(); }, true);
 // page loads that also run in the background (refresh, polling) only get the card right after a tap
-var ON_TAP = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1 };
+var ON_TAP = { cmFeed: 1, msgThreads: 1, grammarHome: 1, historyList: 1, wordsToday: 1, wordsList: 1, savedList: 1 };
 function spot() {
   var view = document.querySelector('.view:not([hidden])') || document.querySelector('main') || document.body;
   var t = lastTap && lastTap.isConnected && view.contains(lastTap) ? lastTap.closest('.dr-entry, .cv-entry, .gr-row, article, .card, .sheet') : null;
@@ -220,7 +228,7 @@ function show(steps) {
     '<div class="wt-bar"><i></i></div><div class="wt-top"><span class="wt-dot"></span><span class="wt-step">' + esc(stepText()) + '</span></div>';
   if (at.after && at.after.parentNode) at.after.parentNode.insertBefore(el, at.after.nextSibling); else at.view.insertBefore(el, at.view.firstChild);
   // a block that only says "Loading…" steps aside: the card says the same and more
-  if (at.after && at.after.textContent.trim().length < 70 && /Loading|Preparing|Opening/i.test(at.after.textContent)) { at.after.classList.add('wt-src'); W.src = at.after; }
+  if (at.after && at.after.textContent.trim().length < 70 && /Loading|Preparing|Opening|Saving|Getting/i.test(at.after.textContent)) { at.after.classList.add('wt-src'); W.src = at.after; }
   requestAnimationFrame(function () {
     el.classList.add('on');
     var r = el.getBoundingClientRect();

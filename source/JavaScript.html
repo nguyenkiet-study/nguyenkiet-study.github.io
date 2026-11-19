@@ -835,52 +835,80 @@ function say(text, rate) {
   if (voiceSilent) return natural();
   if (!speakLines(lines, rate, null, natural)) natural();
 }
-var liveRec = null;   // the one microphone session that may be open (an old one left open blocks the next on iPhone)
+var liveRec = null;     // the session the screen is using now
+var sharedSR = null;    // ONE recognizer for the whole page, started again for every sentence (iPhone: a new recognizer per sentence never gets the microphone while the old one still holds it)
+var srRunning = false, srOwner = null, srWaiting = null;
+function sharedRecognizer(SR) {
+  if (sharedSR) return sharedSR;
+  var r = sharedSR = new SR();
+  r.onspeechstart = function () { if (srOwner && r === sharedSR) srOwner.heard = true; };
+  r.onresult = function (e) { if (srOwner && !srOwner.ended && r === sharedSR) srOwner.result(e); };
+  r.onerror = function (e) { if (srOwner && !srOwner.ended && r === sharedSR) srOwner.handlers.error(e.error); };
+  r.onend = function () {
+    if (r !== sharedSR) return;
+    srRunning = false; var o = srOwner; srOwner = null;
+    if (o) o.finish();
+    if (srWaiting) { var w = srWaiting; srWaiting = null; clearTimeout(w.t); w.go(); }
+  };
+  return r;
+}
 function makeRecognizer(handlers) {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
-  if (liveRec) { try { liveRec.abort(); } catch (e) {} liveRec = null; }
-  var r = new SR(), finalText = '', ended = false, heard = false, dog = null, killer = null;
-  liveRec = r;
-  // iPhone sometimes never sends "end" after stop() when nothing was heard: finish by ourselves so the screen is never stuck on "Listening"
-  function finish() {
-    if (ended) return; ended = true;
-    clearTimeout(dog); clearTimeout(killer);
-    if (liveRec === r) liveRec = null;
+  if (liveRec) liveRec.drop();
+  var S = { ended: false, heard: false, text: '', dog: null, killer: null, handlers: handlers };
+  liveRec = S;
+  // finish by ourselves when the phone never sends "end" (it sometimes does not after stop() when nothing was heard)
+  S.finish = function () {
+    if (S.ended) return; S.ended = true;
+    clearTimeout(S.dog); clearTimeout(S.killer);
+    if (liveRec === S) liveRec = null;
+    if (srOwner === S) srOwner = null;
     audioSession('playback');
-    handlers.end(finalText);
-  }
-  // the microphone needs the "play-and-record" sound mode on iPhone; afterwards sound goes back to "playback"
-  var startRec = r.start.bind(r), stopRec = r.stop.bind(r);
-  r.start = function () {
-    audioSession('play-and-record');
-    var out = startRec();
-    // nothing heard for a while: stop and say so, instead of listening for ever
-    dog = setTimeout(function () {
-      if (ended || heard) return;
-      try { r.abort(); } catch (e) {}
-      try { handlers.error('no-speech'); } catch (e) {}
-      finish();
-    }, 9000);
-    return out;
+    handlers.end(S.text);
   };
-  r.stop = function () {
-    try { stopRec(); } catch (e) {}
-    clearTimeout(killer);
-    killer = setTimeout(function () { if (ended) return; try { r.abort(); } catch (e) {} finish(); }, 1500);
-  };
-  try { r.addEventListener('end', function () { audioSession('playback'); }); r.addEventListener('error', function () { audioSession('playback'); }); } catch (e) {}
-  r.lang = 'en-US'; r.interimResults = true; r.continuous = true;
-  try { r.onspeechstart = function () { heard = true; }; } catch (e) {}
-  r.onresult = function (e) {
-    heard = true;
+  S.result = function (e) {
+    S.heard = true;
     var interim = '';
-    for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
-    handlers.text(finalText, interim);
+    for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) S.text += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
+    handlers.text(S.text, interim);
   };
-  r.onerror = function (e) { if (!ended) handlers.error(e.error); };
-  r.onend = function () { finish(); };
-  return r;
+  // retire this session quietly (a newer one is taking over)
+  S.drop = function () {
+    S.ended = true; clearTimeout(S.dog); clearTimeout(S.killer);
+    if (liveRec === S) liveRec = null;
+    if (srOwner === S) { srOwner = null; try { if (srRunning && sharedSR) sharedSR.abort(); } catch (e) {} }
+  };
+  var f = { lang: 'en-US', interimResults: true, continuous: true };
+  f.start = function () {
+    audioSession('play-and-record');
+    function go() {
+      if (S.ended) return;
+      var r = sharedRecognizer(SR);
+      r.lang = f.lang; r.interimResults = f.interimResults; r.continuous = f.continuous;
+      srOwner = S;
+      try { srRunning = true; r.start(); } catch (e) { srRunning = false; srOwner = null; try { handlers.error('audio-capture'); } catch (x) {} S.finish(); return; }
+      // nothing heard for a while: stop and say so, instead of listening for ever
+      S.dog = setTimeout(function () {
+        if (S.ended || S.heard) return;
+        try { r.abort(); } catch (e) {}
+        try { handlers.error('no-speech'); } catch (e) {}
+        S.finish();
+      }, 9000);
+    }
+    if (srRunning) {
+      // an earlier run is still closing: wait for its "end"; if it never comes, throw that recognizer away and use a new one
+      try { sharedSR.abort(); } catch (e) {}
+      srWaiting = { go: go, t: setTimeout(function () { srWaiting = null; srRunning = false; sharedSR = null; go(); }, 700) };
+    } else go();
+  };
+  f.stop = function () {
+    try { if (srRunning && srOwner === S && sharedSR) sharedSR.stop(); } catch (e) {}
+    clearTimeout(S.killer);
+    S.killer = setTimeout(function () { if (S.ended) return; try { if (sharedSR) sharedSR.abort(); } catch (e) {} S.finish(); }, 1500);
+  };
+  f.abort = function () { S.drop(); };
+  return f;
 }
 
 /* ---------- shared multiple-choice helpers (graded by the app, never by AI) ---------- */

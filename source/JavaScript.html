@@ -835,22 +835,51 @@ function say(text, rate) {
   if (voiceSilent) return natural();
   if (!speakLines(lines, rate, null, natural)) natural();
 }
+var liveRec = null;   // the one microphone session that may be open (an old one left open blocks the next on iPhone)
 function makeRecognizer(handlers) {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
-  var r = new SR(), finalText = '';
+  if (liveRec) { try { liveRec.abort(); } catch (e) {} liveRec = null; }
+  var r = new SR(), finalText = '', ended = false, heard = false, dog = null, killer = null;
+  liveRec = r;
+  // iPhone sometimes never sends "end" after stop() when nothing was heard: finish by ourselves so the screen is never stuck on "Listening"
+  function finish() {
+    if (ended) return; ended = true;
+    clearTimeout(dog); clearTimeout(killer);
+    if (liveRec === r) liveRec = null;
+    audioSession('playback');
+    handlers.end(finalText);
+  }
   // the microphone needs the "play-and-record" sound mode on iPhone; afterwards sound goes back to "playback"
-  var startRec = r.start.bind(r);
-  r.start = function () { audioSession('play-and-record'); return startRec(); };
+  var startRec = r.start.bind(r), stopRec = r.stop.bind(r);
+  r.start = function () {
+    audioSession('play-and-record');
+    var out = startRec();
+    // nothing heard for a while: stop and say so, instead of listening for ever
+    dog = setTimeout(function () {
+      if (ended || heard) return;
+      try { r.abort(); } catch (e) {}
+      try { handlers.error('no-speech'); } catch (e) {}
+      finish();
+    }, 9000);
+    return out;
+  };
+  r.stop = function () {
+    try { stopRec(); } catch (e) {}
+    clearTimeout(killer);
+    killer = setTimeout(function () { if (ended) return; try { r.abort(); } catch (e) {} finish(); }, 1500);
+  };
   try { r.addEventListener('end', function () { audioSession('playback'); }); r.addEventListener('error', function () { audioSession('playback'); }); } catch (e) {}
   r.lang = 'en-US'; r.interimResults = true; r.continuous = true;
+  try { r.onspeechstart = function () { heard = true; }; } catch (e) {}
   r.onresult = function (e) {
+    heard = true;
     var interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
     handlers.text(finalText, interim);
   };
-  r.onerror = function (e) { handlers.error(e.error); };
-  r.onend = function () { handlers.end(finalText); };
+  r.onerror = function (e) { if (!ended) handlers.error(e.error); };
+  r.onend = function () { finish(); };
   return r;
 }
 

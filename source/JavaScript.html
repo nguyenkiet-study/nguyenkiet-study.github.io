@@ -838,9 +838,40 @@ function say(text, rate) {
 var liveRec = null;     // the session the screen is using now
 var sharedSR = null;    // ONE recognizer for the whole page, started again for every sentence (iPhone: a new recognizer per sentence never gets the microphone while the old one still holds it)
 var srRunning = false, srOwner = null, srWaiting = null;
+/* open the app with ?debug=1 to see what the microphone reports, at the bottom of the screen */
+var SR_DEBUG = false, srDbgEl = null;
+try { SR_DEBUG = /[?&]debug=1/.test(location.search); } catch (e) {}
+function srDbg(m) {
+  if (!SR_DEBUG) return;
+  try {
+    if (!srDbgEl) { srDbgEl = document.createElement('div'); srDbgEl.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.8);color:#9f9;font:11px/1.35 monospace;padding:6px 8px;pointer-events:none;white-space:pre-wrap'; document.body.appendChild(srDbgEl); }
+    var l = (srDbgEl.textContent + '\n' + ((Date.now() % 100000) / 1000).toFixed(1) + ' ' + m).split('\n').slice(-16);
+    srDbgEl.textContent = l.join('\n');
+  } catch (e) {}
+}
+/* iPhone: a clip that was played through the shared audio element can keep the phone's sound route, and then the microphone hears nothing. Let go of it before listening. */
+function releaseAudioForMic() {
+  try { if (curAudio) { curAudio.pause(); curAudio = null; } } catch (e) {}
+  try { if (player) { player.pause(); player.onended = player.onerror = player.onplaying = null; player.removeAttribute('src'); player.load(); } } catch (e) {}
+  try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending || speechSynthesis.paused)) speechSynthesis.cancel(); } catch (e) {}
+}
+function srAudioState() {
+  var o = [];
+  try { o.push('player=' + (player ? ('paused:' + player.paused + ' ended:' + player.ended + ' rs:' + player.readyState + ' src:' + (player.getAttribute('src') ? 'yes' : 'no')) : 'none')); } catch (e) { o.push('player?'); }
+  try { o.push('cur=' + (curAudio ? 'yes' : 'no')); } catch (e) {}
+  try { o.push('synth=' + ('speechSynthesis' in window ? (speechSynthesis.speaking ? 'speaking' : speechSynthesis.pending ? 'pending' : 'idle') : 'none')); } catch (e) {}
+  try { o.push('session=' + (navigator.audioSession ? navigator.audioSession.type : 'n/a')); } catch (e) {}
+  return o.join(' ');
+}
 function sharedRecognizer(SR) {
   if (sharedSR) return sharedSR;
   var r = sharedSR = new SR();
+  srDbg('new recognizer');
+  try {
+    ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'end', 'nomatch'].forEach(function (n) { r.addEventListener(n, function () { srDbg('ev:' + n); }); });
+    r.addEventListener('error', function (e) { srDbg('ev:error ' + e.error + ' ' + (e.message || '')); });
+    r.addEventListener('result', function (e) { srDbg('ev:result ' + e.results.length + ' ' + (e.results[e.results.length - 1] && e.results[e.results.length - 1][0] ? '"' + e.results[e.results.length - 1][0].transcript + '"' : '')); });
+  } catch (e) {}
   r.onspeechstart = function () { if (srOwner && r === sharedSR) srOwner.heard = true; };
   r.onresult = function (e) { if (srOwner && !srOwner.ended && r === sharedSR) srOwner.result(e); };
   r.onerror = function (e) { if (srOwner && !srOwner.ended && r === sharedSR) srOwner.handlers.error(e.error); };
@@ -852,7 +883,44 @@ function sharedRecognizer(SR) {
   };
   return r;
 }
+/**
+ * The microphone. By default each sentence gets its own recognizer (the way the app always worked).
+ * For testing on a phone, open the app with ?debug=1 (log at the bottom) and optionally &x=release,abort,shared:
+ *   release = let go of the shared audio element before listening, abort = abort the recognizer after it ends, shared = one recognizer reused.
+ */
+var SR_X = '';
+try { SR_X = (location.search.match(/[?&]x=([a-z,]+)/) || [])[1] || ''; } catch (e) {}
 function makeRecognizer(handlers) {
+  if (SR_X.indexOf('shared') >= 0) return makeSharedRecognizer(handlers);
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  var r = new SR(), finalText = '', xRelease = SR_X.indexOf('release') >= 0, xAbort = SR_X.indexOf('abort') >= 0;
+  srDbg('new recognizer (classic) x=' + SR_X);
+  try {
+    ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'end', 'nomatch'].forEach(function (n) { r.addEventListener(n, function () { srDbg('ev:' + n); }); });
+    r.addEventListener('error', function (e) { srDbg('ev:error ' + e.error + ' ' + (e.message || '')); });
+    r.addEventListener('result', function (e) { srDbg('ev:result ' + e.results.length); });
+  } catch (e) {}
+  // the microphone needs the "play-and-record" sound mode on iPhone; afterwards sound goes back to "playback"
+  var startRec = r.start.bind(r);
+  r.start = function () {
+    srDbg('audio: ' + srAudioState());
+    if (xRelease) releaseAudioForMic();
+    audioSession('play-and-record');
+    try { var out = startRec(); srDbg('start() ok'); return out; } catch (e) { srDbg('start() threw ' + (e && e.name)); throw e; }
+  };
+  try { r.addEventListener('end', function () { audioSession('playback'); }); r.addEventListener('error', function () { audioSession('playback'); }); } catch (e) {}
+  r.lang = 'en-US'; r.interimResults = true; r.continuous = true;
+  r.onresult = function (e) {
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
+    handlers.text(finalText, interim);
+  };
+  r.onerror = function (e) { handlers.error(e.error); };
+  r.onend = function () { handlers.end(finalText); if (xAbort) { try { r.abort(); srDbg('abort after end'); } catch (e) {} } };
+  return r;
+}
+function makeSharedRecognizer(handlers) {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
   if (liveRec) liveRec.drop();
@@ -860,7 +928,7 @@ function makeRecognizer(handlers) {
   liveRec = S;
   // finish by ourselves when the phone never sends "end" (it sometimes does not after stop() when nothing was heard)
   S.finish = function () {
-    if (S.ended) return; S.ended = true;
+    if (S.ended) return; S.ended = true; srDbg('finish text="' + S.text.trim() + '"');
     clearTimeout(S.dog); clearTimeout(S.killer);
     if (liveRec === S) liveRec = null;
     if (srOwner === S) srOwner = null;
@@ -881,13 +949,16 @@ function makeRecognizer(handlers) {
   };
   var f = { lang: 'en-US', interimResults: true, continuous: true };
   f.start = function () {
+    srDbg('audio before: ' + srAudioState());
+    releaseAudioForMic();
     audioSession('play-and-record');
+    srDbg('start() running=' + srRunning + ' | audio after: ' + srAudioState());
     function go() {
       if (S.ended) return;
       var r = sharedRecognizer(SR);
       r.lang = f.lang; r.interimResults = f.interimResults; r.continuous = f.continuous;
       srOwner = S;
-      try { srRunning = true; r.start(); } catch (e) { srRunning = false; srOwner = null; try { handlers.error('audio-capture'); } catch (x) {} S.finish(); return; }
+      try { srRunning = true; r.start(); srDbg('r.start() ok'); } catch (e) { srDbg('r.start() threw ' + (e && e.name) + ' ' + (e && e.message)); srRunning = false; srOwner = null; try { handlers.error('audio-capture'); } catch (x) {} S.finish(); return; }
       // nothing heard for a while: stop and say so, instead of listening for ever
       S.dog = setTimeout(function () {
         if (S.ended || S.heard) return;
@@ -903,6 +974,7 @@ function makeRecognizer(handlers) {
     } else go();
   };
   f.stop = function () {
+    srDbg('stop() running=' + srRunning);
     try { if (srRunning && srOwner === S && sharedSR) sharedSR.stop(); } catch (e) {}
     clearTimeout(S.killer);
     S.killer = setTimeout(function () { if (S.ended) return; try { if (sharedSR) sharedSR.abort(); } catch (e) {} S.finish(); }, 1500);

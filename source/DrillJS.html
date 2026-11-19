@@ -200,7 +200,7 @@ function mic() {
   K.stopSpeech && K.stopSpeech();
   var r = K.makeRecognizer({
     text: function (fin, interim) { s.live = (fin + ' ' + interim).trim(); var l = $('.dr-live'); if (l) l.textContent = s.live; else draw(); },
-    error: function (e) { s.rec = null; s.live = ''; if (e === 'not-allowed' || e === 'service-not-allowed') K.toast('Allow the microphone for this site, then try again.'); else if (e === 'no-speech') K.toast('I did not hear anything. Tap the microphone and try again.'); draw(); },
+    error: function (e) { s.rec = null; s.live = ''; if (e === 'not-allowed' || e === 'service-not-allowed') K.toast('Allow the microphone for this site, then try again.'); else if (e === 'no-speech') K.toast('I did not hear anything. Tap the microphone and try again.'); else if (e && e !== 'aborted') K.toast('Microphone problem (' + e + '). Tap the microphone to try again.'); draw(); },
     end: function (fin) {
       s.rec = null; s.tries = (s.tries || 0) + 1;
       var said = (fin || s.live || '').trim(); s.live = '';

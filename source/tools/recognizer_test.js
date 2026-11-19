@@ -17,7 +17,7 @@ class FakeSR{constructor(){FakeSR.all.push(this);this.running=false}
 FakeSR.all=[];
 const sessions=[];
 const win={SpeechRecognition:FakeSR};
-const M=new Function('window','navigator','setTimeout','clearTimeout','audioSession',code+';return {makeRecognizer}')(win,{},T.setTimeout,T.clearTimeout,type=>sessions.push(type));
+const M=new Function('window','navigator','setTimeout','clearTimeout','audioSession',code+';return {makeRecognizer: makeSharedRecognizer, classic: makeRecognizer}')(win,{},T.setTimeout,T.clearTimeout,type=>sessions.push(type));
 function mk(){const log={text:[],err:[],end:[]};const r=M.makeRecognizer({text:(f,i)=>log.text.push([f,i]),error:e=>log.err.push(e),end:f=>log.end.push(f)});return {r,log}}
 const cur=()=>FakeSR.all[FakeSR.all.length-1];
 const say=(w)=>cur().onresult({resultIndex:0,results:[Object.assign([{transcript:w}],{isFinal:true})]});
@@ -57,4 +57,10 @@ sessions.length=0;({r,log}=mk());r.start();r.stop();tick(50);t('play-and-record 
 ({r,log}=mk());r.start();cur().onerror({error:'not-allowed'});cur().running=false;cur().onend();t('error and end each once',log.err.length===1&&log.end.length===1,log);
 // 10. the phone refuses to start: error, then end, never stuck
 startThrows=true;({r,log}=mk());r.start();t('refused start ends the session with an error',log.err[0]==='audio-capture'&&log.end.length===1,log);startThrows=false;
+// 11. the default (classic) recognizer: a new recognizer per sentence, handlers wired as before
+{const n0=FakeSR.all.length;const lg={t:[],e:[],n:[]};const c1=M.classic({text:(f,i)=>lg.t.push(f),error:e=>lg.e.push(e),end:f=>lg.n.push(f)});c1.start();
+ t('classic makes its own recognizer',FakeSR.all.length===n0+1);
+ cur().onresult({resultIndex:0,results:[Object.assign([{transcript:'hi there'}],{isFinal:true})]});cur().onerror({error:'no-speech'});cur().onend();
+ t('classic passes text, error and end',lg.t[0].trim()==='hi there'&&lg.e[0]==='no-speech'&&lg.n[0].trim()==='hi there',lg);
+ const c2=M.classic({text(){},error(){},end(){}});c2.start();t('classic: next sentence gets another recognizer',FakeSR.all.length===n0+2);}
 console.log(fail?('\n'+fail+' FAILED'):'\nALL PASSED');process.exit(fail?1:0);

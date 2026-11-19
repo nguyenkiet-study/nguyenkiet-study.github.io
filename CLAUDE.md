@@ -26,3 +26,4 @@ Kelvin is an English-learning web app. Owner: Nguyen Anh Kiet. Reply in Vietname
 - Secrets (CLASPRC_JSON, DEPLOYMENT_ID) live only in GitHub Actions secrets. Never print or commit them, and keep the user's email private.
 - Gemini features are only tested with tools/fake_gemini.js. Say so when relevant.
 - See docs/ARCHITECTURE.md and docs/SETUP.md for module details.
+- Read HANDOVER.md for the current state, recent changes and open work.

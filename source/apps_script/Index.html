@@ -2632,7 +2632,7 @@ function stopSpeech() {
  * iPhone (iOS 17 and later): tell the phone what kind of sound this is. "playback" plays even when the ring/silent switch
  * is on silent; "play-and-record" while the microphone is on. Older phones ignore it.
  */
-function audioSession(type) { try { if (SR_X.indexOf('nosession') >= 0) return; if (navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; } catch (e) {} }
+function audioSession(type) { try { if (SR_X.indexOf('nosession') >= 0) return; if (type === 'playback' && window.__krec) return; if (navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; } catch (e) {} }
 function unlockAudio() {
   audioSession('playback');
   if (player || typeof Audio === 'undefined') return;
@@ -2860,6 +2860,7 @@ function makeRecognizer(handlers) {
     srDbg('audio: ' + srAudioState());
     if (xRelease) releaseAudioForMic();
     audioSession('play-and-record');
+    if (SR_X.indexOf('keeprec') >= 0) window.__krec = true;   // keeprec: stay in play-and-record (sound still plays on silent, one steady mode)
     var out = startRec(); srDbg('start() ok'); return out;
   }
   r.start = function () {

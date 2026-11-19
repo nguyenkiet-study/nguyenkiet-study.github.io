@@ -146,7 +146,7 @@ function play(el) {
   if (s.rec) return;   // never play the sample while the microphone is listening (it would switch the phone back to "playback")
   var slow = el && el.dataset && el.dataset.slow === '1';
   s.playing = true; draw();
-  var end = function () { if (cur() === s) { s.playing = false; draw(); } };
+  var end = function () { if (cur() === s) { s.playing = false; draw(); } try { K.afterSample && K.afterSample(); } catch (e) {} };
   if (K.speakNatural([{ s: 0, t: s.en }], slow ? 0.7 : 1, end, false) === false) end();
 }
 function settle(s, ok) { s.ok = ok; s.state = 'done'; s.done = true; }

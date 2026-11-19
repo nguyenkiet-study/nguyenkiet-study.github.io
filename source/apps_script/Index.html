@@ -2881,9 +2881,27 @@ function sharedRecognizer(SR) {
  *   nosession = never set navigator.audioSession, gum = keep a getUserMedia stream open, keeprec = stay in play-and-record,
  *   noplay = "Say this sentence" does not play the sample by itself (do not tap Listen either), synth = samples use the browser voice,
  *   webaudio = samples play through an AudioContext instead of the <audio> element.
+ *   iframe = a hidden frame per sentence holds the recognizer and is removed afterwards, gumreset = open and close a microphone stream after each sentence,
+ *   nointerim = no interim results, none = switch off the default below.
+ * DEFAULT on iPhone and iPad: iframe,gumreset. Tested on a phone: without it the microphone only hears the first sentence (the phone keeps the
+ * microphone after the recognizer ends and later sentences hear silence); with it every sentence was heard.
  */
 var SR_X = '';
 try { SR_X = (location.search.match(/[?&]x=([a-z,]+)/) || [])[1] || ''; } catch (e) {}
+// extras written in the link are added to the iPhone default; "none" switches the default off (and drops the extras)
+if (IS_IOS && SR_X.indexOf('none') < 0) SR_X = 'iframe,gumreset' + (SR_X ? ',' + SR_X : '');
+if (SR_X.indexOf('none') >= 0) SR_X = '';
+/* extras for the sample voice: playreset = let go of the <audio> element when a sample ends, playgum = open and close a microphone stream when a sample ends */
+function micReset(why) {
+  try {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) { st.getTracks().forEach(function (t) { t.stop(); }); srDbg('mic reset ' + why); }, function (e) { srDbg('mic reset failed ' + (e && e.name)); });
+  } catch (e) {}
+}
+function afterSample() {
+  srDbg('sample ended: ' + srAudioState());
+  if (SR_X.indexOf('playreset') >= 0) releaseAudioForMic();
+  if (SR_X.indexOf('playgum') >= 0) micReset('after the sample');
+}
 function makeRecognizer(handlers) {
   if (SR_X.indexOf('shared') >= 0) return makeSharedRecognizer(handlers);
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2905,7 +2923,7 @@ function makeRecognizer(handlers) {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) { st.getTracks().forEach(function (t) { t.stop(); }); srDbg('mic reset (opened and closed)'); }, function (e) { srDbg('mic reset failed ' + (e && e.name)); });
     }
   }
-  var r = new SRc(), finalText = '', xRelease = SR_X.indexOf('release') >= 0, xAbort = SR_X.indexOf('abort') >= 0, xGum = SR_X.indexOf('gum') >= 0;
+  var r = new SRc(), finalText = '', xRelease = SR_X.indexOf('release') >= 0 || SR_X.indexOf('playreset') >= 0, xAbort = SR_X.indexOf('abort') >= 0, xGum = SR_X.indexOf('gum') >= 0;
   srDbg('new recognizer (classic) x=' + SR_X);
   try {
     ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'end', 'nomatch'].forEach(function (n) { r.addEventListener(n, function () { srDbg('ev:' + n); }); });
@@ -3722,7 +3740,7 @@ window.Kelvin = {
   setHub: function (fn) { REG.hub.push(fn); },
   onGo: function (fn) { REG.go.push(fn); },
   learn: function (fn, side) { REG.learn = fn; REG.side = side; },
-  Api: Api, live: BACKEND_READY, LV: LV, li: li, SKILLS: SKILLS, loadOverview: loadOverview, planOf: planOf, fmtTime: fmtTime, waveBars: waveBars, makeRecognizer: makeRecognizer, srx: function () { return SR_X; }, clearTimers: clearTimers, timers: function (t) { timers.push(t); }, setSkill: function (k, v) { state.skills[k] = v; }
+  Api: Api, live: BACKEND_READY, LV: LV, li: li, SKILLS: SKILLS, loadOverview: loadOverview, planOf: planOf, fmtTime: fmtTime, waveBars: waveBars, makeRecognizer: makeRecognizer, srx: function () { return SR_X; }, afterSample: afterSample, clearTimers: clearTimers, timers: function (t) { timers.push(t); }, setSkill: function (k, v) { state.skills[k] = v; }
 };
 
 document.addEventListener('touchend', function once() { unlockAudio(); document.removeEventListener('touchend', once, true); }, true);
@@ -7887,7 +7905,7 @@ function play(el) {
   if (s.rec) return;   // never play the sample while the microphone is listening (it would switch the phone back to "playback")
   var slow = el && el.dataset && el.dataset.slow === '1';
   s.playing = true; draw();
-  var end = function () { if (cur() === s) { s.playing = false; draw(); } };
+  var end = function () { if (cur() === s) { s.playing = false; draw(); } try { K.afterSample && K.afterSample(); } catch (e) {} };
   if (K.speakNatural([{ s: 0, t: s.en }], slow ? 0.7 : 1, end, false) === false) end();
 }
 function settle(s, ok) { s.ok = ok; s.state = 'done'; s.done = true; }

@@ -17,7 +17,8 @@ class FakeSR{constructor(){FakeSR.all.push(this);this.running=false}
 FakeSR.all=[];
 const sessions=[];
 const win={SpeechRecognition:FakeSR};
-const M=new Function('window','navigator','setTimeout','clearTimeout','audioSession',code+';return {makeRecognizer: makeSharedRecognizer, classic: makeRecognizer}')(win,{},T.setTimeout,T.clearTimeout,type=>sessions.push(type));
+const load=(IS_IOS,doc,nav)=>new Function('window','navigator','setTimeout','clearTimeout','audioSession','IS_IOS','document',code+';return {makeRecognizer: makeSharedRecognizer, classic: makeRecognizer}')(win,nav||{},T.setTimeout,T.clearTimeout,type=>sessions.push(type),IS_IOS,doc);
+const M=load(false,undefined);
 function mk(){const log={text:[],err:[],end:[]};const r=M.makeRecognizer({text:(f,i)=>log.text.push([f,i]),error:e=>log.err.push(e),end:f=>log.end.push(f)});return {r,log}}
 const cur=()=>FakeSR.all[FakeSR.all.length-1];
 const say=(w)=>cur().onresult({resultIndex:0,results:[Object.assign([{transcript:w}],{isFinal:true})]});
@@ -100,5 +101,24 @@ const flush=()=>new Promise(r=>setImmediate(r));
    E.api.speakNatural([{s:0,t:'Second one.'}],1,()=>ended++);for(let i=0;i<10;i++)await flush();
    const s2=c&&c.srcs[1];t('x=webaudio: second clip plays',!!(s2&&s2.started)&&c.state==='running',{n:c&&c.srcs.length,state:c&&c.state});
    E.api.stopSpeech();t('x=webaudio: stopSpeech stops it, pauses the context, no onEnd',!!(s2&&s2.stopped)&&c.state==='suspended'&&ended===1&&E.api.cur()===null,{state:c&&c.state,ended});}
-  console.log(fail?('\n'+fail+' FAILED'):'\nALL PASSED');process.exit(fail?1:0);
+  // 13. iPhone default: one hidden frame per sentence (removed afterwards) and the microphone opened and closed after each sentence
+  { const frames = [], closed = []; const FSR = class extends FakeSR {}; FSR.all = [];
+    const doc = { createElement: () => { const f = { attrs: {}, style: {}, parentNode: null, setAttribute(k, v) { this.attrs[k] = v }, contentWindow: { webkitSpeechRecognition: FSR } }; frames.push(f); return f },
+      body: { appendChild(f) { f.parentNode = this; f.in = true }, removeChild(f) { f.in = false; f.parentNode = null } } };
+    const nav = { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() { closed.push(1) } }] }) } };
+    const MI = load(true, doc, nav); const n13 = FakeSR.all.length;
+    const lg = { t: [], e: [], n: [] }; const r = MI.classic({ text: (f, i) => lg.t.push(f), error: e => lg.e.push(e), end: f => lg.n.push(f) });
+    t('iPhone: the recognizer comes from a hidden frame', frames.length === 1 && frames[0].in === true && FakeSR.all.length === n13 + 1, { frames: frames.length, made: FakeSR.all.length - n13 });
+    r.start(); const inst = FakeSR.all[n13];
+    inst.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: 'hello' }], { isFinal: true })] }); inst.running = false; inst.onend();
+    t('iPhone: text and end reach the handlers', lg.t.length === 1 && lg.n.length === 1, lg);
+    t('iPhone: the frame is still there right after the end', frames[0].in === true);
+    tick(400);
+    t('iPhone: the frame is removed after the end', frames[0].in === false, frames[0]);
+    await flush();
+    t('iPhone: the microphone is opened and closed after the sentence', closed.length === 1, closed);
+    MI.classic({ text() {}, error() {}, end() {} });
+    t('iPhone: the next sentence gets its own frame', frames.length === 2 && frames[1].in === true && FakeSR.all.length === n13 + 2, { frames: frames.length });
+  }
+  console.log(fail ? (fail + ' FAILED') : 'ALL PASSED'); process.exit(fail ? 1 : 0);
 })();

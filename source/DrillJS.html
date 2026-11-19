@@ -143,6 +143,7 @@ function draw() {
 function speakTile(w) { var st = K.state && K.state.settings; if (st && st.tapVoice === false) return; try { K.speakLines([{ s: 0, t: w }], 0.95); } catch (e) {} }
 function play(el) {
   var s = cur(); if (!s) return;
+  if (s.rec) return;   // never play the sample while the microphone is listening (it would switch the phone back to "playback")
   var slow = el && el.dataset && el.dataset.slow === '1';
   s.playing = true; draw();
   var end = function () { if (cur() === s) { s.playing = false; draw(); } };
@@ -163,10 +164,11 @@ function next() {
   draw(); try { window.scrollTo(0, 0); } catch (e) {}
   autoPlay();
 }
-/* listening steps play by themselves when they open */
+/* listening steps play by themselves when they open. A speaking step ("repeat") does not: on iPhone a sample played by itself right before the
+   microphone leaves the microphone deaf from the second sentence on, so the sample plays only when the learner taps Listen or Slow. */
 function autoPlay() {
   var n = cur(); if (!n || n.auto) return;
-  if (n.t === 'listen' || n.t === 'repeat') { n.auto = true; setTimeout(function () { if (cur() === n) play(); }, 350); }
+  if (n.t === 'listen') { n.auto = true; setTimeout(function () { if (cur() === n && !n.rec && !n.state) play(); }, 350); }
   if (n.t === 'spell') { n.auto = true; setTimeout(function () { if (cur() === n) K.say(n.w, 0.85); }, 350); }
 }
 function finish() {

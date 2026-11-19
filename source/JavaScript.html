@@ -682,6 +682,7 @@ function stopSpeech() {
 function audioSession(type) { try { if (SR_X.indexOf('nosession') >= 0) return; if (type === 'playback' && window.__krec) return; if (navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; } catch (e) {} }
 function unlockAudio() {
   audioSession('playback');
+  if (SR_X.indexOf('webaudio') >= 0) { var wc = webAudioCtx(); try { if (wc && wc.state !== 'running') { var rp = wc.resume(); if (rp && rp.catch) rp.catch(function () {}); } } catch (e) {} return; }
   if (player || typeof Audio === 'undefined') return;
   try {
     player = new Audio(); player.preload = 'auto';
@@ -788,7 +789,42 @@ function prefetchNatural(lines, cast) {
   if (!BACKEND_READY || Date.now() < ttsRestUntil || (state.settings.voiceMode === 'browser' && !IS_IOS)) return;
   fetchTts(lines, cast).catch(function () {});
 }
+/*
+ * Phone test switch x=webaudio: play the natural voice through Web Audio (an AudioContext) instead of the shared <audio>
+ * element, and pause that context when the clip ends, to see whether the <audio> element is what leaves the iPhone
+ * microphone deaf after the first sentence. Not used unless the switch is on.
+ */
+var webCtx = null;
+function webAudioCtx() {
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!webCtx) { try { webCtx = new AC(); srDbg('webaudio: new context ' + webCtx.state); } catch (e) { webCtx = null; } }
+  return webCtx;
+}
+function playWeb(url, rate, alive, onStart, onEnd, fallback) {
+  var ctx = webAudioCtx(); if (!ctx || typeof fetch === 'undefined') return false;
+  var stopped = false, src = null, me = null;
+  function rest() { try { if (ctx.state === 'running') ctx.suspend(); } catch (e) {} }
+  me = curAudio = { pause: function () { stopped = true; try { if (src) src.stop(); } catch (e) {} rest(); } };
+  var resumed; try { resumed = ctx.state === 'running' ? Promise.resolve() : ctx.resume(); } catch (e) { resumed = Promise.resolve(); }
+  Promise.resolve(resumed).catch(function () {}).then(function () { return fetch(url); })
+    .then(function (r) { return r.arrayBuffer(); })
+    .then(function (buf) { return new Promise(function (ok, no) { var p = ctx.decodeAudioData(buf, ok, no); if (p && p.then) p.then(ok, no); }); })
+    .then(function (ab) {
+      if (stopped || !alive()) return;
+      srDbg('webaudio play, context ' + ctx.state);
+      src = ctx.createBufferSource(); src.buffer = ab; try { src.playbackRate.value = rate || 1; } catch (e) {}
+      src.connect(ctx.destination);
+      src.onended = function () { if (curAudio === me) curAudio = null; rest(); if (!stopped && alive() && onEnd) onEnd(); };
+      src.start(0);
+      if (onStart && alive()) onStart();
+    })
+    .catch(function (e) { srDbg('webaudio failed ' + (e && (e.name || e.message))); if (curAudio === me) curAudio = null; fallback({ code: 'play' }); });
+  return true;
+}
 function speakNatural(lines, rate, onEnd, force, cast, onStart) {
+  // phone test switch x=synth: speak every sample with the browser voice (no <audio> element at all)
+  if (SR_X.indexOf('synth') >= 0) { if (onStart) setTimeout(onStart, 0); return speakLines(lines, rate, onEnd, null, cast); }
   var silentOk = function () { voiceSilent = true; if (onEnd) onEnd(); };
   if (onStart && (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil)) setTimeout(onStart, 0);
   if (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil || typeof Audio === 'undefined') return force ? false : speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk, cast);
@@ -807,6 +843,7 @@ function speakNatural(lines, rate, onEnd, force, cast, onStart) {
   }
   function play(url) {
     if (!alive()) return;
+    if (SR_X.indexOf('webaudio') >= 0 && playWeb(url, rate, alive, onStart, onEnd, fallback)) return;
     var a = player || new Audio(); a.onended = a.onerror = null;
     try { a.pause(); } catch (e) {}
     a.src = url; a.playbackRate = rate || 1; curAudio = a;
@@ -861,6 +898,7 @@ function srAudioState() {
   try { o.push('cur=' + (curAudio ? 'yes' : 'no')); } catch (e) {}
   try { o.push('synth=' + ('speechSynthesis' in window ? (speechSynthesis.speaking ? 'speaking' : speechSynthesis.pending ? 'pending' : 'idle') : 'none')); } catch (e) {}
   try { o.push('session=' + (navigator.audioSession ? navigator.audioSession.type : 'n/a')); } catch (e) {}
+  try { if (webCtx) o.push('ctx=' + webCtx.state); } catch (e) {}
   return o.join(' ');
 }
 function sharedRecognizer(SR) {
@@ -886,7 +924,10 @@ function sharedRecognizer(SR) {
 /**
  * The microphone. By default each sentence gets its own recognizer (the way the app always worked).
  * For testing on a phone, open the app with ?debug=1 (log at the bottom) and optionally &x=release,abort,shared:
- *   release = let go of the shared audio element before listening, abort = abort the recognizer after it ends, shared = one recognizer reused.
+ *   release = let go of the shared audio element before listening, abort = abort the recognizer after it ends, shared = one recognizer reused,
+ *   nosession = never set navigator.audioSession, gum = keep a getUserMedia stream open, keeprec = stay in play-and-record,
+ *   noplay = "Say this sentence" does not play the sample by itself (do not tap Listen either), synth = samples use the browser voice,
+ *   webaudio = samples play through an AudioContext instead of the <audio> element.
  */
 var SR_X = '';
 try { SR_X = (location.search.match(/[?&]x=([a-z,]+)/) || [])[1] || ''; } catch (e) {}
@@ -1711,7 +1752,7 @@ window.Kelvin = {
   setHub: function (fn) { REG.hub.push(fn); },
   onGo: function (fn) { REG.go.push(fn); },
   learn: function (fn, side) { REG.learn = fn; REG.side = side; },
-  Api: Api, live: BACKEND_READY, LV: LV, li: li, SKILLS: SKILLS, loadOverview: loadOverview, planOf: planOf, fmtTime: fmtTime, waveBars: waveBars, makeRecognizer: makeRecognizer, clearTimers: clearTimers, timers: function (t) { timers.push(t); }, setSkill: function (k, v) { state.skills[k] = v; }
+  Api: Api, live: BACKEND_READY, LV: LV, li: li, SKILLS: SKILLS, loadOverview: loadOverview, planOf: planOf, fmtTime: fmtTime, waveBars: waveBars, makeRecognizer: makeRecognizer, srx: function () { return SR_X; }, clearTimers: clearTimers, timers: function (t) { timers.push(t); }, setSkill: function (k, v) { state.skills[k] = v; }
 };
 
 document.addEventListener('touchend', function once() { unlockAudio(); document.removeEventListener('touchend', once, true); }, true);

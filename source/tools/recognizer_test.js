@@ -63,4 +63,42 @@ startThrows=true;({r,log}=mk());r.start();t('refused start ends the session with
  cur().onresult({resultIndex:0,results:[Object.assign([{transcript:'hi there'}],{isFinal:true})]});cur().onerror({error:'no-speech'});cur().onend();
  t('classic passes text, error and end',lg.t[0].trim()==='hi there'&&lg.e[0]==='no-speech'&&lg.n[0].trim()==='hi there',lg);
  const c2=M.classic({text(){},error(){},end(){}});c2.start();t('classic: next sentence gets another recognizer',FakeSR.all.length===n0+2);}
-console.log(fail?('\n'+fail+' FAILED'):'\nALL PASSED');process.exit(fail?1:0);
+// 12. phone test switches for the spoken sample (speakNatural): default <audio>, x=synth browser voice, x=webaudio AudioContext
+const a2=src.indexOf('var activeRec = null;'),b2=src.indexOf('var liveRec = null;');
+const voiceCode=src.slice(a2,b2);
+function voiceEnv(x){
+  const E={audios:[],plays:[],ctx:[],spoken:[],toasts:[]};
+  class FakeAudio{constructor(){E.audios.push(this);this.paused=true}play(){E.plays.push(this.src);this.paused=false;return {catch(){},then(){}}}pause(){this.paused=true}}
+  class FakeCtx{constructor(){E.ctx.push(this);this.state='suspended';this.srcs=[]}resume(){this.state='running';return Promise.resolve()}suspend(){this.state='suspended';return Promise.resolve()}
+    decodeAudioData(buf,ok){ok({len:buf.byteLength})}
+    createBufferSource(){const s={playbackRate:{value:1},connect(){},start(){s.started=true},stop(){s.stopped=true;s.onended&&s.onended()}};this.srcs.push(s);return s}
+    get destination(){return {}}}
+  const win={AudioContext:FakeCtx,speechSynthesis:{speaking:false,pending:false,getVoices:()=>[],speak:u=>E.spoken.push(u.text),cancel(){},resume(){}}};
+  class Utt{constructor(t){this.text=t}}
+  const state={settings:{accent:'us',voiceMode:'natural'}};
+  const Api={call:()=>Promise.resolve({audio:Buffer.from('abcd').toString('base64'),rate:24000})};
+  const f=new Function('window','navigator','speechSynthesis','SpeechSynthesisUtterance','Audio','state','Api','BACKEND_READY','toast','$','syncSettings','SR_X','srDbg','audioSession','fetch','btoa','atob','URL','Blob','setTimeout','clearTimeout',
+    voiceCode+';return {speakNatural:speakNatural,stopSpeech:stopSpeech,unlockAudio:unlockAudio,cur:function(){return curAudio}}');
+  E.api=f(win,{userAgent:'iPhone',platform:'iPhone',maxTouchPoints:5},win.speechSynthesis,Utt,FakeAudio,state,Api,true,m=>E.toasts.push(m),()=>null,()=>{},x,()=>{},()=>{},
+    ()=>Promise.resolve({arrayBuffer:()=>Promise.resolve(new ArrayBuffer(8))}),s=>Buffer.from(s,'binary').toString('base64'),s=>Buffer.from(s,'base64').toString('binary'),{createObjectURL:()=>'blob:x'+Math.random()},class{constructor(p){this.p=p}},(fn)=>{fn();return 0},()=>{});
+  return E;
+}
+const flush=()=>new Promise(r=>setImmediate(r));
+(async()=>{
+  // default: the shared <audio> element plays the clip, no AudioContext, no browser voice
+  {const E=voiceEnv('');E.api.speakNatural([{s:0,t:'Hello there.'}],1,()=>{});for(let i=0;i<8;i++)await flush();
+   t('default: clip plays through <audio>',E.plays.length>=2&&E.ctx.length===0&&E.spoken.length===0,{plays:E.plays.length,ctx:E.ctx.length,spoken:E.spoken});}
+  // synth: browser voice only, no <audio> playback of the clip
+  {const E=voiceEnv('synth');E.api.speakNatural([{s:0,t:'Hello there.'}],1,()=>{});for(let i=0;i<8;i++)await flush();
+   t('x=synth: browser voice, no audio element',E.spoken.length===1&&E.plays.length===0,{plays:E.plays,spoken:E.spoken});}
+  // webaudio: clip through an AudioContext, <audio> never played, context paused after the clip, onEnd once
+  {const E=voiceEnv('webaudio');let ended=0;E.api.speakNatural([{s:0,t:'Hello there.'}],1,()=>ended++);for(let i=0;i<10;i++)await flush();
+   const c=E.ctx[0],s=c&&c.srcs[0];
+   t('x=webaudio: clip starts in an AudioContext, no <audio> playback',!!(s&&s.started)&&E.plays.length===0,{ctx:E.ctx.length,plays:E.plays.length});
+   if(s)s.onended();t('x=webaudio: onEnd once and the context is paused after the clip',ended===1&&c&&c.state==='suspended',{ended,state:c&&c.state});
+   // stopSpeech (the mic tap) stops a playing clip, pauses the context, and onEnd is not called
+   E.api.speakNatural([{s:0,t:'Second one.'}],1,()=>ended++);for(let i=0;i<10;i++)await flush();
+   const s2=c&&c.srcs[1];t('x=webaudio: second clip plays',!!(s2&&s2.started)&&c.state==='running',{n:c&&c.srcs.length,state:c&&c.state});
+   E.api.stopSpeech();t('x=webaudio: stopSpeech stops it, pauses the context, no onEnd',!!(s2&&s2.stopped)&&c.state==='suspended'&&ended===1&&E.api.cur()===null,{state:c&&c.state,ended});}
+  console.log(fail?('\n'+fail+' FAILED'):'\nALL PASSED');process.exit(fail?1:0);
+})();

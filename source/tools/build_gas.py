@@ -3,7 +3,7 @@ Paste these two files into the Apps Script editor instead of 30. Run: python3 to
 import re, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
 ORDER = ['Config','Common','Database','Auth','UserProfile','AIService','AdaptiveEngine','QuestionFactory','Seed','Placement',
-         'WordsService','SavedWords','GrammarSeed','GrammarSeedB1','Grammar','History','Tts','Plan','ProgressTracker','Practice','ConversationSeed', 'Conversation', 'Drill','Community','Api','Setup','Code']
+         'WordsService','SavedWords','GrammarSeed','GrammarSeedA1','GrammarSeedB1','GrammarSeedB2','GrammarSeedC1','Grammar','History','Tts','Plan','ProgressTracker','Practice','ConversationSeed', 'Conversation', 'Drill','Community','Api','Setup','Code']
 out = root / 'apps_script'; out.mkdir(exist_ok=True)
 parts = []
 for n in ORDER:

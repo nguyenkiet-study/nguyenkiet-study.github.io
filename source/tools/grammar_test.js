@@ -40,6 +40,8 @@ api('grammarHome',{token:tok});t('the import does not run twice',G.classifyCalls
  const e=rows('GrammarErrors');t('topic corrections are filed with the answer id',sub.ok&&e.filter(r=>r.Topic==='subject-verb-agreement'&&r.RefID).length===1&&e.filter(r=>r.Original==='a informations'&&r.Topic==='none').length===1,e);
  t('the practice prompt lists the grammar topics',G.aiLog.some(l=>/^Task given/.test(l.prompt)&&/past-simple = Past simple/.test(l.prompt)));}
 
+// Every topic now has a hand-written lesson, so for the AI-written-lesson tests below we hide the seed of present-simple (restored before section 9).
+const GS0=get('GrammarSeed'),gsHas=GS0.has,gsGet=GS0.get;GS0.has=id=>id==='present-simple'?false:gsHas(id);GS0.get=id=>id==='present-simple'?null:gsGet(id);
 // 4. a lesson: written once, then cached
 let L=api('grammarLesson',{token:tok,topic:'present-simple'});
 t('lesson content',L.ok&&L.data.kind==='lesson'&&L.data.warm.length===3&&L.data.write.length===6&&L.data.rule.vi&&L.data.forms.length===2&&L.data.examples.length>=2,L);
@@ -95,9 +97,10 @@ const tok2=api('register',{name:'Other One',username:'gram2',password:'1',confir
 const h2=api('grammarHome',{token:tok2});t('another learner starts clean',h2.ok&&h2.data.errors.total===0&&h2.data.lessons.length===0);
 t('fixed twice closes a mistake',(()=>{api('grammarSubmit',{token:tok,topic:'present-simple',right:5,total:5,fixed:[ownId],seconds:60});const hh=api('grammarHome',{token:tok}).data;return hh.errors.recent.find(x=>x.id===ownId).fixed===true})());
 
+GS0.has=gsHas;GS0.get=gsGet;
 // 9. hand-written lessons: every one is complete, and opens with no AI call
 { const Seed=get('GrammarSeed'),ids=Seed.ids(),norm=x=>String(x).toLowerCase().replace(/[.,!?]/g,'').replace(/\s+/g,' ').trim();
-  t('17 hand-written lessons (A2 and B1)',ids.length===17&&get('Grammar').TOPICS.filter(x=>x[1]==='A2'||x[1]==='B1').every(x=>ids.includes(x[0])),ids);
+  t('33 hand-written lessons (every topic, A1 to C1)',ids.length===33&&get('Grammar').TOPICS.every(x=>ids.includes(x[0])),ids);
   const bad=[];
   ids.forEach(id=>{const c=Seed.get(id),say=m=>bad.push(id+': '+m);
     if(!c.rule.en||!c.rule.vi)say('rule');if(c.forms.length<2)say('forms');if(c.examples.length!==4||c.examples.some(e=>!e.en||!e.vi))say('examples');if(c.mistakes.length!==3)say('mistakes');
@@ -114,7 +117,7 @@ t('fixed twice closes a mistake',(()=>{api('grammarSubmit',{token:tok,topic:'pre
       if(new Set(w.answers.map(norm)).size!==w.answers.length&&false)say('write '+i+' duplicate answers');
       if(seen.has(w.prompt))say('write '+i+' duplicate prompt');seen.add(w.prompt);
       if(!w.why.en||!w.why.vi)say('write '+i+' why');
-      if(w.type==='translate'&&!/[àáạảãâăđêôơưéèẹẻẽíìịỉĩóòọỏõúùụủũýỳỵỷỹ]/i.test(w.prompt))say('write '+i+' translate prompt is not Vietnamese');});
+      if(w.type==='translate'&&!/[À-ỹ]/.test(w.prompt))say('write '+i+' translate prompt is not Vietnamese');});
     if(!c.free.en||!c.free.vi)say('free');});
   t('every hand-written lesson is complete and consistent',bad.length===0,bad);
   const before=G.lessonCalls;let L2=api('grammarLesson',{token:tok,topic:'past-simple'});

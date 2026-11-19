@@ -3592,6 +3592,220 @@ var GrammarSeed = (function () {
 })();
 
 // ======================================================================
+// File: GrammarSeedA1.gs
+// ======================================================================
+/**
+ * GrammarSeedA1.gs
+ * Hand-written grammar lessons for the A1 topics. See GrammarSeed.gs for the short form.
+ */
+(function () {
+  var add = GrammarSeed.add;
+
+  add('be-present', {
+    rule: ["Use am with I, is with he, she, it and a singular noun, and are with you, we, they and plural nouns. In everyday speech we shorten them: I'm, he's, they're. For a negative add not (I am not, he isn't, they aren't). For a question put am, is or are before the subject: Are you ready? English always needs a verb here: Vietnamese can say 'Tôi nhân viên', but English must say I am an employee.",
+      "Dùng am với I, is với he, she, it và danh từ số ít, are với you, we, they và danh từ số nhiều. Khi nói nhanh ta rút gọn: I'm, he's, they're. Phủ định thêm not (I am not, he isn't, they aren't). Câu hỏi đặt am, is hoặc are trước chủ ngữ: Are you ready? Tiếng Anh luôn cần động từ ở đây: tiếng Việt có thể nói 'Tôi nhân viên', nhưng tiếng Anh phải nói I am an employee."],
+    forms: ["I am / You are / He, she, it is / We, you, they are", "Subject + am / is / are + not", "Am / Is / Are + subject + ...?"],
+    ex: [["I am a recruiter.", "Tôi là nhân viên tuyển dụng."], ["She is at the office today.", "Hôm nay cô ấy ở văn phòng."], ["We are not late.", "Chúng tôi không bị muộn."], ["Are they from Hanoi?", "Họ có phải người Hà Nội không?"]],
+    mis: [["She are a manager.", "She is a manager.", "She takes is.", "She đi với is."],
+      ["I am agree with you.", "I agree with you.", "Agree is already a verb, so do not add am.", "Agree đã là động từ nên không thêm am."],
+      ["Is you ready?", "Are you ready?", "You takes are, also in questions.", "You đi với are, cả trong câu hỏi."]],
+    warm: [["She ___ my manager.", ["is", "are", "am", "be"], "She takes is.", "She đi với is."],
+      ["We ___ in the meeting room.", ["are", "is", "am", "be"], "We takes are.", "We đi với are."],
+      ["___ you ready for the interview?", ["Are", "Is", "Am", "Do"], "A question with you starts with Are.", "Câu hỏi với you bắt đầu bằng Are."],
+      ["I ___ not late today.", ["am", "is", "are", "be"], "I takes am.", "I đi với am."]],
+    write: [
+      ["f", "", "He are a new employee.", ["He is a new employee."], "is", "He takes is.", "He đi với is."],
+      ["f", "", "I is happy today.", ["I am happy today.", "I'm happy today."], "am", "I takes am.", "I đi với am."],
+      ["t", "Make it negative.", "She is at work.", ["She isn't at work.", "She is not at work.", "She's not at work."], "isn't", "Negative: is + not, or isn't.", "Phủ định: is + not, hoặc isn't."],
+      ["v", "", "Tôi là nhân viên tuyển dụng.", ["I am a recruiter.", "I'm a recruiter.", "I am a recruitment officer."], "am", "I takes am, and we need a before a job.", "I đi với am, và trước nghề nghiệp cần có a."],
+      ["t", "Make it a question.", "You are ready.", ["Are you ready?"], "Are you", "Question: Are + subject.", "Câu hỏi: Are + chủ ngữ."],
+      ["v", "", "Họ không ở văn phòng hôm nay.", ["They aren't in the office today.", "They are not in the office today.", "They're not in the office today."], "aren't", "They takes are; negative is aren't or are not.", "They đi với are; phủ định là aren't hoặc are not."],
+      ["f", "", "Is they from Hanoi?", ["Are they from Hanoi?"], "Are they", "They takes are, also in questions.", "They đi với are, cả trong câu hỏi."],
+      ["t", "Make it negative.", "I am late.", ["I am not late.", "I'm not late."], "am not", "After I use am not. We do not say I amn't.", "Sau I dùng am not. Không nói I amn't."],
+      ["v", "", "Bạn có phải là quản lý không?", ["Are you a manager?"], "Are you", "Question: Are + you + a + job.", "Câu hỏi: Are + you + a + nghề nghiệp."],
+      ["f", "", "We is in the meeting room.", ["We are in the meeting room."], "are", "We takes are.", "We đi với are."],
+      ["t", "Make it a question.", "The report is ready.", ["Is the report ready?"], "Is the report", "Question: Is + subject.", "Câu hỏi: Is + chủ ngữ."],
+      ["v", "", "Cô ấy là bạn của tôi.", ["She is my friend.", "She's my friend.", "She is a friend of mine."], "is", "She takes is.", "She đi với is."]
+    ],
+    free: ["Write 3 to 5 sentences about yourself: your name, your job and where you are from. Use am, is and are.", "Viết 3 đến 5 câu về bản thân: tên, nghề nghiệp và bạn đến từ đâu. Dùng am, is và are."]
+  });
+
+  add('present-simple', {
+    rule: ["Use the present simple for habits, routines and facts: I start work at eight. The sun rises in the east. With he, she and it, add -s or -es to the verb (works, watches, studies). For a negative use do not (don't) or does not (doesn't) + base verb. For a question use Do or Does + subject + base verb. After does and doesn't the verb never takes -s.",
+      "Dùng hiện tại đơn cho thói quen, việc lặp lại và sự thật: I start work at eight. The sun rises in the east. Với he, she và it, thêm -s hoặc -es vào động từ (works, watches, studies). Phủ định dùng do not (don't) hoặc does not (doesn't) + động từ nguyên mẫu. Câu hỏi dùng Do hoặc Does + chủ ngữ + động từ nguyên mẫu. Sau does và doesn't động từ không thêm -s."],
+    forms: ["I / You / We / They + base verb; He / She / It + verb-s", "Subject + do not (don't) / does not (doesn't) + base verb", "Do / Does + subject + base verb?"],
+    ex: [["I start work at eight o'clock.", "Tôi bắt đầu làm việc lúc tám giờ."], ["She works in a bank.", "Cô ấy làm việc ở ngân hàng."], ["He doesn't drink coffee.", "Anh ấy không uống cà phê."], ["Do you speak English at work?", "Bạn có nói tiếng Anh ở nơi làm việc không?"]],
+    mis: [["She work in an office.", "She works in an office.", "With she, the verb takes -s.", "Với she, động từ thêm -s."],
+      ["He doesn't works here.", "He doesn't work here.", "After doesn't, use the base verb.", "Sau doesn't dùng động từ nguyên mẫu."],
+      ["Do she like tea?", "Does she like tea?", "With she, the question starts with Does.", "Với she, câu hỏi bắt đầu bằng Does."]],
+    warm: [["She ___ at eight o'clock every day.", ["starts", "start", "starting", "is start"], "With she, add -s.", "Với she, thêm -s."],
+      ["I ___ coffee in the morning.", ["drink", "drinks", "drinking", "am drink"], "With I, use the base verb.", "Với I, dùng động từ nguyên mẫu."],
+      ["He doesn't ___ English at work.", ["speak", "speaks", "speaking", "spoke"], "After doesn't, use the base verb.", "Sau doesn't dùng động từ nguyên mẫu."],
+      ["___ they work on Saturday?", ["Do", "Does", "Are", "Is"], "With they, use Do.", "Với they, dùng Do."]],
+    write: [
+      ["f", "", "She work in a bank.", ["She works in a bank."], "works", "With she, add -s.", "Với she, thêm -s."],
+      ["f", "", "He don't like fish.", ["He doesn't like fish.", "He does not like fish."], "doesn't", "With he, use doesn't.", "Với he, dùng doesn't."],
+      ["t", "Make it negative.", "They start at eight.", ["They don't start at eight.", "They do not start at eight."], "don't start", "Negative: don't + base verb.", "Phủ định: don't + động từ nguyên mẫu."],
+      ["v", "", "Tôi uống cà phê mỗi sáng.", ["I drink coffee every morning.", "Every morning I drink coffee.", "I drink coffee in the morning."], "drink", "A habit: present simple.", "Thói quen: hiện tại đơn."],
+      ["t", "Make it a question.", "She works on Saturday.", ["Does she work on Saturday?"], "Does she work", "Question: Does + subject + base verb.", "Câu hỏi: Does + chủ ngữ + động từ nguyên mẫu."],
+      ["v", "", "Anh ấy không làm việc ở Hà Nội.", ["He doesn't work in Hanoi.", "He does not work in Hanoi."], "doesn't work", "Negative: doesn't + base verb.", "Phủ định: doesn't + động từ nguyên mẫu."],
+      ["f", "", "Do he live near the office?", ["Does he live near the office?"], "Does he live", "With he, the question starts with Does.", "Với he, câu hỏi bắt đầu bằng Does."],
+      ["f", "", "My sister go to school by bus.", ["My sister goes to school by bus."], "goes", "Go takes -es with he, she, it.", "Go thêm -es với he, she, it."],
+      ["t", "Make it negative.", "He likes tea.", ["He doesn't like tea.", "He does not like tea."], "doesn't like", "After doesn't, the verb loses its -s.", "Sau doesn't, động từ bỏ -s."],
+      ["v", "", "Bạn có nói tiếng Anh ở công ty không?", ["Do you speak English at work?", "Do you speak English at the company?", "Do you speak English in the office?"], "Do you speak", "Question: Do + you + base verb.", "Câu hỏi: Do + you + động từ nguyên mẫu."],
+      ["f", "", "She studys English every evening.", ["She studies English every evening."], "studies", "Consonant + y becomes -ies.", "Phụ âm + y đổi thành -ies."],
+      ["v", "", "Cửa hàng mở cửa lúc chín giờ.", ["The shop opens at nine o'clock.", "The shop opens at nine.", "The store opens at nine."], "opens", "With a singular subject, add -s.", "Với chủ ngữ số ít, thêm -s."]
+    ],
+    free: ["Write 3 to 5 sentences about your daily routine at work. Use the present simple.", "Viết 3 đến 5 câu về thói quen hằng ngày ở nơi làm việc. Dùng hiện tại đơn."]
+  });
+
+  add('articles', {
+    rule: ["Use a before a consonant sound and an before a vowel sound: a manager, an engineer, an hour (silent h), a university (it starts with the sound /j/). Use a or an for one thing that is new or not specific. Use the when both speaker and listener know which thing: Close the door. English singular countable nouns need an article or another word like my or this. Vietnamese has no articles, so this is easy to forget.",
+      "Dùng a trước âm phụ âm và an trước âm nguyên âm: a manager, an engineer, an hour (h câm), a university (bắt đầu bằng âm /j/). Dùng a hoặc an cho một vật mới hoặc chưa xác định. Dùng the khi người nói và người nghe đều biết đó là vật nào: Close the door. Danh từ đếm được số ít trong tiếng Anh cần mạo từ hoặc từ khác như my, this. Tiếng Việt không có mạo từ nên rất dễ quên."],
+    forms: ["a + consonant sound: a manager, a university", "an + vowel sound: an engineer, an hour", "the + a specific thing: the door, the report"],
+    ex: [["I need a pen.", "Tôi cần một cây bút."], ["She has an umbrella.", "Cô ấy có một cái ô."], ["The manager is in the meeting room.", "Quản lý đang ở phòng họp."], ["He is an honest man.", "Anh ấy là một người trung thực."]],
+    mis: [["She is a engineer.", "She is an engineer.", "Engineer starts with a vowel sound, so use an.", "Engineer bắt đầu bằng âm nguyên âm nên dùng an."],
+      ["I work in office.", "I work in an office.", "A singular countable noun needs a or an.", "Danh từ đếm được số ít cần a hoặc an."],
+      ["I need an university card.", "I need a university card.", "University starts with the sound /j/, so use a.", "University bắt đầu bằng âm /j/ nên dùng a."]],
+    warm: [["She is ___ engineer.", ["an", "a", "the", "some"], "Engineer starts with a vowel sound.", "Engineer bắt đầu bằng âm nguyên âm."],
+      ["I have ___ appointment at ten.", ["an", "a", "the", "any"], "Appointment starts with a vowel sound.", "Appointment bắt đầu bằng âm nguyên âm."],
+      ["Please close ___ door.", ["the", "a", "an", "one"], "Both of us know which door.", "Cả hai đều biết cửa nào."],
+      ["He is ___ honest man.", ["an", "a", "the", "any"], "The h in honest is silent, so it starts with a vowel sound.", "Chữ h trong honest là âm câm nên bắt đầu bằng âm nguyên âm."]],
+    write: [
+      ["f", "", "He is a engineer.", ["He is an engineer."], "an engineer", "Engineer starts with a vowel sound.", "Engineer bắt đầu bằng âm nguyên âm."],
+      ["f", "", "I work in office.", ["I work in an office."], "an office", "A singular countable noun needs a or an.", "Danh từ đếm được số ít cần a hoặc an."],
+      ["t", "Change a to the, because we know which one.", "I need a document.", ["I need the document."], "the document", "Use the for a specific thing both people know.", "Dùng the cho vật cụ thể mà cả hai đều biết."],
+      ["v", "", "Tôi có một cuộc hẹn lúc mười giờ.", ["I have an appointment at ten o'clock.", "I have an appointment at ten."], "an appointment", "Appointment starts with a vowel sound: an.", "Appointment bắt đầu bằng âm nguyên âm: an."],
+      ["t", "Rewrite as one thing, with a or an.", "I have two umbrellas.", ["I have an umbrella."], "an umbrella", "Umbrella starts with a vowel sound: an.", "Umbrella bắt đầu bằng âm nguyên âm: an."],
+      ["v", "", "Cô ấy là một giáo viên.", ["She is a teacher."], "a teacher", "A job needs a or an in English.", "Nghề nghiệp trong tiếng Anh cần a hoặc an."],
+      ["f", "", "Please open door.", ["Please open the door."], "the door", "A specific door needs the.", "Cái cửa cụ thể cần the."],
+      ["f", "", "I need an university card.", ["I need a university card."], "a university", "University starts with the sound /j/: use a.", "University bắt đầu bằng âm /j/: dùng a."],
+      ["t", "Change a to the where we mean the same one.", "I bought a laptop. A laptop is very light.", ["I bought a laptop. The laptop is very light."], "The laptop", "The second time we mention it, use the.", "Nhắc lần thứ hai thì dùng the."],
+      ["v", "", "Anh ấy là một người đàn ông trung thực.", ["He is an honest man."], "an honest", "Honest starts with a vowel sound: an.", "Honest bắt đầu bằng âm nguyên âm: an."],
+      ["f", "", "She has apple and banana.", ["She has an apple and a banana."], "an apple", "Each singular noun needs a or an.", "Mỗi danh từ số ít cần a hoặc an."],
+      ["v", "", "Làm ơn đóng cửa sổ lại.", ["Please close the window.", "Close the window, please."], "the window", "A specific window needs the.", "Cái cửa sổ cụ thể cần the."]
+    ],
+    free: ["Write 3 to 5 sentences about your office or your desk. Use a, an and the.", "Viết 3 đến 5 câu về văn phòng hoặc bàn làm việc của bạn. Dùng a, an và the."]
+  });
+
+  add('plurals', {
+    rule: ["Most nouns add -s for the plural: report, reports. After s, x, ch and sh add -es: box, boxes; watch, watches. After a consonant + y change y to -ies: company, companies. Some common nouns are irregular: man, men; woman, women; child, children; person, people. Use a plural after two, three, many and a lot of. Vietnamese does not change the noun, so remember the -s.",
+      "Hầu hết danh từ thêm -s để thành số nhiều: report, reports. Sau s, x, ch và sh thêm -es: box, boxes; watch, watches. Sau phụ âm + y đổi y thành -ies: company, companies. Một số danh từ thông dụng bất quy tắc: man, men; woman, women; child, children; person, people. Dùng số nhiều sau two, three, many và a lot of. Tiếng Việt không đổi danh từ nên dễ quên thêm -s."],
+    forms: ["noun + -s: report, reports", "s, x, ch, sh + -es: box, boxes", "consonant + y: -ies; irregular: man, men; child, children"],
+    ex: [["We have two meetings today.", "Hôm nay chúng tôi có hai cuộc họp."], ["There are three boxes on the desk.", "Có ba cái hộp trên bàn."], ["She has two companies.", "Cô ấy có hai công ty."], ["The children are at school.", "Bọn trẻ đang ở trường."]],
+    mis: [["I have two brother.", "I have two brothers.", "After two, use the plural: brothers.", "Sau two dùng số nhiều: brothers."],
+      ["There are three box.", "There are three boxes.", "Box ends in x, so add -es.", "Box tận cùng là x nên thêm -es."],
+      ["Two childs are here.", "Two children are here.", "Child has an irregular plural: children.", "Child có số nhiều bất quy tắc: children."]],
+    warm: [["We have two ___ in the team.", ["managers", "manager", "manageres", "managerses"], "Add -s after two.", "Thêm -s sau two."],
+      ["There are three ___ on the table.", ["boxes", "boxs", "box", "boxies"], "Box ends in x: add -es.", "Box tận cùng là x: thêm -es."],
+      ["Two ___ are in the office.", ["women", "womans", "womens", "woman"], "Woman has an irregular plural: women.", "Woman có số nhiều bất quy tắc: women."],
+      ["She has five ___.", ["children", "childs", "childrens", "child"], "Child has an irregular plural: children.", "Child có số nhiều bất quy tắc: children."]],
+    write: [
+      ["f", "", "I have two brother.", ["I have two brothers."], "brothers", "After two, use the plural.", "Sau two dùng số nhiều."],
+      ["f", "", "There are three box on the desk.", ["There are three boxes on the desk."], "boxes", "Box ends in x: add -es.", "Box tận cùng là x: thêm -es."],
+      ["t", "Make it plural.", "The child is in the room.", ["The children are in the room."], "children are", "Child becomes children, and is becomes are.", "Child thành children, và is thành are."],
+      ["v", "", "Chúng tôi có hai cuộc họp hôm nay.", ["We have two meetings today.", "We have two meetings this day."], "meetings", "After two, use the plural.", "Sau two dùng số nhiều."],
+      ["t", "Make it plural.", "This is my friend.", ["These are my friends."], "friends", "This becomes these, and the noun takes -s.", "This thành these, và danh từ thêm -s."],
+      ["v", "", "Có năm phụ nữ trong phòng.", ["There are five women in the room."], "women", "Woman has an irregular plural: women.", "Woman có số nhiều bất quy tắc: women."],
+      ["f", "", "The childs are at school.", ["The children are at school."], "children", "Child has an irregular plural: children.", "Child có số nhiều bất quy tắc: children."],
+      ["f", "", "She has two company.", ["She has two companies."], "companies", "Consonant + y becomes -ies.", "Phụ âm + y đổi thành -ies."],
+      ["t", "Make it plural.", "I have a new phone.", ["I have new phones.", "We have new phones."], "phones", "Take away a and add -s.", "Bỏ a và thêm -s."],
+      ["v", "", "Những người này làm việc ở Hà Nội.", ["These people work in Hanoi."], "people", "Person has the plural people, and the verb has no -s.", "Person có số nhiều là people, và động từ không thêm -s."],
+      ["f", "", "She has two watch.", ["She has two watches."], "watches", "Watch ends in ch: add -es.", "Watch tận cùng là ch: thêm -es."],
+      ["v", "", "Tôi có ba đứa con.", ["I have three children."], "children", "Child has an irregular plural: children.", "Child có số nhiều bất quy tắc: children."]
+    ],
+    free: ["Write 3 to 5 sentences about the things and people in your office. Use plural nouns.", "Viết 3 đến 5 câu về đồ vật và con người trong văn phòng của bạn. Dùng danh từ số nhiều."]
+  });
+
+  add('there-is', {
+    rule: ["Use there is for one thing or an uncountable thing, and there are for more than one: There is a meeting at ten. There are three desks here. Negatives are there isn't and there aren't. Questions put is or are first: Is there a printer? Are there any chairs? In Vietnamese we say 'Có ...', but English cannot start with have here: say There is, not Have.",
+      "Dùng there is cho một vật hoặc danh từ không đếm được, và there are cho nhiều hơn một: There is a meeting at ten. There are three desks here. Phủ định là there isn't và there aren't. Câu hỏi đặt is hoặc are lên trước: Is there a printer? Are there any chairs? Tiếng Việt nói 'Có ...', nhưng tiếng Anh không bắt đầu bằng have ở đây: nói There is, không nói Have."],
+    forms: ["There is + singular / uncountable noun", "There are + plural noun", "There isn't / aren't (any) + noun; Is / Are there (any) + noun?"],
+    ex: [["There is a meeting at ten.", "Có một cuộc họp lúc mười giờ."], ["There are three desks in the room.", "Có ba cái bàn trong phòng."], ["There isn't a printer on this floor.", "Không có máy in ở tầng này."], ["Are there any chairs in the room?", "Trong phòng có cái ghế nào không?"]],
+    mis: [["Have a coffee machine in the office.", "There is a coffee machine in the office.", "Do not use have for existence: use there is.", "Không dùng have để nói 'có': dùng there is."],
+      ["There is two desks.", "There are two desks.", "Two desks is plural: there are.", "Two desks là số nhiều: there are."],
+      ["There are not a printer.", "There isn't a printer.", "One thing: there isn't.", "Một vật: there isn't."]],
+    warm: [["___ a meeting at ten.", ["There is", "There are", "It is", "Have"], "One meeting: there is.", "Một cuộc họp: there is."],
+      ["___ three desks here.", ["There are", "There is", "They are", "Have"], "Plural: there are.", "Số nhiều: there are."],
+      ["___ there a printer on this floor?", ["Is", "Are", "Do", "Has"], "One printer: Is there.", "Một máy in: Is there."],
+      ["There ___ any water in the bottle.", ["isn't", "aren't", "don't", "hasn't"], "Water is uncountable: there isn't.", "Water không đếm được: there isn't."]],
+    write: [
+      ["f", "", "Have a meeting tomorrow.", ["There is a meeting tomorrow."], "There is", "To say something exists, use there is.", "Nói 'có' thì dùng there is."],
+      ["f", "", "There is five people in the room.", ["There are five people in the room."], "There are", "Five people is plural: there are.", "Five people là số nhiều: there are."],
+      ["t", "Make it negative.", "There is a printer in the office.", ["There isn't a printer in the office.", "There is not a printer in the office.", "There's no printer in the office."], "There isn't", "Negative: there isn't.", "Phủ định: there isn't."],
+      ["v", "", "Có hai cái ghế trong phòng.", ["There are two chairs in the room."], "There are", "Two chairs is plural: there are.", "Two chairs là số nhiều: there are."],
+      ["t", "Make it a question.", "There is a bank near here.", ["Is there a bank near here?"], "Is there", "Question: Is there + noun.", "Câu hỏi: Is there + danh từ."],
+      ["v", "", "Không có nước trong chai.", ["There isn't any water in the bottle.", "There is no water in the bottle.", "There's no water in the bottle."], "There isn't", "Uncountable noun: there isn't any.", "Danh từ không đếm được: there isn't any."],
+      ["f", "", "There are a coffee machine on the second floor.", ["There is a coffee machine on the second floor."], "There is", "One machine: there is.", "Một cái máy: there is."],
+      ["f", "", "Is there two meeting rooms?", ["Are there two meeting rooms?"], "Are there", "Two rooms is plural: Are there.", "Two rooms là số nhiều: Are there."],
+      ["t", "Make it negative.", "There are chairs in the room.", ["There aren't any chairs in the room.", "There are no chairs in the room.", "There are not any chairs in the room."], "There aren't", "Plural negative: there aren't any.", "Phủ định số nhiều: there aren't any."],
+      ["v", "", "Có một nhà hàng gần văn phòng không?", ["Is there a restaurant near the office?"], "Is there", "Question: Is there + noun.", "Câu hỏi: Is there + danh từ."],
+      ["f", "", "There isn't any desks.", ["There aren't any desks."], "aren't", "Desks is plural: aren't.", "Desks là số nhiều: aren't."],
+      ["v", "", "Có ba người trong phòng họp.", ["There are three people in the meeting room."], "There are", "Three people is plural: there are.", "Three people là số nhiều: there are."]
+    ],
+    free: ["Write 3 to 5 sentences about what there is in your office or your home. Use there is and there are.", "Viết 3 đến 5 câu về những thứ có trong văn phòng hoặc nhà bạn. Dùng there is và there are."]
+  });
+
+  add('prepositions-time-place', {
+    rule: ["For time: use at with clock times and points in the day (at nine o'clock, at night), on with days and dates (on Monday, on 5 May) and in with months, years, seasons and parts of the day (in June, in 2026, in the morning). For place: use at for a point (at the office), in for inside an area or a space (in Hanoi, in the room) and on for a surface (on the table). We say in the morning but at night.",
+      "Chỉ thời gian: dùng at với giờ và thời điểm trong ngày (at nine o'clock, at night), on với thứ và ngày (on Monday, on 5 May), in với tháng, năm, mùa và buổi trong ngày (in June, in 2026, in the morning). Chỉ nơi chốn: dùng at cho một điểm (at the office), in cho bên trong một khu vực hoặc không gian (in Hanoi, in the room) và on cho bề mặt (on the table). Ta nói in the morning nhưng at night."],
+    forms: ["at + clock time / point: at nine, at night, at the office", "on + day / date / surface: on Monday, on the table", "in + month / year / part of day / area: in June, in 2026, in Hanoi"],
+    ex: [["The meeting is at nine o'clock.", "Cuộc họp lúc chín giờ."], ["See you on Monday.", "Hẹn gặp bạn vào thứ Hai."], ["My birthday is in June.", "Sinh nhật tôi vào tháng Sáu."], ["The report is on the table.", "Bản báo cáo ở trên bàn."]],
+    mis: [["I work in Monday.", "I work on Monday.", "Days use on.", "Thứ dùng on."],
+      ["The meeting is on 9 o'clock.", "The meeting is at 9 o'clock.", "Clock times use at.", "Giờ đồng hồ dùng at."],
+      ["She lives at Hanoi.", "She lives in Hanoi.", "A city is an area, so use in.", "Thành phố là một khu vực nên dùng in."]],
+    warm: [["The meeting is ___ 9 o'clock.", ["at", "in", "on", "to"], "Clock times use at.", "Giờ đồng hồ dùng at."],
+      ["My birthday is ___ June.", ["in", "on", "at", "of"], "Months use in.", "Tháng dùng in."],
+      ["See you ___ Monday.", ["on", "in", "at", "by"], "Days use on.", "Thứ dùng on."],
+      ["She lives ___ Hanoi.", ["in", "at", "on", "to"], "A city: in.", "Thành phố: in."]],
+    write: [
+      ["f", "", "The meeting is in 9 o'clock.", ["The meeting is at 9 o'clock."], "at 9", "Clock times use at.", "Giờ đồng hồ dùng at."],
+      ["f", "", "We have a class in Monday.", ["We have a class on Monday."], "on Monday", "Days use on.", "Thứ dùng on."],
+      ["t", "Change the day to Friday.", "The meeting is on Monday.", ["The meeting is on Friday."], "on Friday", "Days use on.", "Thứ dùng on."],
+      ["v", "", "Cuộc họp bắt đầu lúc chín giờ.", ["The meeting starts at nine o'clock.", "The meeting starts at nine.", "The meeting begins at nine o'clock."], "at nine", "Clock times use at.", "Giờ đồng hồ dùng at."],
+      ["t", "Change the place to Hanoi.", "She lives in Bac Ninh.", ["She lives in Hanoi."], "in Hanoi", "A city uses in.", "Thành phố dùng in."],
+      ["v", "", "Sinh nhật của tôi vào tháng Sáu.", ["My birthday is in June."], "in June", "Months use in.", "Tháng dùng in."],
+      ["f", "", "He lives at Hanoi.", ["He lives in Hanoi."], "in Hanoi", "A city is an area: use in.", "Thành phố là khu vực: dùng in."],
+      ["f", "", "The report is in the table.", ["The report is on the table."], "on the table", "A surface uses on.", "Bề mặt dùng on."],
+      ["t", "Change the time to the morning.", "I study English at night.", ["I study English in the morning."], "in the morning", "Parts of the day use in (but at night).", "Buổi trong ngày dùng in (nhưng at night)."],
+      ["v", "", "Hẹn gặp bạn vào thứ Hai nhé.", ["See you on Monday.", "I will see you on Monday."], "on Monday", "Days use on.", "Thứ dùng on."],
+      ["f", "", "I am at home in Sunday.", ["I am at home on Sunday."], "on Sunday", "Days use on.", "Thứ dùng on."],
+      ["v", "", "Chúng tôi làm việc ở văn phòng.", ["We work at the office.", "We work in the office.", "We work in an office.", "We work at an office."], "at the office", "At for a workplace as a point; in for inside the room.", "At cho nơi làm việc như một điểm; in cho bên trong căn phòng."]
+    ],
+    free: ["Write 3 to 5 sentences about your week: the days, the times and the places you work. Use in, on and at.", "Viết 3 đến 5 câu về tuần làm việc của bạn: các ngày, giờ và nơi bạn làm việc. Dùng in, on và at."]
+  });
+
+  add('can', {
+    rule: ["Use can + base verb for ability and for asking or giving permission: She can speak English. Can I open the window? The negative is can't (cannot). For a question put Can before the subject: Can you help me? Can has the same form for every person: he can, not he cans. After can use the base verb, with no to and no -s.",
+      "Dùng can + động từ nguyên mẫu cho khả năng và để xin hoặc cho phép: She can speak English. Can I open the window? Phủ định là can't (cannot). Câu hỏi đặt Can trước chủ ngữ: Can you help me? Can giữ nguyên dạng với mọi ngôi: he can, không phải he cans. Sau can dùng động từ nguyên mẫu, không có to và không có -s."],
+    forms: ["Subject + can + base verb", "Subject + can't (cannot) + base verb", "Can + subject + base verb?"],
+    ex: [["She can speak three languages.", "Cô ấy nói được ba thứ tiếng."], ["I can't see the screen.", "Tôi không nhìn thấy màn hình."], ["Can you help me, please?", "Bạn có thể giúp tôi được không?"], ["He can drive a truck.", "Anh ấy lái được xe tải."]],
+    mis: [["She can speaks English.", "She can speak English.", "After can, use the base verb.", "Sau can dùng động từ nguyên mẫu."],
+      ["I can to drive.", "I can drive.", "No to after can.", "Sau can không có to."],
+      ["He cans swim.", "He can swim.", "Can never takes -s.", "Can không bao giờ thêm -s."]],
+    warm: [["She can ___ three languages.", ["speak", "speaks", "speaking", "to speak"], "After can, use the base verb.", "Sau can dùng động từ nguyên mẫu."],
+      ["I ___ drive a car.", ["can't", "don't can", "not can", "can't to"], "Negative: can't.", "Phủ định: can't."],
+      ["___ you help me, please?", ["Can", "Do", "Are", "Does"], "A request: Can + subject.", "Lời nhờ: Can + chủ ngữ."],
+      ["He ___ swim very well.", ["can", "cans", "can to", "is can"], "Can does not change with he.", "Can không đổi với he."]],
+    write: [
+      ["f", "", "She can speaks English.", ["She can speak English."], "can speak", "After can, use the base verb.", "Sau can dùng động từ nguyên mẫu."],
+      ["f", "", "I can to drive a car.", ["I can drive a car."], "can drive", "No to after can.", "Sau can không có to."],
+      ["t", "Make it negative.", "He can swim.", ["He can't swim.", "He cannot swim.", "He can not swim."], "can't", "Negative: can't.", "Phủ định: can't."],
+      ["v", "", "Tôi có thể nói tiếng Anh.", ["I can speak English."], "can speak", "Ability: can + base verb.", "Khả năng: can + động từ nguyên mẫu."],
+      ["t", "Make it a question.", "You can help me.", ["Can you help me?"], "Can you", "Question: Can + subject.", "Câu hỏi: Can + chủ ngữ."],
+      ["v", "", "Cô ấy không thể đến buổi họp.", ["She can't come to the meeting.", "She cannot come to the meeting.", "She can't attend the meeting.", "She cannot attend the meeting."], "can't", "Negative: can't + base verb.", "Phủ định: can't + động từ nguyên mẫu."],
+      ["f", "", "He cans use this software.", ["He can use this software."], "can use", "Can never takes -s.", "Can không bao giờ thêm -s."],
+      ["f", "", "Can she speaks French?", ["Can she speak French?"], "Can she speak", "After can, use the base verb.", "Sau can dùng động từ nguyên mẫu."],
+      ["t", "Make it negative.", "I can see the screen.", ["I can't see the screen.", "I cannot see the screen."], "can't see", "Negative: can't + base verb.", "Phủ định: can't + động từ nguyên mẫu."],
+      ["v", "", "Bạn có thể giúp tôi được không?", ["Can you help me?", "Can you help me, please?"], "Can you help", "Question: Can + you + base verb.", "Câu hỏi: Can + you + động từ nguyên mẫu."],
+      ["f", "", "They can't to work on Sunday.", ["They can't work on Sunday."], "can't work", "No to after can't.", "Sau can't không có to."],
+      ["v", "", "Anh ấy có thể lái xe tải.", ["He can drive a truck.", "He can drive a lorry."], "can drive", "Can does not change with he.", "Can không đổi với he."]
+    ],
+    free: ["Write 3 to 5 sentences about what you can do and what you can't do. Use can and can't.", "Viết 3 đến 5 câu về những việc bạn làm được và không làm được. Dùng can và can't."]
+  });
+})();
+
+// ======================================================================
 // File: GrammarSeedB1.gs
 // ======================================================================
 /**
@@ -3860,6 +4074,289 @@ var GrammarSeed = (function () {
       ["v", "", "Cô ấy đang dần quen với văn phòng mới.", ["She is getting used to the new office.", "She is getting used to her new office."], "getting used to", "Becoming comfortable: get used to + noun.", "Dần quen: get used to + danh từ."]
     ],
     free: ["Write 3 to 5 sentences about how your life has changed: things you used to do, and things you are used to doing now.", "Viết 3 đến 5 câu về việc cuộc sống của bạn đã thay đổi thế nào: những việc trước đây bạn từng làm, và những việc bây giờ bạn đã quen."]
+  });
+})();
+
+// ======================================================================
+// File: GrammarSeedB2.gs
+// ======================================================================
+/**
+ * GrammarSeedB2.gs
+ * Hand-written grammar lessons for the B2 topics. See GrammarSeed.gs for the short form.
+ */
+(function () {
+  var add = GrammarSeed.add;
+
+  add('present-perfect-continuous', {
+    rule: ["Use have / has been + verb-ing for an action that started in the past and is still going on, often with for or since: I have been working here for three years. Use it also for an action that has just stopped when you can still see the result: It has been raining, so the road is wet. It stresses the activity and how long it lasts; the present perfect stresses the result or the number: I have written five emails. Do not use it with state verbs like know, like, have (possession) or want: say I have known him for ten years.",
+      "Dùng have / has been + động từ thêm -ing cho hành động bắt đầu trong quá khứ và vẫn đang tiếp diễn, thường đi với for hoặc since: I have been working here for three years. Cũng dùng cho hành động vừa dừng mà bạn còn thấy kết quả: It has been raining, so the road is wet. Thì này nhấn mạnh hoạt động và thời gian kéo dài; hiện tại hoàn thành nhấn mạnh kết quả hoặc số lượng: I have written five emails. Không dùng với động từ chỉ trạng thái như know, like, have (sở hữu) hay want: nói I have known him for ten years."],
+    forms: ["Subject + have / has been + verb-ing", "Subject + haven't / hasn't been + verb-ing", "Have / Has + subject + been + verb-ing? (How long have you been ...?)"],
+    ex: [["I have been working here for three years.", "Tôi đã làm việc ở đây được ba năm rồi."], ["She has been waiting since nine o'clock.", "Cô ấy đã chờ từ chín giờ."], ["Have you been learning English for long?", "Bạn học tiếng Anh lâu chưa?"], ["It has been raining all day, so the road is wet.", "Trời mưa suốt cả ngày nên đường ướt."]],
+    mis: [["I am working here since 2022.", "I have been working here since 2022.", "Since shows a period up to now: use have been + verb-ing.", "Since chỉ khoảng thời gian đến nay: dùng have been + động từ thêm -ing."],
+      ["She has been wait for an hour.", "She has been waiting for an hour.", "After been, use verb-ing.", "Sau been dùng động từ thêm -ing."],
+      ["How long do you learn English?", "How long have you been learning English?", "A period up to now needs the present perfect continuous.", "Khoảng thời gian đến nay cần hiện tại hoàn thành tiếp diễn."]],
+    warm: [["We ___ for the client since nine.", ["have been waiting", "are waiting", "waited", "wait"], "Since nine up to now: have been waiting.", "Từ chín giờ đến nay: have been waiting."],
+      ["She ___ here for two years.", ["has been working", "is working", "works", "worked"], "For two years up to now: has been working.", "Hai năm đến nay: has been working."],
+      ["How long ___ you been learning English?", ["have", "do", "did", "are"], "Question: How long have you been ...?", "Câu hỏi: How long have you been ...?"],
+      ["He is tired because he ___ all night.", ["has been working", "works", "is working", "worked"], "An action that just stopped, with a visible result.", "Hành động vừa dừng, còn thấy kết quả."]],
+    write: [
+      ["f", "", "I am studying English since January.", ["I have been studying English since January."], "have been studying", "Since + a period up to now: have been + verb-ing.", "Since + khoảng thời gian đến nay: have been + động từ thêm -ing."],
+      ["f", "", "She has been wait for the bus for twenty minutes.", ["She has been waiting for the bus for twenty minutes."], "been waiting", "After been, use verb-ing.", "Sau been dùng động từ thêm -ing."],
+      ["t", "Rewrite with: have been", "I started working here in 2023 and I still work here.", ["I have been working here since 2023.", "I've been working here since 2023."], "been working", "An action from 2023 up to now: have been + verb-ing.", "Hành động từ 2023 đến nay: have been + động từ thêm -ing."],
+      ["v", "", "Chúng tôi đã tuyển dụng cho vị trí này suốt ba tuần nay.", ["We have been recruiting for this position for three weeks.", "We have been hiring for this position for three weeks.", "We have been recruiting for this role for three weeks."], "been recruiting", "A period up to now: have been + verb-ing.", "Khoảng thời gian đến nay: have been + động từ thêm -ing."],
+      ["t", "Make it a question.", "He has been living in Hanoi for five years.", ["Has he been living in Hanoi for five years?", "How long has he been living in Hanoi?"], "Has he been", "Question: Has + subject + been + verb-ing.", "Câu hỏi: Has + chủ ngữ + been + động từ thêm -ing."],
+      ["v", "", "Trời đã mưa suốt cả ngày.", ["It has been raining all day.", "It has been raining the whole day."], "been raining", "An activity that continued up to now.", "Hoạt động kéo dài đến nay."],
+      ["f", "", "How long do you work at this company?", ["How long have you been working at this company?"], "have you been working", "How long up to now: have you been + verb-ing.", "How long đến nay: have you been + động từ thêm -ing."],
+      ["f", "", "They have been discuss the plan since morning.", ["They have been discussing the plan since morning."], "been discussing", "After been, use verb-ing.", "Sau been dùng động từ thêm -ing."],
+      ["t", "Make it negative.", "She has been sleeping well.", ["She hasn't been sleeping well.", "She has not been sleeping well."], "hasn't been", "Negative: hasn't been + verb-ing.", "Phủ định: hasn't been + động từ thêm -ing."],
+      ["v", "", "Tôi đã học tiếng Anh từ năm 2020.", ["I have been learning English since 2020.", "I have been studying English since 2020.", "I've been learning English since 2020."], "been learning", "Since + a year: have been + verb-ing.", "Since + năm: have been + động từ thêm -ing."],
+      ["f", "", "I have been knowing him for ten years.", ["I have known him for ten years."], "have known", "Know is a state verb: use the present perfect, not the continuous.", "Know là động từ chỉ trạng thái: dùng hiện tại hoàn thành, không dùng tiếp diễn."],
+      ["v", "", "Bạn đã chờ bao lâu rồi?", ["How long have you been waiting?", "How long have you been waiting for?"], "have you been waiting", "How long up to now: have you been + verb-ing.", "How long đến nay: have you been + động từ thêm -ing."]
+    ],
+    free: ["Write 3 to 5 sentences about something you have been doing for a long time (work, study, a hobby). Use have been + verb-ing with for or since.", "Viết 3 đến 5 câu về việc bạn đã làm trong thời gian dài (công việc, học tập, sở thích). Dùng have been + động từ thêm -ing với for hoặc since."]
+  });
+
+  add('past-perfect', {
+    rule: ["Use had + past participle for an action that happened before another action or time in the past. The two actions are in the past, and the past perfect is the earlier one: When I arrived, the meeting had already started. It is common with already, just, never, before, after, by the time and when. The negative is hadn't + past participle and the question is Had + subject + past participle? Do not use the past perfect for a single past action with no second event.",
+      "Dùng had + quá khứ phân từ cho hành động xảy ra trước một hành động hoặc mốc thời gian khác trong quá khứ. Cả hai hành động đều ở quá khứ, và quá khứ hoàn thành là hành động xảy ra trước: When I arrived, the meeting had already started. Thường đi với already, just, never, before, after, by the time và when. Phủ định là hadn't + quá khứ phân từ và câu hỏi là Had + chủ ngữ + quá khứ phân từ? Không dùng quá khứ hoàn thành cho một hành động quá khứ đơn lẻ không có sự kiện thứ hai."],
+    forms: ["Subject + had + past participle", "Subject + hadn't + past participle", "Had + subject + past participle?"],
+    ex: [["When I arrived, the meeting had already started.", "Khi tôi đến, cuộc họp đã bắt đầu rồi."], ["She had finished the report before the deadline.", "Cô ấy đã hoàn thành báo cáo trước hạn."], ["I had never been to Japan before that trip.", "Trước chuyến đi đó tôi chưa từng đến Nhật Bản."], ["They hadn't left when we called.", "Họ chưa rời đi khi chúng tôi gọi."]],
+    mis: [["When I arrived, the meeting already started.", "When I arrived, the meeting had already started.", "The meeting started earlier, so use the past perfect.", "Cuộc họp bắt đầu trước đó nên dùng quá khứ hoàn thành."],
+      ["He had went home before I called.", "He had gone home before I called.", "Use the past participle after had: gone.", "Sau had dùng quá khứ phân từ: gone."],
+      ["She had already left when I have arrived.", "She had already left when I arrived.", "The later action stays in the past simple.", "Hành động xảy ra sau giữ ở quá khứ đơn."]],
+    warm: [["When I arrived, the train ___.", ["had already left", "already left", "has already left", "was already leaving"], "The train left first: past perfect.", "Tàu rời đi trước: quá khứ hoàn thành."],
+      ["She ___ the report before the meeting started.", ["had finished", "has finished", "finishing", "finish"], "Finishing came before the meeting: had finished.", "Hoàn thành trước cuộc họp: had finished."],
+      ["I was late because I ___ the bus.", ["had missed", "miss", "have missed", "missing"], "Missing the bus came first: had missed.", "Lỡ xe buýt xảy ra trước: had missed."],
+      ["He said he ___ to Japan before.", ["had been", "has been", "was being", "is"], "Reported earlier experience: had been.", "Trải nghiệm trước đó được kể lại: had been."]],
+    write: [
+      ["f", "", "When I got to the office, the meeting already started.", ["When I got to the office, the meeting had already started."], "had already started", "The meeting started earlier: use had + past participle.", "Cuộc họp bắt đầu trước: dùng had + quá khứ phân từ."],
+      ["f", "", "She had went home before I called.", ["She had gone home before I called."], "had gone", "After had, use the past participle: gone.", "Sau had dùng quá khứ phân từ: gone."],
+      ["t", "Join with: after", "I finished the report. I sent it to the manager.", ["After I had finished the report, I sent it to the manager.", "I sent the report to the manager after I had finished it."], "had finished", "After + the earlier action in the past perfect.", "After + hành động xảy ra trước ở quá khứ hoàn thành."],
+      ["v", "", "Khi tôi đến, khách hàng đã rời đi rồi.", ["When I arrived, the client had already left.", "When I got there, the client had already left.", "When I arrived, the client had left."], "had already left", "The client left first: past perfect.", "Khách hàng rời đi trước: quá khứ hoàn thành."],
+      ["t", "Make it negative.", "They had finished the project.", ["They hadn't finished the project.", "They had not finished the project."], "hadn't finished", "Negative: hadn't + past participle.", "Phủ định: hadn't + quá khứ phân từ."],
+      ["v", "", "Tôi chưa bao giờ đến Nhật Bản trước chuyến đi đó.", ["I had never been to Japan before that trip.", "I had never visited Japan before that trip."], "had never been", "An experience before a past moment: had never been.", "Trải nghiệm trước một mốc quá khứ: had never been."],
+      ["f", "", "I was late because the bus already left.", ["I was late because the bus had already left."], "had already left", "The bus left before I arrived: past perfect.", "Xe buýt rời đi trước khi tôi đến: quá khứ hoàn thành."],
+      ["f", "", "By the time we arrived, they have started eating.", ["By the time we arrived, they had started eating."], "had started", "By the time + past simple needs the past perfect for the earlier action.", "By the time + quá khứ đơn cần quá khứ hoàn thành cho hành động trước."],
+      ["t", "Join with: before", "He checked all the numbers. He sent the report.", ["He had checked all the numbers before he sent the report.", "Before he sent the report, he had checked all the numbers."], "had checked", "The earlier action: had + past participle.", "Hành động xảy ra trước: had + quá khứ phân từ."],
+      ["v", "", "Cô ấy nói rằng cô ấy đã gửi email rồi.", ["She said that she had already sent the email.", "She said she had already sent the email.", "She said she had sent the email already."], "had already sent", "Reported speech moves the past back: had sent.", "Câu tường thuật lùi thì: had sent."],
+      ["f", "", "He didn't go to the meeting because he had forgot the time.", ["He didn't go to the meeting because he had forgotten the time."], "had forgotten", "The past participle of forget is forgotten.", "Quá khứ phân từ của forget là forgotten."],
+      ["t", "Make it a question.", "She had met him before.", ["Had she met him before?"], "Had she met", "Question: Had + subject + past participle.", "Câu hỏi: Had + chủ ngữ + quá khứ phân từ."]
+    ],
+    free: ["Write 3 to 5 sentences about a day when something had already happened before you arrived or started. Use the past perfect.", "Viết 3 đến 5 câu về một ngày khi có việc đã xảy ra trước khi bạn đến hoặc bắt đầu. Dùng quá khứ hoàn thành."]
+  });
+
+  add('conditional-3', {
+    rule: ["Use the third conditional for a past situation that did not happen and its imagined result: If I had known, I would have called you. The pattern is if + had + past participle, would have + past participle. Do not use would in the if-part. A mixed conditional links a past cause to a present result: If I had studied medicine, I would be a doctor now (if + had + past participle, would + base verb). The if-part can come second without a comma.",
+      "Dùng câu điều kiện loại 3 cho tình huống trong quá khứ không xảy ra và kết quả tưởng tượng của nó: If I had known, I would have called you. Cấu trúc là if + had + quá khứ phân từ, would have + quá khứ phân từ. Không dùng would trong mệnh đề if. Câu điều kiện hỗn hợp nối nguyên nhân quá khứ với kết quả hiện tại: If I had studied medicine, I would be a doctor now (if + had + quá khứ phân từ, would + động từ nguyên mẫu). Mệnh đề if có thể đứng sau và khi đó không cần dấu phẩy."],
+    forms: ["If + subject + had + past participle, subject + would have + past participle", "Subject + would have + past participle + if + subject + had + past participle", "Mixed: If + had + past participle, subject + would + base verb (present result)"],
+    ex: [["If I had known, I would have called you.", "Nếu tôi biết, tôi đã gọi cho bạn."], ["She would have passed if she had studied harder.", "Cô ấy đã đỗ nếu cô ấy học chăm hơn."], ["If we had left earlier, we wouldn't have been late.", "Nếu chúng ta đã đi sớm hơn thì chúng ta đã không bị muộn."], ["If I had taken that job, I would be richer now.", "Nếu tôi nhận công việc đó thì bây giờ tôi đã giàu hơn."]],
+    mis: [["If I would have known, I would have called.", "If I had known, I would have called.", "Do not use would in the if-part: use had + past participle.", "Không dùng would trong mệnh đề if: dùng had + quá khứ phân từ."],
+      ["If she had studied, she would passed.", "If she had studied, she would have passed.", "The result part is would have + past participle.", "Mệnh đề kết quả là would have + quá khứ phân từ."],
+      ["If I had took the job, I would be richer now.", "If I had taken the job, I would be richer now.", "Use the past participle after had: taken.", "Sau had dùng quá khứ phân từ: taken."]],
+    warm: [["If I ___ the email, I would have replied.", ["had seen", "saw", "have seen", "would see"], "If-part of a third conditional: had + past participle.", "Mệnh đề if của điều kiện loại 3: had + quá khứ phân từ."],
+      ["She would have come if she ___ about the party.", ["had known", "knew", "would know", "has known"], "If-part: had known.", "Mệnh đề if: had known."],
+      ["If we had left earlier, we ___ the train.", ["would have caught", "would catch", "had caught", "caught"], "Result part: would have + past participle.", "Mệnh đề kết quả: would have + quá khứ phân từ."],
+      ["If I had taken that job, I ___ in Japan now.", ["would be living", "would have lived", "had lived", "lived"], "A past cause with a present result: would + base verb.", "Nguyên nhân quá khứ, kết quả hiện tại: would + động từ nguyên mẫu."]],
+    write: [
+      ["f", "", "If I would have known, I would have called you.", ["If I had known, I would have called you."], "had known", "Use had + past participle in the if-part.", "Dùng had + quá khứ phân từ trong mệnh đề if."],
+      ["f", "", "If she had studied harder, she would passed the exam.", ["If she had studied harder, she would have passed the exam."], "would have passed", "Result: would have + past participle.", "Kết quả: would have + quá khứ phân từ."],
+      ["t", "Rewrite as a third conditional.", "I didn't call him, so he didn't know.", ["If I had called him, he would have known.", "If I had called him, he would have known about it."], "had called", "Imagine the opposite: if + had + past participle, would have + past participle.", "Tưởng tượng điều ngược lại: if + had + quá khứ phân từ, would have + quá khứ phân từ."],
+      ["v", "", "Nếu tôi biết trước, tôi đã đến sớm hơn.", ["If I had known, I would have come earlier.", "If I had known earlier, I would have come sooner.", "If I had known in advance, I would have come earlier."], "had known", "A past unreal condition: had + past participle.", "Điều kiện không có thật trong quá khứ: had + quá khứ phân từ."],
+      ["t", "Make both parts negative.", "If we had hired him, we would have solved the problem.", ["If we hadn't hired him, we wouldn't have solved the problem.", "If we had not hired him, we would not have solved the problem."], "hadn't hired", "Negatives: hadn't + past participle, wouldn't have + past participle.", "Phủ định: hadn't + quá khứ phân từ, wouldn't have + quá khứ phân từ."],
+      ["v", "", "Nếu cô ấy đã học chăm hơn, cô ấy đã đỗ kỳ thi.", ["If she had studied harder, she would have passed the exam.", "If she had studied harder, she would have passed the test."], "had studied", "A past unreal condition: had + past participle.", "Điều kiện không có thật trong quá khứ: had + quá khứ phân từ."],
+      ["f", "", "If I had took that job, I would be richer now.", ["If I had taken that job, I would be richer now."], "had taken", "The past participle of take is taken.", "Quá khứ phân từ của take là taken."],
+      ["f", "", "He would have been late if he wouldn't have left early.", ["He would have been late if he hadn't left early."], "hadn't left", "Do not use would in the if-part: hadn't + past participle.", "Không dùng would trong mệnh đề if: hadn't + quá khứ phân từ."],
+      ["t", "Rewrite as a mixed conditional (past cause, present result).", "I didn't study medicine, so I am not a doctor now.", ["If I had studied medicine, I would be a doctor now."], "would be", "Past cause, present result: if + had + past participle, would + base verb.", "Nguyên nhân quá khứ, kết quả hiện tại: if + had + quá khứ phân từ, would + động từ nguyên mẫu."],
+      ["v", "", "Nếu chúng ta đã đi sớm hơn, chúng ta đã không bị trễ.", ["If we had left earlier, we wouldn't have been late.", "If we had left earlier, we would not have been late.", "If we had left sooner, we wouldn't have been late."], "had left", "A past unreal condition: had + past participle.", "Điều kiện không có thật trong quá khứ: had + quá khứ phân từ."],
+      ["f", "", "If you had told me, I will have helped you.", ["If you had told me, I would have helped you."], "would have helped", "The result part uses would have, not will have.", "Mệnh đề kết quả dùng would have, không dùng will have."],
+      ["t", "Make it a question, starting with: Would", "She would have accepted the offer if they had called her.", ["Would she have accepted the offer if they had called her?"], "Would she have accepted", "Question: Would + subject + have + past participle.", "Câu hỏi: Would + chủ ngữ + have + quá khứ phân từ."]
+    ],
+    free: ["Write 3 to 5 sentences about a decision you made in the past and what would have happened if you had decided differently.", "Viết 3 đến 5 câu về một quyết định bạn đã đưa ra trong quá khứ và điều sẽ xảy ra nếu bạn quyết định khác đi."]
+  });
+
+  add('modals-past', {
+    rule: ["Modal verb + have + past participle talks about the past. Should have means it was a good idea but it did not happen: You should have called me. Must have is a strong guess that something happened: He must have forgotten. Might have, may have and could have mean it is possible: She might have missed the bus. Can't have means it is impossible: He can't have seen my message. Needn't have means it was not necessary, but it was done. Never use to after the modal and always use the past participle.",
+      "Động từ khuyết thiếu + have + quá khứ phân từ nói về quá khứ. Should have nghĩa là lẽ ra nên làm nhưng đã không làm: You should have called me. Must have là suy đoán chắc chắn rằng việc đã xảy ra: He must have forgotten. Might have, may have và could have nghĩa là có thể đã xảy ra: She might have missed the bus. Can't have nghĩa là không thể đã xảy ra: He can't have seen my message. Needn't have nghĩa là không cần thiết nhưng đã làm. Không bao giờ dùng to sau động từ khuyết thiếu và luôn dùng quá khứ phân từ."],
+    forms: ["Subject + should / shouldn't have + past participle", "Subject + must / might / may / could have + past participle", "Subject + can't / couldn't have + past participle; needn't have + past participle"],
+    ex: [["You should have told me about the delay.", "Lẽ ra bạn nên báo cho tôi về việc chậm trễ."], ["He must have forgotten the meeting.", "Chắc là anh ấy đã quên cuộc họp."], ["She might have missed the bus.", "Có thể cô ấy đã lỡ xe buýt."], ["They can't have finished already.", "Họ không thể đã xong rồi."]],
+    mis: [["You should told me earlier.", "You should have told me earlier.", "Use should have + past participle.", "Dùng should have + quá khứ phân từ."],
+      ["He must have went home.", "He must have gone home.", "After have, use the past participle: gone.", "Sau have dùng quá khứ phân từ: gone."],
+      ["She can't has seen the email.", "She can't have seen the email.", "The modal is followed by have, not has.", "Sau động từ khuyết thiếu là have, không phải has."]],
+    warm: [["You ___ me about the problem earlier.", ["should have told", "should told", "must told", "should telling"], "A past regret or criticism: should have + past participle.", "Hối tiếc hoặc phê bình về quá khứ: should have + quá khứ phân từ."],
+      ["He isn't answering. He ___ asleep.", ["must have fallen", "must fall", "should fallen", "can't fall"], "A strong guess about the past: must have + past participle.", "Suy đoán chắc chắn về quá khứ: must have + quá khứ phân từ."],
+      ["She ___ the message, because she never replied.", ["might not have seen", "might not saw", "must not seeing", "can't has seen"], "A possibility about the past: might not have + past participle.", "Khả năng về quá khứ: might not have + quá khứ phân từ."],
+      ["We ___ so much food. Nobody ate it.", ["needn't have cooked", "needn't cook", "shouldn't cooked", "mustn't have cook"], "It was not necessary but it was done: needn't have + past participle.", "Không cần thiết nhưng đã làm: needn't have + quá khứ phân từ."]],
+    write: [
+      ["f", "", "You should told me about the delay.", ["You should have told me about the delay."], "should have told", "Use should have + past participle.", "Dùng should have + quá khứ phân từ."],
+      ["f", "", "He must have went home early.", ["He must have gone home early."], "must have gone", "After have, use the past participle: gone.", "Sau have dùng quá khứ phân từ: gone."],
+      ["t", "Give advice about the past with: should have", "You didn't check the contract.", ["You should have checked the contract."], "should have checked", "Past advice: should have + past participle.", "Lời khuyên về quá khứ: should have + quá khứ phân từ."],
+      ["v", "", "Lẽ ra bạn nên gọi cho khách hàng sớm hơn.", ["You should have called the client earlier.", "You should have called the client sooner.", "You should have phoned the client earlier."], "should have called", "Past regret or criticism: should have + past participle.", "Hối tiếc hoặc phê bình về quá khứ: should have + quá khứ phân từ."],
+      ["t", "Rewrite with: can't have", "I am sure she didn't read the email.", ["She can't have read the email."], "can't have read", "Sure it did not happen: can't have + past participle.", "Chắc chắn không xảy ra: can't have + quá khứ phân từ."],
+      ["v", "", "Có lẽ anh ấy đã quên cuộc họp.", ["He might have forgotten the meeting.", "He may have forgotten the meeting.", "He could have forgotten the meeting."], "have forgotten", "A possibility about the past: might have + past participle.", "Khả năng về quá khứ: might have + quá khứ phân từ."],
+      ["f", "", "She can't has seen my message.", ["She can't have seen my message."], "can't have seen", "A modal is followed by have, not has.", "Sau động từ khuyết thiếu là have, không phải has."],
+      ["f", "", "I should called him yesterday.", ["I should have called him yesterday."], "should have called", "Use should have + past participle.", "Dùng should have + quá khứ phân từ."],
+      ["t", "Rewrite with: must have", "I am sure they left early.", ["They must have left early."], "must have left", "A strong guess about the past: must have + past participle.", "Suy đoán chắc chắn về quá khứ: must have + quá khứ phân từ."],
+      ["v", "", "Chúng ta không cần phải nấu nhiều đến thế.", ["We needn't have cooked so much.", "We needn't have cooked so much food.", "We needn't have made so much food."], "needn't have cooked", "Not necessary but done: needn't have + past participle.", "Không cần thiết nhưng đã làm: needn't have + quá khứ phân từ."],
+      ["f", "", "You shouldn't to have said that.", ["You shouldn't have said that."], "shouldn't have said", "No to after a modal verb.", "Sau động từ khuyết thiếu không có to."],
+      ["t", "Rewrite with: might have", "Perhaps the train was late.", ["The train might have been late.", "The train may have been late.", "The train could have been late."], "have been late", "A possibility about the past: might have + past participle.", "Khả năng về quá khứ: might have + quá khứ phân từ."]
+    ],
+    free: ["Write 3 to 5 sentences about a mistake someone made (or you made) and what should have happened instead.", "Viết 3 đến 5 câu về một sai lầm ai đó (hoặc bạn) đã mắc và điều lẽ ra nên xảy ra."]
+  });
+
+  add('linking-words', {
+    rule: ["Although and even though are followed by a subject and a verb: Although it was raining, we went out. Despite and in spite of are followed by a noun or verb-ing: Despite the rain, we went out. Never say despite of. However starts a new sentence and has a comma after it: The price is high. However, we will buy it. Do not use but in the same sentence as although: Although it was expensive, we bought it.",
+      "Although và even though đi sau là chủ ngữ và động từ: Although it was raining, we went out. Despite và in spite of đi sau là danh từ hoặc động từ thêm -ing: Despite the rain, we went out. Không bao giờ nói despite of. However bắt đầu một câu mới và có dấu phẩy sau nó: The price is high. However, we will buy it. Không dùng but trong cùng câu với although: Although it was expensive, we bought it."],
+    forms: ["Although / Even though + subject + verb, main clause", "Despite / In spite of + noun or verb-ing, main clause", "Sentence. However, + sentence"],
+    ex: [["Although it was late, we finished the project.", "Mặc dù đã muộn, chúng tôi vẫn hoàn thành dự án."], ["Despite the rain, the meeting took place.", "Mặc dù trời mưa, cuộc họp vẫn diễn ra."], ["She was ill. However, she came to work.", "Cô ấy bị ốm. Tuy nhiên, cô ấy vẫn đến làm việc."], ["In spite of being tired, he kept working.", "Dù mệt, anh ấy vẫn tiếp tục làm việc."]],
+    mis: [["Despite he was tired, he worked.", "Although he was tired, he worked.", "Despite is followed by a noun or verb-ing, not a clause.", "Despite đi sau là danh từ hoặc động từ thêm -ing, không phải mệnh đề."],
+      ["Although it was expensive, but we bought it.", "Although it was expensive, we bought it.", "Do not use but with although.", "Không dùng but với although."],
+      ["In spite the rain, we went out.", "In spite of the rain, we went out.", "It is in spite of, with of.", "Phải là in spite of, có of."]],
+    warm: [["___ the weather was bad, we went out.", ["Although", "Despite", "However", "Because of"], "A subject and verb follows: Although.", "Phía sau là chủ ngữ và động từ: Although."],
+      ["___ the rain, we went out.", ["Despite", "Although", "However", "Even though"], "A noun follows: Despite.", "Phía sau là danh từ: Despite."],
+      ["The offer was good. ___, she refused.", ["However", "Although", "Despite", "Because"], "A new sentence with a contrast: However.", "Câu mới có sự tương phản: However."],
+      ["He passed the exam ___ not studying much.", ["despite", "although", "however", "even though"], "Verb-ing follows: despite.", "Phía sau là động từ thêm -ing: despite."]],
+    write: [
+      ["f", "", "Despite he was tired, he finished the report.", ["Although he was tired, he finished the report.", "Despite being tired, he finished the report.", "Despite the fact that he was tired, he finished the report."], "Although he was tired", "Despite is not followed by a clause: use although.", "Despite không đi với mệnh đề: dùng although."],
+      ["f", "", "Although it was expensive, but we bought it.", ["Although it was expensive, we bought it."], "Although it was expensive, we", "Do not use but with although.", "Không dùng but với although."],
+      ["t", "Join with: although", "It was raining. We went for a walk.", ["Although it was raining, we went for a walk.", "We went for a walk although it was raining."], "Although it was raining", "Although + clause shows a contrast.", "Although + mệnh đề thể hiện sự tương phản."],
+      ["v", "", "Mặc dù đã muộn, chúng tôi vẫn hoàn thành dự án.", ["Although it was late, we finished the project.", "Even though it was late, we finished the project.", "Despite the late hour, we finished the project.", "In spite of the late hour, we finished the project."], "Although it was late", "Although + clause, main clause.", "Although + mệnh đề, mệnh đề chính."],
+      ["t", "Rewrite with: despite", "Although he was ill, he came to work.", ["Despite being ill, he came to work.", "Despite his illness, he came to work.", "Despite the fact that he was ill, he came to work."], "Despite being ill", "Despite + verb-ing or noun.", "Despite + động từ thêm -ing hoặc danh từ."],
+      ["v", "", "Kết quả rất tốt. Tuy nhiên, vẫn còn một số vấn đề.", ["The results are very good. However, there are still some problems.", "The results are very good. However, some problems remain.", "The result is very good. However, there are still some problems."], "However,", "However starts a new sentence and takes a comma.", "However bắt đầu một câu mới và có dấu phẩy."],
+      ["f", "", "In spite the traffic, we arrived on time.", ["In spite of the traffic, we arrived on time."], "In spite of", "It is in spite of, with of.", "Phải là in spite of, có of."],
+      ["f", "", "She did well in the interview. Although, she didn't get the job.", ["She did well in the interview. However, she didn't get the job."], "However,", "Although joins clauses in one sentence; use However for a new sentence.", "Although nối mệnh đề trong một câu; dùng However cho câu mới."],
+      ["t", "Join with: even though", "He has little experience. He got the job.", ["Even though he has little experience, he got the job.", "He got the job even though he has little experience."], "Even though he has", "Even though + clause shows a strong contrast.", "Even though + mệnh đề thể hiện sự tương phản mạnh."],
+      ["v", "", "Mặc dù trời mưa, buổi họp vẫn diễn ra.", ["Despite the rain, the meeting took place.", "In spite of the rain, the meeting took place.", "Although it was raining, the meeting took place.", "Although it rained, the meeting took place.", "Even though it was raining, the meeting took place."], "Despite the rain", "Despite + noun.", "Despite + danh từ."],
+      ["f", "", "Despite of the delay, the project was a success.", ["Despite the delay, the project was a success."], "Despite the delay", "Despite has no of.", "Despite không có of."],
+      ["t", "Rewrite with: although", "Despite the high price, we bought the laptop.", ["Although the price was high, we bought the laptop.", "Although the price is high, we bought the laptop.", "Even though the price was high, we bought the laptop."], "Although the price", "Although + subject + verb.", "Although + chủ ngữ + động từ."]
+    ],
+    free: ["Write 3 to 5 sentences about a difficult situation at work. Use although, despite and however.", "Viết 3 đến 5 câu về một tình huống khó khăn ở nơi làm việc. Dùng although, despite và however."]
+  });
+
+  add('wish', {
+    rule: ["Use wish + past simple for something you want to be different now: I wish I had more time. After wish we often use were for all persons (I wish I were taller), although was is also common. Use wish + past perfect for a regret about the past: I wish I hadn't sent that email. Use wish + would for something annoying that you want to change: I wish it would stop raining. If only is stronger and follows the same patterns. Do not use wish + will or wish + present simple.",
+      "Dùng wish + quá khứ đơn cho điều bạn muốn khác đi ở hiện tại: I wish I had more time. Sau wish ta thường dùng were cho mọi ngôi (I wish I were taller), tuy nhiên was cũng phổ biến. Dùng wish + quá khứ hoàn thành cho điều hối tiếc trong quá khứ: I wish I hadn't sent that email. Dùng wish + would cho điều gây khó chịu mà bạn muốn thay đổi: I wish it would stop raining. If only mạnh hơn và có cùng cấu trúc. Không dùng wish + will hoặc wish + hiện tại đơn."],
+    forms: ["Subject + wish + subject + past simple (present wish)", "Subject + wish + subject + had + past participle (past regret)", "Subject + wish + subject / it + would + base verb (annoyance); If only + same patterns"],
+    ex: [["I wish I had more free time.", "Tôi ước gì mình có nhiều thời gian rảnh hơn."], ["She wishes she hadn't bought that car.", "Cô ấy ước gì mình đã không mua chiếc xe đó."], ["I wish it would stop raining.", "Tôi ước gì trời ngừng mưa."], ["If only I knew the answer.", "Giá mà tôi biết đáp án."]],
+    mis: [["I wish I have more time.", "I wish I had more time.", "A wish about now uses the past simple.", "Điều ước về hiện tại dùng quá khứ đơn."],
+      ["I wish I would be taller.", "I wish I were taller.", "Do not use would for yourself: use the past simple (were).", "Không dùng would cho chính mình: dùng quá khứ đơn (were)."],
+      ["She wishes she didn't buy the car.", "She wishes she hadn't bought the car.", "A regret about the past uses the past perfect.", "Hối tiếc về quá khứ dùng quá khứ hoàn thành."]],
+    warm: [["I wish I ___ more free time.", ["had", "have", "would have", "will have"], "A wish about now: past simple.", "Điều ước về hiện tại: quá khứ đơn."],
+      ["I wish I ___ that email yesterday.", ["hadn't sent", "didn't send", "wouldn't send", "haven't sent"], "A regret about the past: past perfect.", "Hối tiếc về quá khứ: quá khứ hoàn thành."],
+      ["I wish it ___ raining. I want to go out.", ["would stop", "stops", "has stopped", "stopping"], "An annoying situation you want to change: would + base verb.", "Tình huống khó chịu muốn thay đổi: would + động từ nguyên mẫu."],
+      ["If only I ___ the answer.", ["knew", "know", "would know", "will know"], "A wish about now: past simple.", "Điều ước về hiện tại: quá khứ đơn."]],
+    write: [
+      ["f", "", "I wish I have more free time.", ["I wish I had more free time."], "wish I had", "A wish about now uses the past simple.", "Điều ước về hiện tại dùng quá khứ đơn."],
+      ["f", "", "I wish I would be taller.", ["I wish I were taller.", "I wish I was taller."], "wish I were", "Use the past simple (were) for your own situation.", "Dùng quá khứ đơn (were) cho tình huống của chính mình."],
+      ["t", "Rewrite with: I wish", "I don't have a car.", ["I wish I had a car."], "wish I had", "A wish about now: past simple.", "Điều ước về hiện tại: quá khứ đơn."],
+      ["v", "", "Ước gì tôi biết đáp án.", ["I wish I knew the answer.", "If only I knew the answer."], "wish I knew", "A wish about now: past simple.", "Điều ước về hiện tại: quá khứ đơn."],
+      ["t", "Rewrite with: I wish (a regret about the past)", "I didn't study harder.", ["I wish I had studied harder."], "had studied", "A past regret: wish + past perfect.", "Hối tiếc về quá khứ: wish + quá khứ hoàn thành."],
+      ["v", "", "Giá mà hôm qua tôi không đến muộn.", ["I wish I hadn't been late yesterday.", "If only I hadn't been late yesterday.", "I wish I had not been late yesterday.", "I wish I hadn't arrived late yesterday."], "hadn't been", "A past regret: past perfect.", "Hối tiếc về quá khứ: quá khứ hoàn thành."],
+      ["f", "", "She wishes she didn't buy that car.", ["She wishes she hadn't bought that car."], "hadn't bought", "A regret about the past: past perfect.", "Hối tiếc về quá khứ: quá khứ hoàn thành."],
+      ["f", "", "I wish my manager will give me more time.", ["I wish my manager would give me more time."], "would give", "After wish use would, not will.", "Sau wish dùng would, không dùng will."],
+      ["t", "Rewrite with: If only", "I wish I had more money.", ["If only I had more money."], "If only I had", "If only follows the same pattern as wish.", "If only có cùng cấu trúc với wish."],
+      ["v", "", "Tôi ước gì trời ngừng mưa.", ["I wish it would stop raining.", "I wish the rain would stop.", "If only it would stop raining."], "would stop", "Something annoying you want to change: wish + would.", "Điều gây khó chịu muốn thay đổi: wish + would."],
+      ["f", "", "I wish I can speak English fluently.", ["I wish I could speak English fluently."], "could speak", "After wish, can becomes could.", "Sau wish, can đổi thành could."],
+      ["t", "Rewrite with: I wish", "I am sorry I told him the secret.", ["I wish I hadn't told him the secret.", "I wish I had not told him the secret."], "hadn't told", "A past regret: wish + past perfect.", "Hối tiếc về quá khứ: wish + quá khứ hoàn thành."]
+    ],
+    free: ["Write 3 to 5 sentences about things you wish were different in your life or work. Use wish with the past simple, the past perfect and would.", "Viết 3 đến 5 câu về những điều bạn ước khác đi trong cuộc sống hoặc công việc. Dùng wish với quá khứ đơn, quá khứ hoàn thành và would."]
+  });
+})();
+
+// ======================================================================
+// File: GrammarSeedC1.gs
+// ======================================================================
+/**
+ * GrammarSeedC1.gs
+ * Hand-written grammar lessons for the C1 topics. See GrammarSeed.gs for the short form.
+ */
+(function () {
+  var add = GrammarSeed.add;
+
+  add('participle-clauses', {
+    rule: ["A participle clause shortens a sentence and links two actions with one subject. Use a present participle (-ing) for an active meaning at the same time or as a reason: Walking into the room, she noticed a smell. Use a past participle for a passive meaning: Written in 1990, the book is still popular. Use having + past participle when one action happened before the other: Having finished the report, he went home. The subject of the participle clause must be the same as the subject of the main clause; otherwise the sentence sounds wrong (a dangling participle). For a negative put not first: Not knowing the answer, I asked my manager.",
+      "Mệnh đề phân từ rút gọn câu và nối hai hành động có cùng một chủ ngữ. Dùng hiện tại phân từ (-ing) cho nghĩa chủ động xảy ra cùng lúc hoặc chỉ lý do: Walking into the room, she noticed a smell. Dùng quá khứ phân từ cho nghĩa bị động: Written in 1990, the book is still popular. Dùng having + quá khứ phân từ khi một hành động xảy ra trước hành động kia: Having finished the report, he went home. Chủ ngữ của mệnh đề phân từ phải trùng với chủ ngữ của mệnh đề chính; nếu không câu sẽ sai (dangling participle). Phủ định đặt not lên trước: Not knowing the answer, I asked my manager."],
+    forms: ["V-ing clause, main clause (active, same time or reason)", "Past participle clause, main clause (passive meaning)", "Having + past participle, main clause (earlier action); Not + participle for a negative"],
+    ex: [["Walking into the room, she noticed a strange smell.", "Bước vào phòng, cô ấy ngửi thấy một mùi lạ."], ["Written in 1990, the book is still popular.", "Được viết năm 1990, cuốn sách vẫn được ưa chuộng."], ["Having finished the report, he went home.", "Sau khi hoàn thành báo cáo, anh ấy về nhà."], ["Not knowing the answer, I asked my manager.", "Vì không biết câu trả lời, tôi hỏi quản lý."]],
+    mis: [["Walking to work, the rain started to fall.", "Walking to work, I felt the rain start to fall.", "The subject of both clauses must be the same person: I was walking.", "Chủ ngữ của hai mệnh đề phải là cùng một người: I đang đi bộ."],
+      ["Having finish the work, she left.", "Having finished the work, she left.", "After having, use the past participle: finished.", "Sau having dùng quá khứ phân từ: finished."],
+      ["Written in simple English, everyone can understand the report.", "Written in simple English, the report can be understood by everyone.", "The thing that is written must be the subject of the main clause.", "Vật được viết phải là chủ ngữ của mệnh đề chính."]],
+    warm: [["___ the email, she called the client.", ["Having read", "To read", "Having reading", "Been read"], "Reading came first: having + past participle.", "Đọc xảy ra trước: having + quá khứ phân từ."],
+      ["___ in Japan, the machine is very reliable.", ["Made", "Making", "Having made", "To make"], "The machine is made: past participle.", "Cái máy được làm ra: quá khứ phân từ."],
+      ["___ the answer, he stayed silent.", ["Not knowing", "Knowing not", "Not known", "Not having know"], "A negative participle clause: Not + verb-ing.", "Mệnh đề phân từ phủ định: Not + động từ thêm -ing."],
+      ["___ into the office, she turned on the light.", ["Walking", "Walked", "Having walk", "To walking"], "Active and at the same time: -ing.", "Chủ động và cùng lúc: -ing."]],
+    write: [
+      ["f", "", "Walk into the room, she noticed a strange smell.", ["Walking into the room, she noticed a strange smell."], "Walking into", "Use the -ing form to start the participle clause.", "Dùng dạng -ing để mở đầu mệnh đề phân từ."],
+      ["f", "", "Having finish the report, he went home.", ["Having finished the report, he went home."], "Having finished", "After having, use the past participle.", "Sau having dùng quá khứ phân từ."],
+      ["t", "Combine with a participle clause.", "She opened the door. She saw a stranger.", ["Opening the door, she saw a stranger.", "On opening the door, she saw a stranger."], "Opening the door", "Two actions with the same subject: -ing clause first.", "Hai hành động cùng chủ ngữ: mệnh đề -ing đứng trước."],
+      ["v", "", "Vì không biết câu trả lời, anh ấy im lặng.", ["Not knowing the answer, he stayed silent.", "Not knowing the answer, he remained silent.", "Not knowing the answer, he kept silent."], "Not knowing", "A negative reason: Not + verb-ing.", "Lý do phủ định: Not + động từ thêm -ing."],
+      ["t", "Combine with: having + past participle.", "He finished the training. He started the job.", ["Having finished the training, he started the job."], "Having finished", "The earlier action: having + past participle.", "Hành động xảy ra trước: having + quá khứ phân từ."],
+      ["v", "", "Được viết bằng tiếng Anh đơn giản, báo cáo rất dễ hiểu.", ["Written in simple English, the report is easy to understand.", "Written in simple English, the report is very easy to understand.", "Written in plain English, the report is easy to understand."], "Written in", "A passive meaning: past participle.", "Nghĩa bị động: quá khứ phân từ."],
+      ["f", "", "Walking to work, the rain started to fall.", ["Walking to work, I felt the rain start to fall.", "Walking to work, I noticed the rain start to fall."], "Walking to work, I", "The person walking must be the subject of the main clause.", "Người đang đi bộ phải là chủ ngữ của mệnh đề chính."],
+      ["f", "", "Written in a hurry, we found many mistakes in the report.", ["Written in a hurry, the report had many mistakes.", "Written in a hurry, the report contained many mistakes."], "the report", "The thing that was written must be the subject.", "Vật được viết phải là chủ ngữ."],
+      ["t", "Rewrite with a participle clause.", "Because he was tired, he went to bed early.", ["Being tired, he went to bed early.", "Tired, he went to bed early.", "Feeling tired, he went to bed early."], "Being tired", "A reason can be given by a participle clause.", "Lý do có thể diễn đạt bằng mệnh đề phân từ."],
+      ["v", "", "Sau khi đã xem xét tất cả các lựa chọn, chúng tôi chọn kế hoạch thứ hai.", ["Having considered all the options, we chose the second plan.", "Having considered all the options, we decided on the second plan.", "Having considered every option, we chose the second plan."], "Having considered", "The earlier action: having + past participle.", "Hành động xảy ra trước: having + quá khứ phân từ."],
+      ["f", "", "Being not sure what to do, she called her manager.", ["Not being sure what to do, she called her manager.", "Not sure what to do, she called her manager."], "Not being sure", "Put not before the participle.", "Đặt not trước phân từ."],
+      ["t", "Rewrite with a past participle clause.", "The house was built in 1990. It is still in good condition.", ["Built in 1990, the house is still in good condition.", "Built in 1990, it is still in good condition."], "Built in 1990", "A passive meaning: past participle clause.", "Nghĩa bị động: mệnh đề quá khứ phân từ."]
+    ],
+    free: ["Write 3 to 5 sentences about your working day. Use participle clauses, for example Having arrived at the office, ...", "Viết 3 đến 5 câu về một ngày làm việc của bạn. Dùng mệnh đề phân từ, ví dụ Having arrived at the office, ..."]
+  });
+
+  add('inversion', {
+    rule: ["After some negative or limiting adverbs at the start of a sentence, English puts the auxiliary verb before the subject, as in a question. This sounds formal and adds emphasis. Use it with never, rarely, seldom, hardly ... when, no sooner ... than, not only ... but also, under no circumstances, only when and only after: Never have I seen such a mess. If there is no auxiliary, add do / does / did: Rarely does he make mistakes. Do not invert in the second part of the sentence.",
+      "Sau một số trạng từ phủ định hoặc hạn chế ở đầu câu, tiếng Anh đặt trợ động từ trước chủ ngữ, như trong câu hỏi. Cách này trang trọng và nhấn mạnh. Dùng với never, rarely, seldom, hardly ... when, no sooner ... than, not only ... but also, under no circumstances, only when và only after: Never have I seen such a mess. Nếu không có trợ động từ thì thêm do / does / did: Rarely does he make mistakes. Không đảo ngữ ở vế thứ hai của câu."],
+    forms: ["Never / Rarely / Seldom + auxiliary + subject + verb", "No sooner + had + subject + past participle + than ...; Hardly + had + subject + past participle + when ...", "Not only + auxiliary + subject + verb + but also ...; Only when + clause + auxiliary + subject + verb"],
+    ex: [["Never have I seen such a mess.", "Tôi chưa bao giờ thấy một mớ hỗn độn như vậy."], ["Rarely does he make mistakes.", "Hiếm khi anh ấy mắc lỗi."], ["No sooner had we arrived than it started to rain.", "Chúng tôi vừa đến thì trời bắt đầu mưa."], ["Not only did she finish early, but she also found two errors.", "Cô ấy không những hoàn thành sớm mà còn tìm ra hai lỗi."]],
+    mis: [["Never I have seen such a long meeting.", "Never have I seen such a long meeting.", "After never at the start, put the auxiliary before the subject.", "Sau never ở đầu câu, đặt trợ động từ trước chủ ngữ."],
+      ["Rarely he arrives late.", "Rarely does he arrive late.", "Add does and use the base verb.", "Thêm does và dùng động từ nguyên mẫu."],
+      ["No sooner I had left than the phone rang.", "No sooner had I left than the phone rang.", "Invert had and the subject after no sooner.", "Đảo had và chủ ngữ sau no sooner."]],
+    warm: [["Never ___ such a long report.", ["have I read", "I have read", "I read", "I had read"], "Never at the start: have + subject.", "Never ở đầu câu: have + chủ ngữ."],
+      ["Rarely ___ late for work.", ["is he", "he is", "does he", "he was"], "Rarely at the start: is + subject.", "Rarely ở đầu câu: is + chủ ngữ."],
+      ["No sooner had we arrived ___ it started to rain.", ["than", "when", "that", "then"], "No sooner goes with than.", "No sooner đi với than."],
+      ["Not only ___ the report, but she also presented it.", ["did she write", "she wrote", "she did write", "wrote she"], "Not only at the start: did + subject + base verb.", "Not only ở đầu câu: did + chủ ngữ + động từ nguyên mẫu."]],
+    write: [
+      ["f", "", "Never I have seen such a long meeting.", ["Never have I seen such a long meeting."], "have I seen", "After never at the start, invert: have I.", "Sau never ở đầu câu, đảo ngữ: have I."],
+      ["f", "", "Rarely he arrives late.", ["Rarely does he arrive late."], "does he arrive", "Add does before the subject; the verb is a base form.", "Thêm does trước chủ ngữ; động từ ở dạng nguyên mẫu."],
+      ["t", "Rewrite starting with: Never", "I have never felt so tired.", ["Never have I felt so tired."], "Never have I", "Never + auxiliary + subject + past participle.", "Never + trợ động từ + chủ ngữ + quá khứ phân từ."],
+      ["v", "", "Hiếm khi anh ấy mắc lỗi.", ["Rarely does he make mistakes.", "Rarely does he make a mistake."], "does he make", "Rarely + does + subject + base verb.", "Rarely + does + chủ ngữ + động từ nguyên mẫu."],
+      ["t", "Rewrite starting with: No sooner", "We had just arrived when it started to rain.", ["No sooner had we arrived than it started to rain."], "No sooner had we", "No sooner + had + subject + past participle + than.", "No sooner + had + chủ ngữ + quá khứ phân từ + than."],
+      ["v", "", "Không những cô ấy hoàn thành sớm mà cô ấy còn tìm ra hai lỗi.", ["Not only did she finish early, but she also found two errors.", "Not only did she finish early, but she also found two mistakes.", "Not only did she finish early but she also found two errors."], "did she finish", "Not only + did + subject + base verb.", "Not only + did + chủ ngữ + động từ nguyên mẫu."],
+      ["f", "", "No sooner I had left the office than the phone rang.", ["No sooner had I left the office than the phone rang."], "had I left", "Invert had and the subject.", "Đảo had và chủ ngữ."],
+      ["f", "", "Under no circumstances you should share the password.", ["Under no circumstances should you share the password."], "should you share", "Under no circumstances + auxiliary + subject.", "Under no circumstances + trợ động từ + chủ ngữ."],
+      ["t", "Rewrite starting with: Only when", "I read the contract and then I understood the problem.", ["Only when I read the contract did I understand the problem.", "Only when I had read the contract did I understand the problem."], "did I understand", "Only when + clause, then invert in the main clause.", "Only when + mệnh đề, rồi đảo ngữ ở mệnh đề chính."],
+      ["v", "", "Chưa bao giờ tôi thấy một văn phòng sạch như vậy.", ["Never have I seen such a clean office.", "Never have I seen an office so clean.", "Never before have I seen such a clean office."], "Never have I", "Never + have + subject + past participle.", "Never + have + chủ ngữ + quá khứ phân từ."],
+      ["f", "", "Hardly I had sat down when the manager called.", ["Hardly had I sat down when the manager called."], "had I sat", "Hardly + had + subject + past participle.", "Hardly + had + chủ ngữ + quá khứ phân từ."],
+      ["t", "Rewrite starting with: Not only", "She is a good manager and she is a great teacher.", ["Not only is she a good manager, but she is also a great teacher.", "Not only is she a good manager, but also a great teacher.", "Not only is she a good manager but she is also a great teacher."], "Not only is she", "Not only + is + subject.", "Not only + is + chủ ngữ."]
+    ],
+    free: ["Write 3 to 5 formal sentences about your career. Use inversion, for example Never have I ... or Rarely do I ...", "Viết 3 đến 5 câu trang trọng về sự nghiệp của bạn. Dùng đảo ngữ, ví dụ Never have I ... hoặc Rarely do I ..."]
+  });
+
+  add('cleft', {
+    rule: ["A cleft sentence splits one idea in two to put the stress on one part. Use It + is / was + the stressed part + that / who + the rest: It was Mai who solved the problem. It is the salary that worries me. Use What + clause + is / was + the stressed part: What I need is a quiet place to work. What surprised everyone was the price. The verb after what-clauses agrees with the stressed part: What I need is time. With a time or place, keep the tense of the situation: It was in 2020 that we met. Also use All I want is ... and The reason (why) ... is that ...",
+      "Câu chẻ tách một ý thành hai phần để nhấn mạnh một phần. Dùng It + is / was + phần được nhấn mạnh + that / who + phần còn lại: It was Mai who solved the problem. It is the salary that worries me. Dùng What + mệnh đề + is / was + phần được nhấn mạnh: What I need is a quiet place to work. What surprised everyone was the price. Động từ sau mệnh đề what hòa hợp với phần được nhấn mạnh: What I need is time. Với thời gian hoặc nơi chốn, giữ thì của tình huống: It was in 2020 that we met. Cũng dùng All I want is ... và The reason (why) ... is that ..."],
+    forms: ["It + is / was + stressed part + that / who + rest", "What + subject + verb + is / was + stressed part", "All + subject + verb + is ...; The reason (why) + clause + is that + clause"],
+    ex: [["It was Mai who solved the problem.", "Chính Mai là người đã giải quyết vấn đề."], ["It is the salary that worries me.", "Chính mức lương làm tôi lo lắng."], ["What I need is a quiet place to work.", "Điều tôi cần là một nơi yên tĩnh để làm việc."], ["What surprised everyone was the price.", "Điều làm mọi người ngạc nhiên là giá."]],
+    mis: [["It was the manager what called me.", "It was the manager who called me.", "Use who or that, not what, for the rest of the sentence.", "Dùng who hoặc that, không dùng what, cho phần còn lại của câu."],
+      ["What I need are more time.", "What I need is more time.", "The verb after a what-clause is singular when it introduces one idea.", "Động từ sau mệnh đề what ở số ít khi giới thiệu một ý."],
+      ["It is yesterday that we met.", "It was yesterday that we met.", "Yesterday is in the past: use was.", "Yesterday ở quá khứ: dùng was."]],
+    warm: [["It was Linh ___ found the error.", ["who", "what", "where", "whose"], "A person: who or that.", "Một người: who hoặc that."],
+      ["___ I need is a long holiday.", ["What", "It", "That", "Which"], "A what-cleft starts with What.", "Câu chẻ what bắt đầu bằng What."],
+      ["It was in 2020 ___ I joined the company.", ["that", "what", "who", "why"], "After the stressed time, use that.", "Sau thời gian được nhấn mạnh, dùng that."],
+      ["What worried us ___ the deadline.", ["was", "were", "are", "being"], "The stressed part is one thing and the time is past: was.", "Phần nhấn mạnh là một thứ và ở quá khứ: was."]],
+    write: [
+      ["f", "", "It was the manager what called me.", ["It was the manager who called me.", "It was the manager that called me."], "who called", "Use who or that after the stressed person.", "Dùng who hoặc that sau người được nhấn mạnh."],
+      ["f", "", "What I need are more time.", ["What I need is more time."], "need is", "The verb after the what-clause is singular here.", "Động từ sau mệnh đề what ở số ít ở đây."],
+      ["t", "Rewrite starting with: It was", "Mai solved the problem.", ["It was Mai who solved the problem.", "It was Mai that solved the problem."], "It was Mai", "It was + the stressed part + who + the rest.", "It was + phần nhấn mạnh + who + phần còn lại."],
+      ["v", "", "Điều tôi cần là một nơi yên tĩnh để làm việc.", ["What I need is a quiet place to work.", "What I need is a quiet place to work in.", "What I need is a quiet place for working."], "What I need is", "A what-cleft: What + clause + is + the stressed part.", "Câu chẻ what: What + mệnh đề + is + phần nhấn mạnh."],
+      ["t", "Rewrite starting with: What", "The price surprised everyone.", ["What surprised everyone was the price."], "What surprised everyone", "What + verb + was + the stressed part.", "What + động từ + was + phần nhấn mạnh."],
+      ["v", "", "Chính mức lương làm tôi lo lắng.", ["It is the salary that worries me.", "It is the salary which worries me.", "It's the salary that worries me."], "It is the salary that", "It is + the stressed part + that + the rest.", "It is + phần nhấn mạnh + that + phần còn lại."],
+      ["f", "", "It is yesterday that we signed the contract.", ["It was yesterday that we signed the contract."], "It was yesterday", "A past time needs was.", "Thời gian quá khứ cần was."],
+      ["f", "", "What worried us were the deadline.", ["What worried us was the deadline."], "us was", "One stressed thing: was.", "Một thứ được nhấn mạnh: was."],
+      ["t", "Rewrite starting with: It was in", "We met in 2020.", ["It was in 2020 that we met."], "It was in 2020", "It was + the stressed time + that + the rest.", "It was + thời gian nhấn mạnh + that + phần còn lại."],
+      ["v", "", "Điều tôi thích nhất là đồng nghiệp ở đây.", ["What I like most is the colleagues here.", "What I like most is my colleagues here.", "What I like most is the people here."], "What I like most is", "A what-cleft: What + clause + is + the stressed part.", "Câu chẻ what: What + mệnh đề + is + phần nhấn mạnh."],
+      ["f", "", "It was last week who we hired a new engineer.", ["It was last week that we hired a new engineer."], "that we hired", "For a time, use that, not who.", "Với thời gian, dùng that, không dùng who."],
+      ["t", "Rewrite starting with: All", "I only want a good night's sleep.", ["All I want is a good night's sleep.", "All I want is a good night's rest.", "All I want is some good sleep."], "All I want is", "All + clause + is + the thing.", "All + mệnh đề + is + điều đó."]
+    ],
+    free: ["Write 3 to 5 sentences to stress what matters to you at work. Use It is ... that and What ... is.", "Viết 3 đến 5 câu nhấn mạnh điều quan trọng với bạn ở nơi làm việc. Dùng It is ... that và What ... is."]
   });
 })();
 

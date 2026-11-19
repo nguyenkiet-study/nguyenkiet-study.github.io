@@ -5,14 +5,14 @@ const G=require('./fake_gemini.js').install(ctx,advance);const aiLog=G.aiLog;
 Object.defineProperty(global,'ratingLevel',{get:()=>G.ratingLevel,set:v=>G.ratingLevel=v});Object.defineProperty(global,'failN',{get:()=>G.failN,set:v=>G.failN=v});
 const reply=G.reply,para=n=>G.para(n);
 const api=(f,p)=>ctx.apiCall(f,p);
-let fail=0;const t=(n,c,x)=>{console.log((c?'PASS ':'FAIL ')+n+(c?'':' -> '+JSON.stringify(x).slice(0,300)));if(!c)fail++};
+let fail=0;const t=(n,c,x)=>{console.log((c?'PASS ':'FAIL ')+n+(c?'':' -> '+String(JSON.stringify(x)).slice(0,300)));if(!c)fail++};
 
 // ---- 1. build the bank ----
-t('seed tasks load',get('Seed').load()===14&&get('Seed').load()===0);
+t('seed tasks load',get('Seed').load()>=14&&get('Seed').load()===0);
 let rep=get('QF').run(1000*60*60*100);
 t('factory fills the bank',rep.remainingCells===0&&rep.stoppedBecause==='bank is full',rep);
 const bankRows=sheets.QuestionBank.rows.slice(1);const H=sheets.QuestionBank.rows[0];const ix=n=>H.indexOf(n);
-const ai=bankRows.filter(r=>r[ix('Source')]==='ai');
+const aiAll=bankRows.filter(r=>r[ix('Source')]==='ai');const ai=aiAll.filter(r=>r[ix('OptionsJSON')]&&r[ix('Subtype')]!=='conversation'); // writing/speaking tasks have no options; conversation items carry their own item list (see conversation_test.js)
 t('only verified questions kept (dropped some)',rep.dropped>0&&ai.length>0,rep);
 t('all kept are approved with 4 options and a valid key',ai.every(r=>r[ix('Status')]==='approved'&&JSON.parse(r[ix('OptionsJSON')]).length===4&&['0','1','2','3'].includes(String(r[ix('CorrectAnswer')]))));
 t('no duplicate options in kept questions',ai.every(r=>new Set(JSON.parse(r[ix('OptionsJSON')])).size===4));

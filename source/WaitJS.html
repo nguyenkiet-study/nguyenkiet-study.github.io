@@ -217,7 +217,18 @@ function spot() {
     for (i = 0; i < all.length; i++) if (/Loading|Preparing|Saving|Checking|Opening/i.test(all[i].textContent.slice(0, 200)) && all[i].offsetParent) { t = all[i]; break; }
   }
   if (!t) t = view.querySelector('article, .card');
+  // a block that sits in a grid or a row of cards (e.g. the Dashboard stats) would put the card into one narrow cell:
+  // go up to the whole grid/row and put the card under it instead
+  while (t && t.parentElement && t.parentElement !== view && view.contains(t.parentElement) && inRow(t.parentElement)) t = t.parentElement;
   return { view: view, after: t };
+}
+function inRow(box) {
+  try {
+    var cs = getComputedStyle(box);
+    if (/grid/.test(cs.display)) return cs.gridTemplateColumns.trim().split(/\s+/).length > 1;
+    if (/flex/.test(cs.display)) return !/column/.test(cs.flexDirection) && box.children.length > 1;
+  } catch (e) {}
+  return false;
 }
 function show(steps) {
   W.steps = steps || []; W.si = 0; W.open = true; W.hidden = false;

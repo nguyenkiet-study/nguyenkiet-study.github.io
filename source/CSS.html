@@ -833,6 +833,14 @@ body.rm *,body.rm *::before,body.rm *::after{animation:none!important;transition
 </style>
 
 <style>
+/* iPhone voice reminder: silent mode mutes Kel (shown at the first sound of a lesson) */
+.vn-wrap{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:16px;background:rgba(16,35,79,.42);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.vn-box{width:min(420px,100%);background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:24px;padding:22px 20px;text-align:center;box-shadow:0 24px 60px -24px rgba(16,35,79,.45)}
+.vn-ic{width:52px;height:52px;margin:0 auto 10px;border-radius:16px;display:grid;place-items:center;background:var(--surface-soft);color:var(--ink)}
+.vn-box h3{font-size:19px;color:var(--ink);margin:0 0 6px}
+.vn-box p{color:var(--muted);font-size:15px;line-height:1.45;margin:0 0 16px}
+.vn-btns{display:flex;gap:10px}.vn-btns .btn{flex:1 1 0;justify-content:center;min-width:0}
+@media (max-width:760px){.vn-wrap{place-items:end center;padding:0}.vn-box{width:100%;border-radius:24px 24px 0 0;padding:22px 20px calc(20px + var(--safe-b));animation:sheetUp .28s var(--ease) both}}
 /* popups (after the popup base rules so these win) */
 .qw.center.on{background:rgba(16,35,79,.42);backdrop-filter:blur(3px)}
 .qw.center .qw-in{border:1px solid var(--line);border-radius:24px}

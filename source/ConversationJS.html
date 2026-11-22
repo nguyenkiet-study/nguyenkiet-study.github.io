@@ -76,6 +76,7 @@ function start(btn) {
     C.shown = 0;
     if (d.resumed && d.answered.length) { C.phase = 'story'; C.shown = resumeAt(); }
     draw();
+    if (K.armVoiceNote) K.armVoiceNote();
     prefetch(C.phase === 'cover' ? 0 : C.shown);
   }).catch(function (e) {
     if (btn) { btn.disabled = false; btn.innerHTML = ic('i-play', 'ic-sm') + 'Start'; }

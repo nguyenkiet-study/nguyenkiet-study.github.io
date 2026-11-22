@@ -88,6 +88,7 @@ function start(btn) {
       var done = {}; (r.answered || []).forEach(function (a) { done[a.id] = a; if (a.correct) P.right++; });
       P.done = done; P.i = P.items.findIndex(function (q) { return !done[q.id]; }); if (P.i < 0) P.i = 0;
       if (r.resumed) K.toast('Continuing your set.');
+      if (k === 'listening' && K.armVoiceNote) K.armVoiceNote();
       return mcq();
     }
     if (P && P.sp && P.sp.tm) clearInterval(P.sp.tm);
@@ -153,6 +154,14 @@ function mcq() {
   $('#practice-card').innerHTML = h;
   $('#practice-card').setAttribute('data-session', '1');
   $('#practice-card').setAttribute('data-pane', fb || !q.passage ? 'all' : (P.pane === 'q' ? 'q' : 'text'));
+  if (listening) {
+    // the next clips are asked for in advance, and a new question plays its audio by itself once (as in Listening conversations)
+    if (K.prefetchNatural) for (var k = P.i; k < Math.min(n, P.i + 3); k++) if (P.items[k].audioText) K.prefetchNatural([{ s: 0, t: P.items[k].audioText }]);
+    if (!fb && !q._auto && q.audioText) {
+      q._auto = true;
+      setTimeout(function () { var b = $('[data-action="pr-play"]'); if (b && P.items && P.items[P.i] === q && !P.fb && !curSpeech) play(b); }, 350);
+    }
+  }
 }
 function pickOpt(i) { if (P.fb) return; P.sel = i; $$('#practice-card .opt').forEach(function (b) { b.setAttribute('aria-pressed', String(parseInt(b.dataset.o, 10) === i)); }); }
 function check(choice, btn) {

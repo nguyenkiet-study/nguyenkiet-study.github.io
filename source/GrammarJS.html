@@ -275,7 +275,10 @@ function start(topic, btn) {
     L.own.forEach(function (o) { steps.push({ t: 'write', kind: 'own', own: o.id, instr: INSTR.own, prompt: o.original, answers: [o.better], focus: '', why: o.why, scored: true }); });
     if (tx(L.free)) steps.push({ t: 'free' });
     G.run = { L: L, steps: steps, i: 0, started: Date.now(), wrongs: [], fixed: [], result: null };
+    // the listening sentences are asked for in advance, so they play at once when their step opens
+    if (K.prefetchNatural) steps.forEach(function (s) { if (s.t === 'listen') K.prefetchNatural([{ s: 0, t: s.answers[0] }]); });
     if (K.state.view !== 'grammar') K.go('grammar'); else draw();
+    if (K.armVoiceNote) K.armVoiceNote();
     try { window.scrollTo(0, 0); } catch (e) {}
   }).catch(function (e) { G.busy = false; if (btn) { btn.disabled = false; btn.textContent = label; } K.toast((e && e.message) || 'Could not open that lesson.'); });
 }

@@ -59,6 +59,8 @@ function start(mode, btn) {
     if (!steps.length) { if (btn) { btn.disabled = false; btn.innerHTML = ic('i-play', 'ic-sm') + 'Start'; } return K.toast('Nothing to practise right now. Try again in a few minutes.'); }
     D = { mode: d.mode, title: d.title, steps: steps, i: 0, started: Date.now(), done: false, result: null };
     if (K.state.view !== 'drill') K.go('drill'); else draw();
+    if (K.armVoiceNote) K.armVoiceNote();
+    prefetchAhead();
     autoPlay();
   }).catch(function (e) {
     if (btn) { btn.disabled = false; btn.innerHTML = ic('i-play', 'ic-sm') + 'Start'; }
@@ -162,13 +164,20 @@ function next() {
   while (D.i < D.steps.length && D.steps[D.i].skip) D.i++;
   if (D.i >= D.steps.length) return finish();
   draw(); try { window.scrollTo(0, 0); } catch (e) {}
+  prefetchAhead();
   autoPlay();
 }
-/* listening steps play by themselves when they open. A speaking step ("repeat") does not: on iPhone a sample played by itself right before the
-   microphone leaves the microphone deaf from the second sentence on, so the sample plays only when the learner taps Listen or Slow. */
+/* the natural voice for the next few sentences is asked for in advance, so each one plays at once (as in Listening conversations) */
+function prefetchAhead() {
+  if (!D || !K.prefetchNatural) return;
+  for (var k = D.i; k < Math.min(D.steps.length, D.i + 3); k++) { var s = D.steps[k]; if ((s.t === 'listen' || s.t === 'repeat') && s.en && !s.skip) K.prefetchNatural([{ s: 0, t: s.en }]); }
+}
+/* listening and speaking steps play their sentence by themselves when they open. Speaking steps only where that is safe for the microphone:
+   on iPhone a sample played through <audio> leaves the microphone deaf, so there it needs the iPhone voice (the default, x=synth). */
 function autoPlay() {
   var n = cur(); if (!n || n.auto) return;
-  if (n.t === 'listen') { n.auto = true; setTimeout(function () { if (cur() === n && !n.rec && !n.state) play(); }, 350); }
+  var noplay = K.srx && /(^|,)noplay(,|$)/.test(K.srx());   // phone test switch: speaking steps never play by themselves
+  if (n.t === 'listen' || (n.t === 'repeat' && !noplay && (!K.voiceSafe || K.voiceSafe()))) { n.auto = true; setTimeout(function () { if (cur() === n && !n.rec && !n.state) play(); }, 350); }
   if (n.t === 'spell') { n.auto = true; setTimeout(function () { if (cur() === n) K.say(n.w, 0.85); }, 350); }
 }
 function finish() {
@@ -199,7 +208,7 @@ function compare(s, said) {
 function mic() {
   var s = cur(); if (!s || s.t !== 'repeat' || s.state) return;
   if (s.rec) { try { s.rec.stop(); } catch (e) {} return; }
-  K.stopSpeech && K.stopSpeech();
+  K.stopSpeech && K.stopSpeech(); s.playing = false;   // the mic stops Kel at once
   var r = K.makeRecognizer({
     text: function (fin, interim) { s.live = (fin + ' ' + interim).trim(); var l = $('.dr-live'); if (l) l.textContent = s.live; else draw(); },
     error: function (e) { s.rec = null; s.live = ''; if (e === 'not-allowed' || e === 'service-not-allowed') K.toast('Allow the microphone for this site, then try again.'); else if (e === 'no-speech') K.toast('I did not hear anything. Tap the microphone and try again.'); else if (e && e !== 'aborted') K.toast('Microphone problem (' + e + '). Tap the microphone to try again.'); draw(); },

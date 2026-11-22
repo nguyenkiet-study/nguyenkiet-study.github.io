@@ -2,13 +2,15 @@
 // fake recognizer, and checks what the app itself does with sound and the microphone between the two sentences:
 // one recognizer per tap, the old one is finished before the new one starts, no sample is played or still pending after the
 // microphone starts, and the mic tap starts the recognizer synchronously inside the tap (the user gesture).
-// Also checks the phone test switch x=noplay (no sample played by itself).
+// Since 22/11/2026 a speaking step plays its sample by itself when it opens (the iPhone uses its own voice, which leaves the mic working);
+// not where that is unsafe (K.voiceSafe() false: an iPhone without its own voice) or with the phone test switch x=noplay.
+// The mic tap stops the sample at once.
 const fs = require('fs'), path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'DrillJS.html'), 'utf8');
 const code = html.replace(/^\s*<script>/, '').replace(/<\/script>\s*$/, '');
 let fail = 0; const t = (n, c, x) => { console.log((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : ' -> ' + String(JSON.stringify(x)).slice(0, 300))); if (!c) fail++; };
 
-function run(srx) {
+function run(srx, unsafe) {
   let now = 0, q = [], nid = 0, inTap = false;
   const setT = (f, ms) => { const id = ++nid; q.push({ id, f, at: now + (ms || 0), live: true }); return id; };
   const clearT = id => { const x = q.find(y => y.id === id); if (x) x.live = false; };
@@ -31,7 +33,7 @@ function run(srx) {
       setT(() => { if (g !== speakGen) return log.push('sample:dropped'); log.push('sample:play'); setT(() => { if (g !== speakGen) return; log.push('sample:end'); onEnd && onEnd(); }, 2000); }, 1500);
       return {};
     },
-    speakLines: () => ({}), say: () => {},
+    speakLines: () => ({}), say: () => {}, voiceSafe: () => !unsafe,
     makeRecognizer: (h) => {
       const r = { n: recs.length + 1, running: false, ended: false, continuous: true, h,
         start() { if (!inTap) log.push('rec' + this.n + ':start OUTSIDE tap'); this.running = true; log.push('rec' + this.n + ':start'); },
@@ -52,8 +54,8 @@ function run(srx) {
   // default
   const A = run('');
   A.K.drill.start('speak', null); await A.flush(); await A.flush();
-  A.tick(4000);                                                     // a speaking step never plays the sample by itself
-  t('sentence 1: no sample by itself', !A.log.some(l => /^sample/.test(l)), A.log);
+  A.tick(4000);                                                     // a speaking step plays its sample by itself when it opens
+  t('sentence 1: the sample plays by itself', A.log.includes('sample:request I like green tea.') && A.log.includes('sample:end'), A.log);
   A.tap('dr-mic'); const r1 = A.recs[0];
   t('sentence 1: one recognizer, started inside the tap', A.recs.length === 1 && r1.running && !A.log.some(l => /OUTSIDE/.test(l)), A.log);
   t('sentence 1: continuous=false', r1.continuous === false);
@@ -78,7 +80,8 @@ function run(srx) {
   B.tap('dr-mic'); B.recs[0].text = 'I like green tea'; B.recs[0].finish(); B.tap('dr-next'); B.tick(4000);
   const m2 = B.log.lastIndexOf('sample:end');
   B.tap('dr-mic');
-  t('patient: no sample at all before rec2, rec1 ended', m2 === -1 && !B.log.some(l => /^sample/.test(l)) && B.log.indexOf('rec2:start') > -1 && B.recs[0].ended, B.log);
+  t('patient: sentence 2 played by itself and finished before rec2, rec1 ended', B.log.includes('sample:request She walks to work.') && m2 > -1 && m2 < B.log.indexOf('rec2:start') && B.recs[0].ended, B.log);
+  t('patient: nothing of the sample after rec2 started', !B.log.slice(B.log.indexOf('rec2:start')).some(l => /^sample:(request|play|end)/.test(l)), B.log);
 
   // mic tapped while the sample is still being fetched: the late clip is dropped
   const E = run('');
@@ -86,7 +89,7 @@ function run(srx) {
   E.tap('dr-mic'); E.recs[0].text = 'I like green tea'; E.recs[0].finish(); E.tap('dr-next'); E.tick(1000);
   E.tap('dr-mic'); E.tick(5000);
   const aft = E.log.slice(E.log.indexOf('rec2:start'));
-  t('mic tapped quickly: no sample is asked for or played', !aft.some(l => /^sample/.test(l)), aft);
+  t('mic tapped while the sample loads: it is stopped, never played over the mic', !aft.some(l => /^sample:(request|play|end)/.test(l)) && E.log.includes('sample:request She walks to work.'), aft);
   // Listen tapped when the learner wants it: plays
   { const C = run(''); C.K.drill.start('speak', null); await C.flush(); await C.flush(); C.tick(1000); C.tap('dr-play', { dataset: {} }); C.tick(5000);
     t('Listen plays the sample when tapped', C.log.includes('sample:play') && C.log.includes('sample:end'), C.log); }
@@ -94,6 +97,9 @@ function run(srx) {
   const n0 = E.log.length; E.tap('dr-play', { dataset: {} }); E.tick(5000);
   t('Listen while the mic is on: no sample', !E.log.slice(n0).some(l => /^sample/.test(l)), E.log.slice(n0));
 
+  // an iPhone without its own voice (K.voiceSafe() false): a speaking step never plays by itself
+  { const U = run('', true); U.K.drill.start('speak', null); await U.flush(); await U.flush(); U.tick(4000);
+    t('unsafe phone: no sample by itself', !U.log.some(l => /^sample/.test(l)), U.log); }
   // x=noplay: no sample by itself
   const C = run('noplay');
   C.K.drill.start('speak', null); await C.flush(); await C.flush(); C.tick(4000);

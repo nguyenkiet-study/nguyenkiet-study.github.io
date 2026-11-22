@@ -446,6 +446,7 @@ function setFavicon(view) {
 }
 function go(view) {
   clearTimers();
+  voiceNoteArmed = false;
   state.view = view;
   document.body.setAttribute('data-view', view);
   REG.go.forEach(function (fn) { try { fn(view); } catch (e) {} });
@@ -719,6 +720,7 @@ function audioSession(type) { try { if (xOn('nosession')) return; if (type === '
 function useWebAudio() { return xOn('webaudio') || xOn('ctxclose'); }
 /** firstTouch: the call from the very first touch on the page (x=nounlock, freshaudio, frameaudio and ctxclose skip that one). */
 function unlockAudio(firstTouch) {
+  if (xOn('synth')) { primeVoice(); return; }   // iPhone voice: no <audio> element may ever play (it leaves the microphone deaf)
   if (firstTouch && (xOn('nounlock') || xOn('freshaudio') || xOn('frameaudio') || xOn('ctxclose'))) return;
   audioSession('playback');
   if (useWebAudio()) { var wc = webAudioCtx(); try { if (wc && wc.state !== 'running') { var rp = wc.resume(); if (rp && rp.catch) rp.catch(function () {}); } } catch (e) {} return; }
@@ -730,6 +732,32 @@ function unlockAudio(firstTouch) {
     var p = player.play(); if (p && p.catch) p.catch(function () {});
     lastSoundAt = Date.now();
   } catch (e) { player = null; }
+}
+/* iPhone: the voice may speak by itself (a lesson that opens with sound) only after one utterance was started inside a tap */
+var voicePrimed = false;
+function primeVoice() {
+  if (voicePrimed || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
+  voicePrimed = true;
+  try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; keepUtter.push(u); speechSynthesis.speak(u); } catch (e) {}
+}
+/* iPhone voice: the silent switch mutes it and a web page cannot read that switch, so the first sound of each lesson shows a reminder.
+   armVoiceNote() is called when a lesson starts; the next sound shows the note once. Changing screens disarms it. */
+var voiceNoteArmed = false;
+function armVoiceNote() { voiceNoteArmed = xOn('synth'); }
+function voiceNote(replay) {
+  voiceNoteArmed = false;
+  var old = document.getElementById('voice-note'); if (old) old.parentNode.removeChild(old);
+  var d = document.createElement('div');
+  d.id = 'voice-note'; d.className = 'vn-wrap'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'vn-t');
+  d.innerHTML = '<div class="vn-box"><div class="vn-ic">' + ic('i-volume', 'ic-lg') + '</div><h3 id="vn-t">Can you hear Kel?</h3>' +
+    '<p>Silent mode mutes Kel’s voice on iPhone. Turn silent mode off (the switch on the side of the phone, or Control Center), then tap Play again.</p>' +
+    '<div class="vn-btns"><button class="btn btn-ghost" data-vn="again">' + ic('i-volume', 'ic-sm') + 'Play again</button><button class="btn btn-primary" data-vn="ok">I can hear Kel</button></div></div>';
+  d.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-vn]'); if (!b) return;
+    e.stopPropagation(); if (d.parentNode) d.parentNode.removeChild(d);
+    if (b.getAttribute('data-vn') === 'again' && replay) replay();
+  });
+  document.body.appendChild(d);
 }
 /** Higher score = a more natural browser voice. Edge "Online (Natural)" and Google voices rank first; robotic ones last. */
 function voiceScore(v) {
@@ -767,6 +795,7 @@ function speechChunks(lines) {
  */
 function speakLines(lines, rate, onEnd, onFail, cast) {
   if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return false;
+  if (voiceNoteArmed) voiceNote(function () { speakLines(lines, rate, onEnd, onFail, cast); });
   audioSession('playback');
   var busy = false; try { busy = speechSynthesis.speaking || speechSynthesis.pending; } catch (e) {}
   stopSpeech();
@@ -837,6 +866,7 @@ function fetchTts(lines, cast) {
   return ttsPending[key];
 }
 function prefetchNatural(lines, cast) {
+  if (xOn('synth')) return;   // the iPhone voice needs nothing in advance
   if (!BACKEND_READY || Date.now() < ttsRestUntil || (state.settings.voiceMode === 'browser' && !IS_IOS)) return;
   fetchTts(lines, cast).catch(function () {});
 }
@@ -993,19 +1023,23 @@ function sharedRecognizer(SR) {
  *   webaudio = samples play through an AudioContext instead of the <audio> element.
  *   iframe = a hidden frame per sentence holds the recognizer and is removed afterwards, gumreset = open and close a microphone stream after each sentence,
  *   nointerim = no interim results, none = switch off the default below.
- * DEFAULT on iPhone and iPad: iframe,gumreset. Tested on a phone: without it the microphone only hears the first sentence (the phone keeps the
- * microphone after the recognizer ends and later sentences hear silence); with it every sentence was heard.
+ * DEFAULT on iPhone and iPad: iframe,synth,nounlock (see below). Without "iframe" the microphone only hears the first sentence (the phone keeps the
+ * microphone after the recognizer ends); without "synth,nounlock" the first sample played through <audio> leaves the microphone deaf.
  */
 var SR_X = '';
 try { SR_X = (location.search.match(/[?&]x=([a-z,]+)/) || [])[1] || ''; } catch (e) {}
 // extras written in the link are added to the iPhone default; "none" switches the default off and keeps only the extras written after it
-// (e.g. ?x=none,iframe = only the hidden frame). Until 22/11 the default was written 'iframe,gumreset' and the old indexOf check
-// let "gumreset" switch on "gum" by accident; "gum" is now written out so the iPhone keeps exactly the behaviour it was tested with.
-var SR_IOS_DEFAULT = 'iframe,gumreset,gum';
+// (e.g. ?x=none,iframe = only the hidden frame).
+// iPhone default since 22/11/2026: tested with the mic lab on iOS 27.2, ANY clip played through an <audio> element (even the silent
+// "unlock" clip) leaves the microphone deaf for the rest of the visit, until the phone is locked; Web Audio does the same. The iPhone
+// voice (speechSynthesis) does not. So on iPhone every sample is read by the iPhone voice and no <audio> element ever plays.
+// Cost: the silent switch mutes the iPhone voice (a web page cannot read that switch), so each lesson with sound starts with a reminder.
+// gum / gumreset were dropped: getUserMedia always failed there (InvalidStateError), so they never did anything.
+var SR_IOS_DEFAULT = 'iframe,synth,nounlock';
 if (/(^|,)none(,|$)/.test(SR_X)) SR_X = SR_X.split(',').filter(function (s) { return s && s !== 'none'; }).join(',');
 else if (IS_IOS) SR_X = SR_IOS_DEFAULT + (SR_X ? ',' + SR_X : '');
 /* All switches are matched as whole words with xOn().
- *   gum        = (iPhone default) open one microphone stream at the first sentence and keep it open for the whole visit
+ *   gum        = open one microphone stream at the first sentence and keep it open for the whole visit
  *   nogum      = no getUserMedia from the page at all (switches off gum, gumreset and playgum, including that accidental one)
  *   freshaudio = a new <audio> element for every sample, removed when the sample ends
  *   frameaudio = the sample plays in a hidden frame of its own, removed when the sample ends
@@ -1371,7 +1405,8 @@ function segBar(done) {
   return '<div class="segbar">' + PARTS.map(function (p, i) { var w = i < cur ? 100 : i === cur ? (A.within / p.n * 100) : 0; return '<div class="sg sk-' + p.k + '" style="flex:' + p.n + '"><i style="width:' + w + '%"></i></div>'; }).join('') + '</div>' +
     '<div class="seglabels">' + PARTS.map(function (p, i) { return '<span class="' + (i === cur ? 'on' : '') + '" style="flex:' + p.n + '">' + SK[p.k].label + '</span>'; }).join('') + '</div>';
 }
-function assessStart() { A = { part: 0, within: 0, cur: li('B1'), trail: ['B1'] }; assessRender(); }
+var ASSESS_CLIP = [{ s: 0, t: 'Attention please. The nine forty train to Leeds has been delayed by twenty minutes, and will now leave from platform six instead of platform two.' }];
+function assessStart() { A = { part: 0, within: 0, cur: li('B1'), trail: ['B1'] }; armVoiceNote(); prefetchNatural(ASSESS_CLIP); assessRender(); }
 function assessRender() {
   var p = PARTS[A.part], root = $('#assess-root'), body = '';
   clearTimers();
@@ -1421,7 +1456,7 @@ function assessPlay(btn) {
   if (A.plays <= 0 && !curSpeech) return toast('No plays left for this clip.');
   var wave = $('#wave');
   if (curSpeech) { curSpeech.cancel(); curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); return; }
-  curSpeech = speakNatural([{ s: 0, t: 'Attention please. The nine forty train to Leeds has been delayed by twenty minutes, and will now leave from platform six instead of platform two.' }], 1, function () { curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); });
+  curSpeech = speakNatural(ASSESS_CLIP, 1, function () { curSpeech = null; wave.classList.remove('live'); btn.innerHTML = ic('i-play', 'ic-lg'); });
   if (!curSpeech) { $('#assess-root .test-shell article').insertAdjacentHTML('beforeend', '<div class="passage mt"><b>Transcript:</b> The nine forty train to Leeds has been delayed by twenty minutes, and will now leave from platform six instead of platform two.</div>'); return; }
   A.plays--; $('#plays').textContent = A.plays + (A.plays === 1 ? ' play left' : ' plays left');
   wave.classList.add('live'); btn.innerHTML = ic('i-stop', 'ic-lg');
@@ -1496,7 +1531,7 @@ function ptRender() {
   if (v.type === 'mcq') {
     var it = v.item, listening = v.skill === 'listening', body = '';
     if (listening) {
-      T.plays = 2;
+      T.plays = 2; prefetchNatural([{ s: 0, t: it.audioText }]);
       body += '<div class="player"><button class="play" data-action="pt-play" aria-label="Play audio">' + ic('i-play', 'ic-lg') + '</button><div class="wave" id="wave">' + waveBars() + '</div><span class="small muted" id="plays">2 plays left</span></div>';
     } else if (it.passage) {
       body += '<div class="passage" style="margin-bottom:16px">' + esc(it.passage) + '</div>';
@@ -1520,10 +1555,10 @@ function ptFail(e, btn, label) {
   if (e && e.code === 'auth') return;
   var b = $('#pt-banner'); if (b) { b.textContent = (e && e.message) || 'Something went wrong. Please try again.'; b.classList.add('show'); }
 }
-function ptResume() { Api.call('placementStart').then(function (r) { T = { sid: r.sessionId, plan: r.plan, view: r.view, sp: null }; ptRender(); }).catch(function (e) { ptFail(e); }); }
+function ptResume() { Api.call('placementStart').then(function (r) { T = { sid: r.sessionId, plan: r.plan, view: r.view, sp: null }; armVoiceNote(); ptRender(); }).catch(function (e) { ptFail(e); }); }
 function ptStart(btn) {
   btn.disabled = true; btn.textContent = 'Preparing…';
-  Api.call('placementStart').then(function (r) { T = { sid: r.sessionId, plan: r.plan, view: r.view, sp: null, started: Date.now() }; if (r.resumed) toast('Continuing your test.'); ptRender(); })
+  Api.call('placementStart').then(function (r) { T = { sid: r.sessionId, plan: r.plan, view: r.view, sp: null, started: Date.now() }; armVoiceNote(); if (r.resumed) toast('Continuing your test.'); ptRender(); })
     .catch(function (e) { btn.disabled = false; btn.textContent = state.hasTest ? 'Retake the test' : 'Start the test'; var b = $('#pt-banner'); b.textContent = (e && e.message) || 'Could not start the test.'; b.classList.add('show'); });
 }
 /* The placement test keeps its own list of answers on this device, for the question index and History.
@@ -1890,7 +1925,7 @@ document.addEventListener('keydown', function (e) {
 });
 window.Kelvin = {
   state: state, $: $, $$: $$, esc: esc, ic: ic, stk: stk, toast: toast, go: go, persist: persist,
-  speakLines: speakLines, speakNatural: speakNatural, prefetchNatural: prefetchNatural, stopSpeech: stopSpeech, say: say, canSpeak: function () { return ('speechSynthesis' in window) || BACKEND_READY; }, SK: SK,
+  speakLines: speakLines, speakNatural: speakNatural, prefetchNatural: prefetchNatural, armVoiceNote: armVoiceNote, voiceSafe: function () { return !IS_IOS || xOn('synth'); }, stopSpeech: stopSpeech, say: say, canSpeak: function () { return ('speechSynthesis' in window) || BACKEND_READY; }, SK: SK,
   register: function (name, view) { REG.views[name] = view; },
   ptLog: function () { return T && T.log ? T.log : null; },
   actions: function (map) { Object.keys(map).forEach(function (k) { REG.actions[k] = map[k]; }); },

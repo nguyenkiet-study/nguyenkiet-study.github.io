@@ -36,6 +36,8 @@ select{font:inherit;font-size:13px;padding:4px;border-radius:8px;border:1px soli
 #say big{display:block;font-size:44px;font-weight:800;line-height:1.1}
 #say p{font-size:22px;margin:14px 0 0}
 #say .ev{font:12px/1.4 ui-monospace,Menlo,monospace;opacity:.85;margin-top:18px;max-width:100%;word-break:break-word}
+#heard{display:none;gap:8px;margin-top:8px}#heard .btn{flex:1;font-size:18px;padding:22px 8px}#heard .yes{background:var(--ok);color:#fff}#heard .no{background:var(--no);color:#fff}
+#preset{display:none;background:var(--acc);color:#fff;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
 #tapmic{display:none;width:100%;font-size:22px;padding:26px;margin-top:8px;background:var(--ok);color:#fff}
 table{width:100%;border-collapse:collapse;font-size:12px}
 td,th{border-bottom:1px solid var(--line);padding:4px 3px;text-align:left;vertical-align:top}
@@ -48,6 +50,7 @@ label{font-size:13px}
 <body>
 <h1>Mic lab</h1>
 <div class="tiny muted" id="env"></div>
+<div id="preset"></div>
 
 <div class="card">
   <h2>1. Phone</h2>
@@ -86,6 +89,7 @@ label{font-size:13px}
   <h2>3. Run</h2>
   <button class="btn pri" id="go" disabled>Build a list first</button>
   <button class="btn" id="tapmic">TAP, then say “good morning”</button>
+  <div id="heard"><button class="btn yes" id="heardY">I heard the voice</button><button class="btn no" id="heardN">I heard nothing</button></div>
   <div id="status" class="muted"></div>
   <div id="banner"></div>
   <div class="row"><button class="btn" id="skip">Skip this run</button><button class="btn" id="stop">Stop</button></div>
@@ -309,6 +313,14 @@ function ev(m) { logLines.push(((now() - T0) / 1000).toFixed(1) + ' ' + m); if (
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 /* the second tap starts the mic synchronously inside that tap (like the app's mic button) */
 function waitTap(start) { return new Promise(function (res) { var b = $('#tapmic'); b.style.display = 'block'; b.onclick = function () { b.style.display = 'none'; b.onclick = null; res(start()); }; }); }
+/* presets: after the sample, ask whether the voice was heard; the answer tap also starts the mic (inside that tap) */
+function waitHeard(row, start) {
+  return new Promise(function (res) {
+    var box = $('#heard'); box.style.display = 'flex'; $('#status').textContent = 'Did you hear the voice? Tap one, then say “' + PHRASE + '”';
+    function pickIt(v) { box.style.display = 'none'; $('#heardY').onclick = $('#heardN').onclick = null; row.heard = v; res(start()); }
+    $('#heardY').onclick = function () { pickIt('yes'); }; $('#heardN').onclick = function () { pickIt('no'); };
+  });
+}
 function runOne(c) {
   // everything up to the first wait happens inside the tap (needed for sound and, on some phones, for the mic)
   logLines = []; ev('run: ' + label(c) + ' | session=' + sess());
@@ -324,6 +336,7 @@ function runOne(c) {
       row.sS = sess(); hideSay();
       return c.delay ? sleep(c.delay) : null;
     }).then(function () {
+      if (c.ask) return waitHeard(row, startMic);
       if ($('#micstart').value === 'tap') { $('#status').textContent = 'Tap the green button, then say “' + PHRASE + '”'; return waitTap(startMic); }
       return startMic();
     });
@@ -368,12 +381,12 @@ if (AS && AS.addEventListener) try { AS.addEventListener('statechange', function
 function line(r) {
   if (r.mark) return '-- ' + r.mark;
   return '#' + r.n + ' ' + (r.ok ? 'PASS' : 'FAIL') + ' [' + r.sw + '] ' + (r.c.control ? 'CHECK ' : '') + r.k + (r.c.reps > 1 ? ' run' + r.c.rep + '/' + r.c.reps : '') + ' use#' + r.use +
-    (r.as ? ' audiostart=' + r.as : ' no-audiostart') + (r.by ? ' by=' + r.by : '') + (r.text ? ' "' + r.text + '"' : '') + (r.err ? ' err=' + r.err : '') + (r.note ? ' note=' + r.note : '') +
+    (r.as ? ' audiostart=' + r.as : ' no-audiostart') + (r.by ? ' by=' + r.by : '') + (r.text ? ' "' + r.text + '"' : '') + (r.err ? ' err=' + r.err : '') + (r.note ? ' note=' + r.note : '') + (r.heard ? ' heard=' + r.heard : '') +
     ' sess: start=' + r.s0 + ' afterSample=' + (r.sS || '-') + ' micStart=' + (r.sStart || '-') + ' end=' + (r.sEnd || '-') + ' ev=' + r.ev.join(',');
 }
 function summary() {
   var g = {}, order = [];
-  rows.forEach(function (r) { if (r.mark || r.c.control) return; var k = r.sw + ' ' + r.k; if (!g[k]) { g[k] = { p: 0, n: 0, seq: '' }; order.push(k); } g[k].n++; if (r.ok) g[k].p++; g[k].seq += r.ok ? 'P' : 'F'; });
+  rows.forEach(function (r) { if (r.mark || r.c.control) return; var k = r.sw + ' ' + r.k; if (!g[k]) { g[k] = { p: 0, n: 0, seq: '' }; order.push(k); } g[k].n++; if (r.ok) g[k].p++; g[k].seq += r.ok ? 'P' : 'F'; if (r.heard) g[k].seq += r.heard === 'yes' ? '(heard)' : '(no voice)'; });
   return order.map(function (k) { return { k: k, p: g[k].p, n: g[k].n, seq: g[k].seq }; });
 }
 function draw() {
@@ -399,6 +412,26 @@ $('#copy').onclick = function () {
 $('#clear').onclick = function () { if (!confirm('Clear all results?')) return; rows = []; store('rows', rows); draw(); };
 
 $('#env').textContent = (SR ? 'SpeechRecognition: yes' : 'SpeechRecognition: NO') + ' · audioSession: ' + (AS ? sess() : 'not available') + ' · Web Audio: ' + (AC ? 'yes' : 'no') + ' · ' + (navigator.userAgent.match(/(CriOS|FxiOS|EdgiOS|Version)\/[\d.]+/) || [''])[0] + ' iOS ' + ((navigator.userAgent.match(/OS (\d+_\d+)/) || [])[1] || '?').replace('_', '.');
+/* ?p=synth[&sw=silent|ring]: a ready-made list, so the phone owner only taps Run */
+var PRESETS = {
+  synth: { title: 'iPhone voice test', note: 'The iPhone voice reads a sentence, you tap whether you heard it, then say “good morning”.', list: [
+    { play: 'none', before: 'play-and-record', delay: 0, rec: 'iframe' },
+    { play: 'synth', before: 'play-and-record', delay: 0, rec: 'iframe', ss: 'playback', ask: true },
+    { play: 'synth', before: 'play-and-record', delay: 0, rec: 'iframe', ss: 'play-and-record', ask: true },
+    { play: 'synth', before: 'play-and-record', delay: 0, rec: 'iframe', ss: 'auto', ask: true },
+    { play: 'synth', before: 'play-and-record', delay: 0, rec: 'iframe', ss: 'ambient', ask: true },
+    { play: 'synth', before: 'play-and-record', delay: 0, rec: 'iframe', ss: 'leave', ask: true }
+  ] }
+};
+(function () {
+  var q = location.search, m = q.match(/[?&]p=([a-z]+)/), sw = (q.match(/[?&]sw=(ring|silent)/) || [])[1], P = m && PRESETS[m[1]];
+  if (!P) return;
+  if (sw) { pick.sw = sw; store('sw', sw); paint(); }
+  rows = []; store('rows', rows);            // a preset starts with a clean sheet (earlier results were already sent)
+  setQueue(P.list, 1);
+  var b = $('#preset'); b.style.display = 'block';
+  b.innerHTML = '<b>' + esc(P.title) + ' is ready.</b> ' + esc(P.note) + ' Just tap the blue Run button (step 3) once per run. At the end tap Copy results.' + (pick.sw ? '' : ' First choose Ring or Silent in step 1.');
+})();
 draw(); updGo();
 })();
 </script>

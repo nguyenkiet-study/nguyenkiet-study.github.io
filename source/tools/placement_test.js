@@ -91,4 +91,13 @@ t('invalid choice rejected',!api('placementAnswer',{token:tokR,sessionId:s1.sess
 advance(4*3600*1000);let s3=api('placementStart',{token:tokR}).data;
 t('stale unfinished test is abandoned and a new one starts',!s3.resumed&&s3.sessionId!==s1.sessionId);
 t('not signed in cannot start',api('placementStart',{}).code==='auth');
+
+// ---- 6. only multiple-choice questions are served ----
+// Listening conversation lessons (Subtype "conversation") and writing/speaking tasks (Subtype "task") share the QuestionBank
+// but have no 4-option answer key. If the test serves one, the screen shows "[object Object]" choices and the answer is marked wrong.
+const subOf=id=>{const r=sheets.QuestionBank.rows.find(r=>r[0]===id);return r?r[ix('Subtype')]:'?'};
+const served=[g,rs,rw,gc].flatMap(x=>x.views||[]).filter(v=>v.type==='mcq');
+const badOpts=served.filter(v=>!(Array.isArray(v.item.options)&&v.item.options.length===4&&v.item.options.every(o=>typeof o==='string')));
+t('every served question has 4 text options',served.length>0&&badOpts.length===0,{served:served.length,bad:badOpts.length,subtypes:badOpts.map(v=>subOf(v.item.id))});
+t('conversation lessons and tasks are never served in the test',served.every(v=>!['conversation','task'].includes(subOf(v.item.id))),served.map(v=>subOf(v.item.id)).filter(s=>s==='conversation'||s==='task'));
 console.log(fail?`\n${fail} FAILED`:'\nALL PASSED');process.exit(fail?1:0);

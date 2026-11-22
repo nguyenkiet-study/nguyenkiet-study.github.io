@@ -50,8 +50,9 @@ var Placement = (function () {
   }
 
   /* ---------- question selection ---------- */
+  // multiple-choice questions only: conversation lessons and writing/speaking tasks share the bank but have no 4-option key
   function candidates(skill) {
-    return Db.filter(CONFIG.SHEETS.QUESTION_BANK, function (r) { return r.Skill === skill && r.Status === 'approved'; });
+    return Db.filter(CONFIG.SHEETS.QUESTION_BANK, function (r) { return r.Skill === skill && r.Status === 'approved' && r.Subtype !== 'task' && r.Subtype !== 'conversation'; });
   }
   function engineItem(r) { return { id: r.QuestionID, b: Engine.itemTheta(r.CEFR, r.DifficultyScore), sub: r.Subtype }; }
 

@@ -1439,7 +1439,7 @@ img.stk.sm{width:64px;height:64px}
 .gr-row .btn-ghost:hover{background:#DCE8FF}
 .gr-row.due .btn-ghost,.gr-row .btn-ghost.now{background:var(--primary);border-color:var(--primary);color:#fff}
 .dr-entry .btn{min-width:112px}
-.dr-entry .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dr-entry .grow{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
 .dr-entry b{font:700 16px/1.3 var(--head);color:var(--ink)}
 .dr-kel{width:58px;height:58px;flex:none;object-fit:contain}
 #dash-mix .dr-entry{margin:0 0 16px;padding:16px 18px;background:linear-gradient(120deg,#fff 0%,#EEF5FF 60%,#E2F6FB 100%);box-shadow:0 10px 30px -22px rgba(16,35,79,.35)}
@@ -2621,26 +2621,67 @@ var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 
 // devices the natural voice comes first.
 var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent || '') || (/Macintosh/.test(navigator.userAgent || '') && (navigator.maxTouchPoints || 0) > 1);
 var keepUtter = [], player = null, voiceSilent = IS_IOS;
+// when the page last made (or stopped) a sound; phone test switches x=waitfix / x=waitidle wait after it before listening
+var lastSoundAt = 0;
+// phone test switches x=freshaudio / x=frameaudio: the player made for the clip now playing (removed when it ends)
+var sampleEl = null;
 function stopSpeech() {
   speakGen++;
-  try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); } catch (e) {}
+  var was = !!curAudio;
+  try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) { was = true; speechSynthesis.cancel(); } } catch (e) {}
   keepUtter = [];
   if (curAudio) { try { curAudio.pause(); } catch (e) {} curAudio = null; }
+  if (sampleEl) { dropSampleEl(sampleEl); sampleEl = null; }
+  if (was) lastSoundAt = Date.now();
+}
+/* x=freshaudio: a new <audio> element for every clip, made inside the tap and removed from the page when the clip ends.
+   x=frameaudio: the same, but the element lives in a hidden frame that is removed too (so the page itself never plays). */
+var silentUrl = null;
+function makeSampleEl() {
+  var fr = null, doc = document, a = null;
+  try {
+    if (xOn('frameaudio')) {
+      fr = document.createElement('iframe'); fr.setAttribute('aria-hidden', 'true');
+      fr.style.cssText = 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+      document.body.appendChild(fr); doc = (fr.contentDocument || (fr.contentWindow && fr.contentWindow.document)) || document;
+    }
+    a = doc.createElement('audio'); a.preload = 'auto';
+    try { (doc.body || doc.documentElement).appendChild(a); } catch (e) {}
+    if (!silentUrl) silentUrl = pcmToWavUrl(btoa(new Array(481).join('\0')), 24000);
+    a.src = silentUrl; var p = a.play(); if (p && p.catch) p.catch(function () {});   // unlocks this element inside the tap
+    a.__frame = fr; srDbg('sample player made' + (fr ? ' in a frame' : ''));
+    return a;
+  } catch (e) { srDbg('sample player failed ' + (e && e.name)); if (fr) { try { fr.parentNode.removeChild(fr); } catch (x) {} } return null; }
+}
+function dropSampleEl(a) {
+  if (!a || a.__gone) return;
+  a.__gone = true;
+  try { a.onended = a.onerror = a.onplaying = null; a.pause(); a.removeAttribute('src'); a.load(); } catch (e) {}
+  try { if (a.parentNode) a.parentNode.removeChild(a); } catch (e) {}
+  var fr = a.__frame; a.__frame = null;
+  if (fr) { try { if (fr.parentNode) fr.parentNode.removeChild(fr); } catch (e) {} }
+  srDbg('sample player removed');
 }
 /** Call inside a tap, before any waiting: plays a moment of silence so the shared player may start later without a new tap. */
 /**
  * iPhone (iOS 17 and later): tell the phone what kind of sound this is. "playback" plays even when the ring/silent switch
  * is on silent; "play-and-record" while the microphone is on. Older phones ignore it.
  */
-function audioSession(type) { try { if (SR_X.indexOf('nosession') >= 0) return; if (type === 'playback' && window.__krec) return; if (navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; } catch (e) {} }
-function unlockAudio() {
+// x=sessauto: never ask for "playback"; use "auto" instead (the browser chooses), and "play-and-record" only while listening
+function audioSession(type) { try { if (xOn('nosession')) return; if (type === 'playback' && window.__krec) return; if (type === 'playback' && xOn('sessauto')) type = 'auto'; if (navigator.audioSession && navigator.audioSession.type !== type) navigator.audioSession.type = type; } catch (e) {} }
+function useWebAudio() { return xOn('webaudio') || xOn('ctxclose'); }
+/** firstTouch: the call from the very first touch on the page (x=nounlock, freshaudio, frameaudio and ctxclose skip that one). */
+function unlockAudio(firstTouch) {
+  if (firstTouch && (xOn('nounlock') || xOn('freshaudio') || xOn('frameaudio') || xOn('ctxclose'))) return;
   audioSession('playback');
-  if (SR_X.indexOf('webaudio') >= 0) { var wc = webAudioCtx(); try { if (wc && wc.state !== 'running') { var rp = wc.resume(); if (rp && rp.catch) rp.catch(function () {}); } } catch (e) {} return; }
+  if (useWebAudio()) { var wc = webAudioCtx(); try { if (wc && wc.state !== 'running') { var rp = wc.resume(); if (rp && rp.catch) rp.catch(function () {}); } } catch (e) {} return; }
+  if (xOn('freshaudio') || xOn('frameaudio')) return;   // speakNatural makes a player for each clip
   if (player || typeof Audio === 'undefined') return;
   try {
     player = new Audio(); player.preload = 'auto';
     player.src = pcmToWavUrl(btoa(new Array(481).join('\0')), 24000);
     var p = player.play(); if (p && p.catch) p.catch(function () {});
+    lastSoundAt = Date.now();
   } catch (e) { player = null; }
 }
 /** Higher score = a more natural browser voice. Edge "Online (Natural)" and Google voices rank first; robotic ones last. */
@@ -2714,8 +2755,18 @@ function speakLines(lines, rate, onEnd, onFail, cast) {
 /* ---------- natural voice (Gemini TTS through the backend), with the browser voice as a safety net ---------- */
 var ttsCache = {}, ttsRestUntil = 0;
 if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = function () { if ($('#settings-root') && $('#settings-root').firstChild) syncSettings(); };
+/* x=hz: clips are written at 48000 Hz (each 24 kHz sample doubled with a midpoint) so the phone never has to play a 24 kHz file */
+function pcm48(bin) {
+  var n = bin.length >> 1, out = new Array(n * 2), k, a, b, m;
+  function s16(i) { var x = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); return x >= 32768 ? x - 65536 : x; }
+  function ch(x) { x = x < 0 ? x + 65536 : x; return String.fromCharCode(x & 255, x >> 8); }
+  for (k = 0; k < n; k++) { a = s16(k); b = k + 1 < n ? s16(k + 1) : a; m = Math.round((a + b) / 2); out[2 * k] = ch(a); out[2 * k + 1] = ch(m); }
+  return out.join('');
+}
 function pcmToWavUrl(b64, rate) {
-  var bin = atob(b64), n = bin.length, buf = new ArrayBuffer(44 + n), v = new DataView(buf), i;
+  var bin = atob(b64);
+  if (rate === 24000 && xOn('hz')) { bin = pcm48(bin); rate = 48000; }
+  var n = bin.length, buf = new ArrayBuffer(44 + n), v = new DataView(buf), i;
   function w(o, str) { for (var k = 0; k < str.length; k++) v.setUint8(o + k, str.charCodeAt(k)); }
   w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
   v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n, true);
@@ -2751,13 +2802,19 @@ var webCtx = null;
 function webAudioCtx() {
   var AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
+  if (webCtx && webCtx.state === 'closed') webCtx = null;
   if (!webCtx) { try { webCtx = new AC(); srDbg('webaudio: new context ' + webCtx.state); } catch (e) { webCtx = null; } }
   return webCtx;
 }
 function playWeb(url, rate, alive, onStart, onEnd, fallback) {
   var ctx = webAudioCtx(); if (!ctx || typeof fetch === 'undefined') return false;
   var stopped = false, src = null, me = null;
-  function rest() { try { if (ctx.state === 'running') ctx.suspend(); } catch (e) {} }
+  // x=ctxclose: close the context for good after the clip (a new one is made for the next clip), instead of pausing it
+  function rest() {
+    lastSoundAt = Date.now();
+    if (xOn('ctxclose')) { try { if (ctx.state !== 'closed') { var cp = ctx.close(); if (cp && cp.catch) cp.catch(function () {}); } } catch (e) {} if (webCtx === ctx) webCtx = null; srDbg('webaudio: context closed'); return; }
+    try { if (ctx.state === 'running') ctx.suspend(); } catch (e) {}
+  }
   me = curAudio = { pause: function () { stopped = true; try { if (src) src.stop(); } catch (e) {} rest(); } };
   var resumed; try { resumed = ctx.state === 'running' ? Promise.resolve() : ctx.resume(); } catch (e) { resumed = Promise.resolve(); }
   Promise.resolve(resumed).catch(function () {}).then(function () { return fetch(url); })
@@ -2772,12 +2829,12 @@ function playWeb(url, rate, alive, onStart, onEnd, fallback) {
       src.start(0);
       if (onStart && alive()) onStart();
     })
-    .catch(function (e) { srDbg('webaudio failed ' + (e && (e.name || e.message))); if (curAudio === me) curAudio = null; fallback({ code: 'play' }); });
+    .catch(function (e) { srDbg('webaudio failed ' + (e && (e.name || e.message))); if (curAudio === me) curAudio = null; if (xOn('ctxclose')) rest(); fallback({ code: 'play' }); });
   return true;
 }
 function speakNatural(lines, rate, onEnd, force, cast, onStart) {
   // phone test switch x=synth: speak every sample with the browser voice (no <audio> element at all)
-  if (SR_X.indexOf('synth') >= 0) { if (onStart) setTimeout(onStart, 0); return speakLines(lines, rate, onEnd, null, cast); }
+  if (xOn('synth')) { if (onStart) setTimeout(onStart, 0); return speakLines(lines, rate, onEnd, null, cast); }
   var silentOk = function () { voiceSilent = true; if (onEnd) onEnd(); };
   if (onStart && (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil)) setTimeout(onStart, 0);
   if (!BACKEND_READY || (!force && state.settings.voiceMode === 'browser' && !IS_IOS) || Date.now() < ttsRestUntil || typeof Audio === 'undefined') return force ? false : speakLines(lines, rate, onEnd, voiceSilent ? null : silentOk, cast);
@@ -2785,9 +2842,14 @@ function speakNatural(lines, rate, onEnd, force, cast, onStart) {
   stopSpeech();
   var gen = speakGen, h = { cancelled: false, inner: null }, accent = state.settings.accent === 'uk' ? 'uk' : 'us';
   var key = accent + '|' + JSON.stringify(lines) + (cast ? '|' + JSON.stringify(cast) : '');
-  h.cancel = function () { h.cancelled = true; if (h.inner) h.inner.cancel(); stopSpeech(); };
+  // x=freshaudio / x=frameaudio: this clip gets its own player, made now (inside the tap) and removed when the clip ends
+  var own = (xOn('freshaudio') || xOn('frameaudio')) && !useWebAudio() ? makeSampleEl() : null;
+  if (own) sampleEl = own;
+  function dropOwn() { if (own) { if (sampleEl === own) sampleEl = null; dropSampleEl(own); own = null; } }
+  h.cancel = function () { h.cancelled = true; if (h.inner) h.inner.cancel(); stopSpeech(); dropOwn(); };
   function alive() { return !h.cancelled && gen === speakGen; }
   function fallback(e) {
+    dropOwn();
     if (!alive()) return;
     if (!e || e.code !== 'play') ttsRestUntil = Date.now() + ((e && e.code === 'limit') ? 3600e3 : 600e3);
     if (force) { toast('Sound is not available right now. Check that your phone is not on silent.'); if (onEnd) onEnd(); return; }
@@ -2796,11 +2858,11 @@ function speakNatural(lines, rate, onEnd, force, cast, onStart) {
   }
   function play(url) {
     if (!alive()) return;
-    if (SR_X.indexOf('webaudio') >= 0 && playWeb(url, rate, alive, onStart, onEnd, fallback)) return;
-    var a = player || new Audio(); a.onended = a.onerror = null;
+    if (useWebAudio() && playWeb(url, rate, alive, onStart, onEnd, fallback)) return;
+    var a = own || player || new Audio(); a.onended = a.onerror = null;
     try { a.pause(); } catch (e) {}
     a.src = url; a.playbackRate = rate || 1; curAudio = a;
-    a.onended = function () { if (curAudio === a) curAudio = null; if (alive() && onEnd) onEnd(); };
+    a.onended = function () { if (curAudio === a) curAudio = null; lastSoundAt = Date.now(); dropOwn(); if (alive() && onEnd) onEnd(); };
     a.onerror = function () { fallback({ code: 'play' }); };
     a.onplaying = function () { a.onplaying = null; if (alive() && onStart) onStart(); };
     var pr = a.play(); if (pr && pr.catch) pr.catch(function () { fallback({ code: 'play' }); });
@@ -2850,7 +2912,8 @@ function srAudioState() {
   try { o.push('player=' + (player ? ('paused:' + player.paused + ' ended:' + player.ended + ' rs:' + player.readyState + ' src:' + (player.getAttribute('src') ? 'yes' : 'no')) : 'none')); } catch (e) { o.push('player?'); }
   try { o.push('cur=' + (curAudio ? 'yes' : 'no')); } catch (e) {}
   try { o.push('synth=' + ('speechSynthesis' in window ? (speechSynthesis.speaking ? 'speaking' : speechSynthesis.pending ? 'pending' : 'idle') : 'none')); } catch (e) {}
-  try { o.push('session=' + (navigator.audioSession ? navigator.audioSession.type : 'n/a')); } catch (e) {}
+  try { o.push('session=' + (navigator.audioSession ? navigator.audioSession.type + '/' + navigator.audioSession.state : 'n/a')); } catch (e) {}
+  try { if (sampleEl) o.push('own=yes'); } catch (e) {}
   try { if (webCtx) o.push('ctx=' + webCtx.state); } catch (e) {}
   return o.join(' ');
 }
@@ -2888,9 +2951,35 @@ function sharedRecognizer(SR) {
  */
 var SR_X = '';
 try { SR_X = (location.search.match(/[?&]x=([a-z,]+)/) || [])[1] || ''; } catch (e) {}
-// extras written in the link are added to the iPhone default; "none" switches the default off (and drops the extras)
-if (IS_IOS && SR_X.indexOf('none') < 0) SR_X = 'iframe,gumreset' + (SR_X ? ',' + SR_X : '');
-if (SR_X.indexOf('none') >= 0) SR_X = '';
+// extras written in the link are added to the iPhone default; "none" switches the default off and keeps only the extras written after it
+// (e.g. ?x=none,iframe = only the hidden frame). Until 22/11 the default was written 'iframe,gumreset' and the old indexOf check
+// let "gumreset" switch on "gum" by accident; "gum" is now written out so the iPhone keeps exactly the behaviour it was tested with.
+var SR_IOS_DEFAULT = 'iframe,gumreset,gum';
+if (/(^|,)none(,|$)/.test(SR_X)) SR_X = SR_X.split(',').filter(function (s) { return s && s !== 'none'; }).join(',');
+else if (IS_IOS) SR_X = SR_IOS_DEFAULT + (SR_X ? ',' + SR_X : '');
+/* All switches are matched as whole words with xOn().
+ *   gum        = (iPhone default) open one microphone stream at the first sentence and keep it open for the whole visit
+ *   nogum      = no getUserMedia from the page at all (switches off gum, gumreset and playgum, including that accidental one)
+ *   freshaudio = a new <audio> element for every sample, removed when the sample ends
+ *   frameaudio = the sample plays in a hidden frame of its own, removed when the sample ends
+ *   ctxclose   = samples play through Web Audio, and the AudioContext is closed (not paused) after each sample
+ *   hz         = samples are written at 48 kHz instead of 24 kHz
+ *   nounlock   = no silent "unlock" clip on the first touch of the page (no sound at all until Listen is tapped)
+ *   sessauto   = never ask for "playback": the sound mode goes back to "auto" (the browser chooses), "play-and-record" while listening
+ *   sessflip   = right before listening, set the sound mode to "auto" and then "play-and-record" (forces the phone to set it up again)
+ *   waitfix    = start listening no sooner than 2.5 s after the last sound the page made
+ *   waitidle   = after a sound, wait until navigator.audioSession.state is no longer "active" (at most 4 s after the sound) */
+function xOn(n) { return (',' + SR_X + ',').indexOf(',' + n + ',') >= 0; }
+/** ms to wait before listening; since = ms since the last sound (counted by the caller across its waits) */
+function micWait(since) {
+  if (!(since >= 0)) return 0;
+  if (xOn('waitfix') && since < 2500) return 2500 - since;
+  if (xOn('waitidle') && since < 4000) {
+    var st = ''; try { st = navigator.audioSession ? String(navigator.audioSession.state || '') : ''; } catch (e) {}
+    if (st === 'active' || !st) return Math.min(250, 4000 - since);   // check again shortly (no "state" on this phone: just wait the 4 s)
+  }
+  return 0;
+}
 /* extras for the sample voice: playreset = let go of the <audio> element when a sample ends, playgum = open and close a microphone stream when a sample ends */
 function micReset(why) {
   try {
@@ -2899,15 +2988,16 @@ function micReset(why) {
 }
 function afterSample() {
   srDbg('sample ended: ' + srAudioState());
-  if (SR_X.indexOf('playreset') >= 0) releaseAudioForMic();
-  if (SR_X.indexOf('playgum') >= 0) micReset('after the sample');
+  if (xOn('playreset')) releaseAudioForMic();
+  if (xOn('playgum') && !xOn('nogum')) micReset('after the sample');
+  if (typeof lastSoundAt === 'number') lastSoundAt = Date.now();
 }
 function makeRecognizer(handlers) {
-  if (SR_X.indexOf('shared') >= 0) return makeSharedRecognizer(handlers);
+  if (xOn('shared')) return makeSharedRecognizer(handlers);
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
   // iframe: the recognizer lives in a hidden frame made for this one sentence and removed afterwards, so the browser destroys it (and lets go of the microphone) at once
-  var xFrame = SR_X.indexOf('iframe') >= 0, xGumReset = SR_X.indexOf('gumreset') >= 0, frame = null, SRc = SR;
+  var xFrame = xOn('iframe'), xGumReset = xOn('gumreset') && !xOn('nogum'), frame = null, SRc = SR;
   if (xFrame) {
     try {
       frame = document.createElement('iframe'); frame.setAttribute('aria-hidden', 'true'); frame.setAttribute('allow', 'microphone');
@@ -2923,7 +3013,7 @@ function makeRecognizer(handlers) {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) { st.getTracks().forEach(function (t) { t.stop(); }); srDbg('mic reset (opened and closed)'); }, function (e) { srDbg('mic reset failed ' + (e && e.name)); });
     }
   }
-  var r = new SRc(), finalText = '', xRelease = SR_X.indexOf('release') >= 0 || SR_X.indexOf('playreset') >= 0, xAbort = SR_X.indexOf('abort') >= 0, xGum = SR_X.indexOf('gum') >= 0;
+  var r = new SRc(), finalText = '', xRelease = xOn('release') || xOn('playreset'), xAbort = xOn('abort'), xGum = xOn('gum') && !xOn('nogum');
   srDbg('new recognizer (classic) x=' + SR_X);
   try {
     ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'end', 'nomatch'].forEach(function (n) { r.addEventListener(n, function () { srDbg('ev:' + n); }); });
@@ -2935,11 +3025,32 @@ function makeRecognizer(handlers) {
   function doStart() {
     srDbg('audio: ' + srAudioState());
     if (xRelease) releaseAudioForMic();
+    if (xOn('sessflip')) audioSession('auto');
     audioSession('play-and-record');
-    if (SR_X.indexOf('keeprec') >= 0) window.__krec = true;   // keeprec: stay in play-and-record (sound still plays on silent, one steady mode)
+    if (xOn('keeprec')) window.__krec = true;   // keeprec: stay in play-and-record (sound still plays on silent, one steady mode)
     var out = startRec(); srDbg('start() ok'); return out;
   }
+  // waitfix / waitidle: hold the start for a moment after a sound; stop() or abort() during the wait end the run without starting
+  var waitT = 0, nativeStop = r.stop, nativeAbort = r.abort;
+  function cancelWait() {
+    if (!waitT) return false;
+    clearTimeout(waitT); waitT = 0; srDbg('stopped while waiting');
+    handlers.end(finalText); dispose(); return true;
+  }
+  r.stop = function () { if (cancelWait()) return; return nativeStop.apply(r, arguments); };
+  r.abort = function () { if (cancelWait()) return; return nativeAbort.apply(r, arguments); };
+  var since = null;
   r.start = function () {
+    if (since === null) { var at = typeof lastSoundAt === 'number' ? lastSoundAt : 0; since = at ? Date.now() - at : -1; }
+    var w = micWait(since);
+    if (w > 0) {
+      srDbg('waiting ' + w + ' ms before listening, ' + srAudioState());
+      waitT = setTimeout(function () { waitT = 0; since += w; try { r.start(); } catch (e) { srDbg('start() threw ' + (e && e.name)); try { handlers.error('audio-capture'); } catch (x) {} handlers.end(finalText); dispose(); } }, w);
+      return;
+    }
+    return realStart();
+  };
+  function realStart() {
     // gum: keep one microphone stream open for the whole visit, so the phone does not close and reopen the microphone for every sentence
     if (xGum && !window.__kmic && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       srDbg('getUserMedia...');
@@ -2948,9 +3059,9 @@ function makeRecognizer(handlers) {
       return;
     }
     try { return doStart(); } catch (e) { srDbg('start() threw ' + (e && e.name)); throw e; }
-  };
+  }
   try { r.addEventListener('end', function () { audioSession('playback'); }); r.addEventListener('error', function () { audioSession('playback'); }); } catch (e) {}
-  r.lang = 'en-US'; r.interimResults = SR_X.indexOf('nointerim') < 0; r.continuous = true;
+  r.lang = 'en-US'; r.interimResults = !xOn('nointerim'); r.continuous = true;
   r.onresult = function (e) {
     var interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
@@ -3743,7 +3854,7 @@ window.Kelvin = {
   Api: Api, live: BACKEND_READY, LV: LV, li: li, SKILLS: SKILLS, loadOverview: loadOverview, planOf: planOf, fmtTime: fmtTime, waveBars: waveBars, makeRecognizer: makeRecognizer, srx: function () { return SR_X; }, afterSample: afterSample, clearTimers: clearTimers, timers: function (t) { timers.push(t); }, setSkill: function (k, v) { state.skills[k] = v; }
 };
 
-document.addEventListener('touchend', function once() { unlockAudio(); document.removeEventListener('touchend', once, true); }, true);
+document.addEventListener('touchend', function once() { unlockAudio(true);document.removeEventListener('touchend', once, true); }, true);
 /* ---------- events ---------- */
 document.addEventListener('click', function (ev) {
   var goEl = ev.target.closest('[data-go]');
@@ -7283,7 +7394,18 @@ function spot() {
     for (i = 0; i < all.length; i++) if (/Loading|Preparing|Saving|Checking|Opening/i.test(all[i].textContent.slice(0, 200)) && all[i].offsetParent) { t = all[i]; break; }
   }
   if (!t) t = view.querySelector('article, .card');
+  // a block that sits in a grid or a row of cards (e.g. the Dashboard stats) would put the card into one narrow cell:
+  // go up to the whole grid/row and put the card under it instead
+  while (t && t.parentElement && t.parentElement !== view && view.contains(t.parentElement) && inRow(t.parentElement)) t = t.parentElement;
   return { view: view, after: t };
+}
+function inRow(box) {
+  try {
+    var cs = getComputedStyle(box);
+    if (/grid/.test(cs.display)) return cs.gridTemplateColumns.trim().split(/\s+/).length > 1;
+    if (/flex/.test(cs.display)) return !/column/.test(cs.flexDirection) && box.children.length > 1;
+  } catch (e) {}
+  return false;
 }
 function show(steps) {
   W.steps = steps || []; W.si = 0; W.open = true; W.hidden = false;

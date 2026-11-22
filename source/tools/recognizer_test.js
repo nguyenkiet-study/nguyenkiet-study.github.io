@@ -17,7 +17,7 @@ class FakeSR{constructor(){FakeSR.all.push(this);this.running=false}
 FakeSR.all=[];
 const sessions=[];
 const win={SpeechRecognition:FakeSR};
-const load=(IS_IOS,doc,nav)=>new Function('window','navigator','setTimeout','clearTimeout','audioSession','IS_IOS','document',code+';return {makeRecognizer: makeSharedRecognizer, classic: makeRecognizer}')(win,nav||{},T.setTimeout,T.clearTimeout,type=>sessions.push(type),IS_IOS,doc);
+const load=(IS_IOS,doc,nav,search,soundAt)=>new Function('window','navigator','setTimeout','clearTimeout','audioSession','IS_IOS','document','location','lastSoundAt',code+';return {makeRecognizer: makeSharedRecognizer, classic: makeRecognizer, xOn: xOn, srx: function(){return SR_X}}')(win,nav||{},T.setTimeout,T.clearTimeout,type=>sessions.push(type),IS_IOS,doc,{search:search||''},soundAt||0);
 const M=load(false,undefined);
 function mk(){const log={text:[],err:[],end:[]};const r=M.makeRecognizer({text:(f,i)=>log.text.push([f,i]),error:e=>log.err.push(e),end:f=>log.end.push(f)});return {r,log}}
 const cur=()=>FakeSR.all[FakeSR.all.length-1];
@@ -67,7 +67,7 @@ startThrows=true;({r,log}=mk());r.start();t('refused start ends the session with
 // 12. phone test switches for the spoken sample (speakNatural): default <audio>, x=synth browser voice, x=webaudio AudioContext
 const a2=src.indexOf('var activeRec = null;'),b2=src.indexOf('var liveRec = null;');
 const voiceCode=src.slice(a2,b2);
-function voiceEnv(x){
+function voiceEnv(x,doc){
   const E={audios:[],plays:[],ctx:[],spoken:[],toasts:[]};
   class FakeAudio{constructor(){E.audios.push(this);this.paused=true}play(){E.plays.push(this.src);this.paused=false;return {catch(){},then(){}}}pause(){this.paused=true}}
   class FakeCtx{constructor(){E.ctx.push(this);this.state='suspended';this.srcs=[]}resume(){this.state='running';return Promise.resolve()}suspend(){this.state='suspended';return Promise.resolve()}
@@ -78,10 +78,10 @@ function voiceEnv(x){
   class Utt{constructor(t){this.text=t}}
   const state={settings:{accent:'us',voiceMode:'natural'}};
   const Api={call:()=>Promise.resolve({audio:Buffer.from('abcd').toString('base64'),rate:24000})};
-  const f=new Function('window','navigator','speechSynthesis','SpeechSynthesisUtterance','Audio','state','Api','BACKEND_READY','toast','$','syncSettings','SR_X','srDbg','audioSession','fetch','btoa','atob','URL','Blob','setTimeout','clearTimeout',
-    voiceCode+';return {speakNatural:speakNatural,stopSpeech:stopSpeech,unlockAudio:unlockAudio,cur:function(){return curAudio}}');
+  const f=new Function('window','navigator','speechSynthesis','SpeechSynthesisUtterance','Audio','state','Api','BACKEND_READY','toast','$','syncSettings','SR_X','srDbg','audioSession','fetch','btoa','atob','URL','Blob','setTimeout','clearTimeout','xOn','document',
+    voiceCode+';return {speakNatural:speakNatural,stopSpeech:stopSpeech,unlockAudio:unlockAudio,cur:function(){return curAudio},pcmToWavUrl:pcmToWavUrl,pcm48:pcm48,lastSound:function(){return lastSoundAt}}');
   E.api=f(win,{userAgent:'iPhone',platform:'iPhone',maxTouchPoints:5},win.speechSynthesis,Utt,FakeAudio,state,Api,true,m=>E.toasts.push(m),()=>null,()=>{},x,()=>{},()=>{},
-    ()=>Promise.resolve({arrayBuffer:()=>Promise.resolve(new ArrayBuffer(8))}),s=>Buffer.from(s,'binary').toString('base64'),s=>Buffer.from(s,'base64').toString('binary'),{createObjectURL:()=>'blob:x'+Math.random()},class{constructor(p){this.p=p}},(fn)=>{fn();return 0},()=>{});
+    ()=>Promise.resolve({arrayBuffer:()=>Promise.resolve(new ArrayBuffer(8))}),s=>Buffer.from(s,'binary').toString('base64'),s=>Buffer.from(s,'base64').toString('binary'),{createObjectURL:()=>'blob:x'+Math.random()},class{constructor(p){this.p=p}},(fn)=>{fn();return 0},()=>{},n=>(','+x+',').indexOf(','+n+',')>=0,doc);
   return E;
 }
 const flush=()=>new Promise(r=>setImmediate(r));
@@ -120,5 +120,84 @@ const flush=()=>new Promise(r=>setImmediate(r));
     MI.classic({ text() {}, error() {}, end() {} });
     t('iPhone: the next sentence gets its own frame', frames.length === 2 && frames[1].in === true && FakeSR.all.length === n13 + 2, { frames: frames.length });
   }
+  // 14. newer phone test switches (whole-word match), all off by default
+  { const MI = load(false, undefined, {}, '?debug=1&x=nogum,gumreset,waitfix');
+    t('xOn matches whole words: nogum on, gum off', MI.xOn('nogum') && !MI.xOn('gum') && MI.xOn('gumreset') && MI.xOn('waitfix') && !MI.xOn('wait'), MI.srx());
+    const MD = load(true, undefined, {}, '');
+    t('default iPhone switches unchanged (gum written out)', MD.srx() === 'iframe,gumreset,gum' && MD.xOn('gum') && !MD.xOn('nogum') && !MD.xOn('waitfix'), MD.srx());
+    const MP = load(false, undefined, {}, '?x=playgum,gumreset');
+    t('gum is no longer switched on by gumreset or playgum', !MP.xOn('gum') && MP.xOn('gumreset') && MP.xOn('playgum'), MP.srx());
+    const MN = load(true, undefined, {}, '?x=none,iframe,gumreset');
+    t('x=none drops the iPhone default and keeps the extras after it', MN.srx() === 'iframe,gumreset' && !MN.xOn('gum') && !MN.xOn('none'), MN.srx());
+    const M0 = load(true, undefined, {}, '?x=none');
+    t('x=none alone: no switches at all', M0.srx() === '', M0.srx()); }
+  // 14b. the iPhone default (gumreset) also runs the "gum" path: getUserMedia before every start; x=nogum: never
+  { delete win.__kmic; const calls = []; const nav = { mediaDevices: { getUserMedia: () => { calls.push(1); return Promise.reject({ name: 'InvalidStateError' }); } } };
+    const MD = load(true, undefined, nav, ''); const n0 = FakeSR.all.length; const r = MD.classic({ text() {}, error() {}, end() {} }); r.start();
+    t('default iPhone: getUserMedia is asked before the start (the "gum" path)', calls.length === 1 && !FakeSR.all[n0].running, { calls: calls.length });
+    await flush(); await flush(); t('default iPhone: the recognizer starts after that', FakeSR.all[n0].running);
+    calls.length = 0; const MN = load(true, undefined, nav, '?x=nogum'); const n1 = FakeSR.all.length; const lg = { n: [] };
+    const r2 = MN.classic({ text() {}, error() {}, end: f => lg.n.push(f) }); r2.start();
+    t('x=nogum: starts at once, inside the tap, no getUserMedia', FakeSR.all[n1].running && calls.length === 0, { calls: calls.length });
+    FakeSR.all[n1].running = false; FakeSR.all[n1].onend(); await flush(); tick(400);
+    t('x=nogum: no getUserMedia after the sentence either', calls.length === 0 && lg.n.length === 1, { calls: calls.length });
+    calls.length = 0; delete win.__kmic; const MG = load(true, undefined, nav, '?x=none,iframe,gumreset'); const n2 = FakeSR.all.length;
+    MG.classic({ text() {}, error() {}, end() {} }).start();
+    t('x=none,iframe,gumreset: starts at once, no kept microphone stream', FakeSR.all[n2].running && calls.length === 0, { calls: calls.length }); }
+  // 14c. x=waitfix: listening starts 2.5 s after the last sound; stop() during the wait ends the run without starting
+  { const M2 = load(false, undefined, {}, '?x=waitfix', Date.now() - 500); const n0 = FakeSR.all.length; const lg = { n: [], e: [] };
+    const r = M2.classic({ text() {}, error: e => lg.e.push(e), end: f => lg.n.push(f) }); r.start();
+    t('x=waitfix: not started right after a sound', !FakeSR.all[n0].running);
+    tick(1800); t('x=waitfix: still waiting at 2.3 s', !FakeSR.all[n0].running); tick(300);
+    t('x=waitfix: started by 2.6 s', FakeSR.all[n0].running);
+    const M3 = load(false, undefined, {}, '?x=waitfix', Date.now() - 100); const n1 = FakeSR.all.length; const l3 = { n: [] };
+    const r3 = M3.classic({ text() {}, error() {}, end: f => l3.n.push(f) }); r3.start(); r3.stop(); tick(5000);
+    t('x=waitfix: stop while waiting ends once and never starts', l3.n.length === 1 && !FakeSR.all[n1].running, { ends: l3.n.length, running: FakeSR.all[n1].running });
+    const M4 = load(false, undefined, {}, '?x=waitfix', Date.now() - 10000); const n2 = FakeSR.all.length;
+    M4.classic({ text() {}, error() {}, end() {} }).start();
+    t('x=waitfix: no wait when the last sound was long ago', FakeSR.all[n2].running); }
+  // 14d. x=waitidle: waits while navigator.audioSession.state is "active", starts once it is not (or after 4 s)
+  { const nav = { audioSession: { type: 'playback', state: 'active' } };
+    const M2 = load(false, undefined, nav, '?x=waitidle', Date.now() - 200); const n0 = FakeSR.all.length;
+    M2.classic({ text() {}, error() {}, end() {} }).start(); tick(600);
+    t('x=waitidle: waits while the session is active', !FakeSR.all[n0].running);
+    nav.audioSession.state = 'inactive'; tick(300);
+    t('x=waitidle: starts when the session is no longer active', FakeSR.all[n0].running); }
+  // 14e. x=sessflip: "auto" then "play-and-record" right before the start
+  { const M2 = load(false, undefined, {}, '?x=sessflip'); sessions.length = 0; M2.classic({ text() {}, error() {}, end() {} }).start();
+    t('x=sessflip: auto, then play-and-record', sessions[0] === 'auto' && sessions[1] === 'play-and-record', sessions); }
+  // 15. sample switches: ctxclose closes the context after each clip, freshaudio / frameaudio use a player per clip and remove it, hz writes 48 kHz
+  { const E = voiceEnv('ctxclose'); let ended = 0; E.api.speakNatural([{ s: 0, t: 'One.' }], 1, () => ended++); for (let i = 0; i < 10; i++) await flush();
+    const c = E.ctx[0], s = c && c.srcs[0]; if (c) c.close = function () { this.state = 'closed'; return Promise.resolve(); };
+    t('x=ctxclose: plays through Web Audio, no <audio> playback', !!(s && s.started) && E.plays.length === 0, { ctx: E.ctx.length, plays: E.plays.length });
+    if (s) s.onended(); t('x=ctxclose: context closed after the clip, onEnd once', c && c.state === 'closed' && ended === 1, { state: c && c.state, ended });
+    E.api.speakNatural([{ s: 0, t: 'Two.' }], 1, () => ended++); for (let i = 0; i < 10; i++) await flush();
+    t('x=ctxclose: the next clip gets a new context', E.ctx.length === 2 && E.ctx[1].srcs.length === 1, { ctx: E.ctx.length }); }
+  for (const mode of ['freshaudio', 'frameaudio']) {
+    const made = [], frames = [];
+    const mkEl = (owner) => ({ tag: 'audio', paused: true, owner, parentNode: null, play() { this.paused = false; this.playedSrc = (this.playedSrc || []).concat(this.src); return { catch() {}, then() {} }; }, pause() { this.paused = true; }, removeAttribute() { this.src = ''; }, load() { this.loaded = true; } });
+    const body = { appendChild(x) { x.parentNode = body; x.in = true; }, removeChild(x) { x.in = false; x.parentNode = null; } };
+    const fbody = { appendChild(x) { x.parentNode = fbody; x.in = true; }, removeChild(x) { x.in = false; x.parentNode = null; } };
+    const fdoc = { createElement: () => { const e = mkEl('frame'); made.push(e); return e; }, body: fbody };
+    const doc = { body, createElement: (tag) => { if (tag === 'iframe') { const f = { tag, style: {}, setAttribute() {}, contentDocument: fdoc }; frames.push(f); return f; } const e = mkEl('page'); made.push(e); return e; } };
+    const E = voiceEnv(mode, doc); let ended = 0;
+    E.api.unlockAudio(true);
+    t('x=' + mode + ': no unlock clip on the first touch', E.audios.length === 0 && made.length === 0, { audios: E.audios.length, made: made.length });
+    E.api.speakNatural([{ s: 0, t: 'Hello.' }], 1, () => ended++); for (let i = 0; i < 8; i++) await flush();
+    const a = made[0];
+    t('x=' + mode + ': the clip plays on its own new element', made.length === 1 && a.in && a.owner === (mode === 'frameaudio' ? 'frame' : 'page') && E.audios.length === 0 && a.playedSrc.length === 2, { made: made.length, audios: E.audios.length, played: a && a.playedSrc });
+    if (mode === 'frameaudio') t('x=frameaudio: inside a hidden frame', frames.length === 1 && frames[0].in);
+    a.onended(); t('x=' + mode + ': element removed after the clip, onEnd once', !a.in && a.loaded && ended === 1 && (mode !== 'frameaudio' || !frames[0].in), { in: a.in, ended });
+    t('x=' + mode + ': the time of the sound is kept', E.api.lastSound() > 0);
+    E.api.speakNatural([{ s: 0, t: 'Again.' }], 1, () => ended++); for (let i = 0; i < 8; i++) await flush();
+    const b = made[1]; E.api.stopSpeech();
+    t('x=' + mode + ': stopSpeech removes the playing element', made.length === 2 && !b.in && ended === 1, { made: made.length, in: b && b.in });
+  }
+  { const E = voiceEnv('nounlock'); E.api.unlockAudio(true); t('x=nounlock: no unlock clip on the first touch', E.audios.length === 0);
+    E.api.unlockAudio(); t('x=nounlock: a tap on Listen still unlocks', E.audios.length === 1);
+    const D = voiceEnv(''); D.api.unlockAudio(true); t('default: the first touch still unlocks', D.audios.length === 1); }
+  { const E = voiceEnv('hz'); const pcm = Buffer.from([0, 0, 100, 0]).toString('binary'), out = E.api.pcm48(pcm);
+    const v = [0, 1].map(i => out.charCodeAt(2 * i) | (out.charCodeAt(2 * i + 1) << 8));
+    t('x=hz: 24 kHz samples doubled with a midpoint', out.length === 8 && v[0] === 0 && v[1] === 50, v); }
   console.log(fail ? (fail + ' FAILED') : 'ALL PASSED'); process.exit(fail ? 1 : 0);
 })();

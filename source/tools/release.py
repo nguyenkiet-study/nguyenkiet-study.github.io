@@ -19,4 +19,6 @@ shutil.copyfile(src / 'apps_script' / 'Backend.gs', repo / 'apps_script' / 'Back
 shutil.copyfile(src / 'apps_script' / 'Index.html', repo / 'apps_script' / 'Index.html')
 shutil.copyfile(src / 'web' / 'index.html', repo / 'index.html')
 shutil.copytree(src / 'web' / 'stickers', repo / 'stickers', dirs_exist_ok=True)
+if (src / 'miclab.html').exists():   # stand-alone microphone test page for phones, served as /miclab.html
+    shutil.copyfile(src / 'miclab.html', repo / 'miclab.html')
 print('Release files copied into', repo)

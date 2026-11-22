@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kelvin mic lab</title>
+<!--
+  Kelvin mic lab: a stand-alone page (no build step) to find out, on a real iPhone, which way of playing a sample sentence
+  leaves the Web Speech microphone working afterwards. Served as /miclab.html. Nothing here talks to the Kelvin server.
+  Each run: play a sample (or not) -> wait -> set navigator.audioSession.type -> start a SpeechRecognition (in the page or in a
+  fresh hidden frame) -> PASS when soundstart / speechstart / result arrive within the time limit, FAIL otherwise.
+-->
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#14171c;--muted:#5f6773;--line:#dde1e7;--acc:#2864E8;--ok:#0f8a5f;--no:#c43b3b;--chip:#eef1f5}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--text:#e9ecf1;--muted:#9aa3ae;--line:#2a2f37;--acc:#6d9bff;--ok:#3ecf8e;--no:#ff6b6b;--chip:#232831}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:12px 16px 120px;-webkit-text-size-adjust:100%}
+h1{font-size:20px;margin:4px 0 2px}
+h2{font-size:15px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+.muted{color:var(--muted)} .tiny{font-size:12px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.row>b{min-width:100%;font-size:13px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--text);border-radius:999px;padding:6px 11px;font:inherit;font-size:13px}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+select{font:inherit;font-size:13px;padding:4px;border-radius:8px;border:1px solid var(--line);background:var(--chip);color:var(--text)}
+.btn{border:0;border-radius:12px;padding:11px 14px;font:inherit;font-weight:600;background:var(--chip);color:var(--text)}
+.btn.pri{background:var(--acc);color:#fff}
+#go{width:100%;font-size:19px;padding:18px;margin-top:6px}
+#go:disabled{opacity:.5}
+#status{font-size:14px;margin-top:4px;min-height:20px}
+#banner{display:none;background:#fff3cd;color:#5c4400;border-radius:10px;padding:10px;margin-top:8px;font-size:14px}
+#say{display:none;position:fixed;inset:0;z-index:50;background:rgba(15,138,95,.96);color:#fff;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px}
+#say.on{display:flex}
+#say.wait{background:rgba(40,40,48,.95)}
+#say big{display:block;font-size:44px;font-weight:800;line-height:1.1}
+#say p{font-size:22px;margin:14px 0 0}
+#say .ev{font:12px/1.4 ui-monospace,Menlo,monospace;opacity:.85;margin-top:18px;max-width:100%;word-break:break-word}
+#tapmic{display:none;width:100%;font-size:22px;padding:26px;margin-top:8px;background:var(--ok);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{border-bottom:1px solid var(--line);padding:4px 3px;text-align:left;vertical-align:top}
+.P{color:var(--ok);font-weight:700} .F{color:var(--no);font-weight:700}
+pre{white-space:pre-wrap;word-break:break-word;font:11px/1.4 ui-monospace,Menlo,monospace;margin:0;max-height:220px;overflow:auto}
+details summary{font-weight:600;font-size:14px;cursor:pointer}
+label{font-size:13px}
+</style>
+</head>
+<body>
+<h1>Mic lab</h1>
+<div class="tiny muted" id="env"></div>
+
+<div class="card">
+  <h2>1. Phone</h2>
+  <div class="row" data-one="sw"><button class="chip" data-v="ring">Ring (switch up)</button><button class="chip" data-v="silent">Silent (switch down)</button></div>
+  <div class="tiny muted">Set this to match the switch on the side of the phone. When a big green <b>SAY NOW</b> appears, say <b>“good morning”</b>.</div>
+</div>
+
+<div class="card">
+  <h2>2. What to test</h2>
+  <div class="row" data-many="play"><b>Sample before the mic</b>
+    <button class="chip" data-v="none">none</button><button class="chip" data-v="audio">&lt;audio&gt; shared</button><button class="chip" data-v="audio-new">&lt;audio&gt; new, removed</button>
+    <button class="chip" data-v="webaudio">Web Audio (suspend)</button><button class="chip" data-v="webaudio-close">Web Audio (close)</button><button class="chip" data-v="synth">speechSynthesis</button>
+    <button class="chip" data-v="iframe-audio">&lt;audio&gt; in a frame</button><button class="chip" data-v="during-rec">mic first, sample during</button></div>
+  <div class="row" data-many="before"><b>audioSession.type right before the mic</b>
+    <button class="chip" data-v="leave">leave</button><button class="chip" data-v="auto">auto</button><button class="chip" data-v="play-and-record">play-and-record</button><button class="chip" data-v="playback">playback</button><button class="chip" data-v="ambient">ambient</button></div>
+  <div class="row" data-many="delay"><b>Wait after the sample</b>
+    <button class="chip" data-v="0">0</button><button class="chip" data-v="1500">1.5 s</button><button class="chip" data-v="3000">3 s</button></div>
+  <div class="row" data-many="rec"><b>Recognizer</b>
+    <button class="chip" data-v="page">in the page</button><button class="chip" data-v="iframe">in a fresh frame</button></div>
+  <div class="row" data-one="reps"><b>Runs per combination</b><button class="chip" data-v="1">1</button><button class="chip" data-v="4">4 in a row</button></div>
+  <details>
+    <summary>More settings</summary>
+    <div class="row"><label>audioSession.type while the sample plays <select id="ss"><option>playback</option><option>leave</option><option>auto</option><option>play-and-record</option><option>ambient</option></select></label></div>
+    <div class="row"><label>audioSession.type after the mic <select id="after"><option>playback</option><option>leave</option><option>auto</option><option>play-and-record</option></select></label></div>
+    <div class="row"><label>Start the mic <select id="micstart"><option value="auto">by itself</option><option value="tap">with a second tap (like the app)</option></select></label></div>
+    <div class="row"><label>Listen for <select id="limit"><option value="8000">8 s</option><option value="12000">12 s</option><option value="5000">5 s</option></select></label></div>
+    <div class="row"><label>Sample file rate <select id="rate"><option>24000</option><option>48000</option><option>44100</option></select></label></div>
+    <div class="row"><label><input type="checkbox" id="control" checked> after a FAIL, run a check with no sound (shows whether the mic is stuck for everything)</label></div>
+    <div class="row"><label><input type="checkbox" id="autonext"> start the next run by itself (sound may be blocked without a tap)</label></div>
+  </details>
+  <div class="row" style="margin-top:10px"><button class="btn pri" id="build">Build list</button><button class="btn" id="quick">Quick plan</button><button class="btn" id="single">Only the first of each</button></div>
+  <div class="tiny muted" id="plan"></div>
+</div>
+
+<div class="card">
+  <h2>3. Run</h2>
+  <button class="btn pri" id="go" disabled>Build a list first</button>
+  <button class="btn" id="tapmic">TAP, then say “good morning”</button>
+  <div id="status" class="muted"></div>
+  <div id="banner"></div>
+  <div class="row"><button class="btn" id="skip">Skip this run</button><button class="btn" id="stop">Stop</button></div>
+</div>
+
+<div class="card">
+  <h2>Summary</h2>
+  <div id="sum" class="tiny muted">No runs yet.</div>
+  <div class="row"><button class="btn pri" id="copy">Copy results</button><button class="btn" id="clear">Clear results</button></div>
+  <textarea id="copybox" style="position:absolute;left:-9999px;top:0" aria-hidden="true"></textarea>
+</div>
+
+<div class="card"><h2>Runs</h2><div id="rows" class="tiny muted">-</div></div>
+<div class="card"><h2>Last run, event by event</h2><pre id="log"></pre></div>
+
+<div id="say"><big id="saybig">SAY NOW</big><p id="saytxt">“good morning”</p><div class="ev" id="sayev"></div><button class="btn" id="sayskip" style="margin-top:22px">Skip this run</button></div>
+
+<script>
+(function () {
+'use strict';
+var $ = function (s) { return document.querySelector(s); };
+var AS = navigator.audioSession || null;
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+var AC = window.AudioContext || window.webkitAudioContext;
+var T0 = Date.now(), PHRASE = 'good morning';
+function now() { return Date.now(); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function sess() { try { return AS ? AS.type + '/' + (AS.state || '?') : 'n/a'; } catch (e) { return 'err'; } }
+function setSess(t, why) {
+  if (!t || t === 'leave' || !AS) return;
+  try { AS.type = t; ev('session ' + why + ' -> ' + sess()); } catch (e) { ev('session ' + t + ' failed ' + e.name); }
+}
+function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem('miclab_' + k) || 'null'); localStorage.setItem('miclab_' + k, JSON.stringify(v)); } catch (e) { return null; } }
+
+/* ---------- choices ---------- */
+var pick = { sw: store('sw') || '', reps: '4', play: ['none', 'audio'], before: ['play-and-record'], delay: ['0'], rec: ['iframe'] };
+function paint() {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-one],[data-many]'), function (g) {
+    var k = g.getAttribute('data-one') || g.getAttribute('data-many');
+    Array.prototype.forEach.call(g.querySelectorAll('.chip'), function (c) {
+      var v = c.getAttribute('data-v'), on = Array.isArray(pick[k]) ? pick[k].indexOf(v) >= 0 : pick[k] === v;
+      c.classList.toggle('on', on);
+    });
+  });
+}
+document.addEventListener('click', function (e) {
+  var c = e.target.closest && e.target.closest('.chip'); if (!c) return;
+  var g = c.parentNode, v = c.getAttribute('data-v');
+  if (g.hasAttribute('data-one')) { pick[g.getAttribute('data-one')] = v; if (g.getAttribute('data-one') === 'sw') store('sw', v); }
+  else { var k = g.getAttribute('data-many'), a = pick[k], i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v); }
+  paint();
+});
+paint();
+
+/* ---------- the list of runs ---------- */
+var queue = [], qi = 0, busy = false, stopFlag = false, micUses = 0, sinceReset = 0, rows = store('rows') || [];
+function key(c) { return c.play + '|' + c.before + '|' + c.delay + '|' + c.rec + (c.ss && c.ss !== $('#ss').value ? '|ss=' + c.ss : ''); }
+function setQueue(list, reps) {
+  queue = []; qi = 0;
+  list.forEach(function (c) { for (var r = 1; r <= reps; r++) queue.push(Object.assign({}, c, { rep: r, reps: reps })); });
+  $('#plan').textContent = list.length + ' combinations x ' + reps + ' = ' + queue.length + ' runs. About ' + Math.round(queue.length * 14 / 60) + ' min.';
+  updGo();
+}
+$('#build').onclick = function () {
+  var list = [];
+  pick.play.forEach(function (p) { pick.rec.forEach(function (rc) { pick.before.forEach(function (b) {
+    (p === 'none' || p === 'during-rec' ? ['0'] : pick.delay).forEach(function (d) { list.push({ play: p, before: b, delay: +d, rec: rc }); });
+  }); }); });
+  // dedupe (none and during-rec ignore the wait)
+  var seen = {}; list = list.filter(function (c) { var k = key(c); if (seen[k]) return false; seen[k] = 1; return true; });
+  if (!list.length) return alert('Pick at least one choice in every row.');
+  setQueue(list, +pick.reps);
+};
+// a short plan: the most telling combinations first (baseline, then one change at a time)
+$('#quick').onclick = function () {
+  setQueue([
+    { play: 'none', before: 'play-and-record', delay: 0, rec: 'iframe' },
+    { play: 'audio', before: 'play-and-record', delay: 0, rec: 'iframe' },
+    { play: 'audio', before: 'play-and-record', delay: 3000, rec: 'iframe' },
+    { play: 'audio-new', before: 'play-and-record', delay: 1500, rec: 'iframe' },
+    { play: 'iframe-audio', before: 'play-and-record', delay: 1500, rec: 'iframe' },
+    { play: 'webaudio-close', before: 'play-and-record', delay: 1500, rec: 'iframe' },
+    { play: 'audio', before: 'auto', delay: 1500, rec: 'iframe', ss: 'auto' },
+    { play: 'audio', before: 'leave', delay: 1500, rec: 'iframe', ss: 'play-and-record' },
+    { play: 'during-rec', before: 'play-and-record', delay: 0, rec: 'iframe' },
+    { play: 'synth', before: 'play-and-record', delay: 1500, rec: 'iframe' },
+    { play: 'audio', before: 'play-and-record', delay: 1500, rec: 'page' }
+  ], +pick.reps);
+};
+$('#single').onclick = function () { if (!queue.length) return; var seen = {}; queue = queue.filter(function (c) { var k = key(c); if (seen[k]) return false; seen[k] = 1; return true; }).map(function (c) { return Object.assign(c, { rep: 1, reps: 1 }); }); qi = 0; $('#plan').textContent = queue.length + ' runs.'; updGo(); };
+function label(c) {
+  return (c.control ? 'CHECK (no sound) · ' : '') + c.play + ' · ' + c.before + ' · ' + (c.delay / 1000) + ' s · ' + c.rec + (c.ss ? ' · sample=' + c.ss : '') + (c.reps > 1 ? ' · run ' + c.rep + '/' + c.reps : '');
+}
+function updGo() {
+  var b = $('#go');
+  if (busy) { b.disabled = true; b.textContent = 'Running…'; return; }
+  if (!pick.sw) { b.disabled = true; b.textContent = 'Choose Ring or Silent first (step 1)'; return; }
+  if (qi >= queue.length) { b.disabled = !queue.length; b.textContent = queue.length ? 'List done. Tap to run the same list again' : 'Build a list first'; $('#status').textContent = queue.length ? 'Done. Copy the results below.' : ''; return; }
+  b.disabled = false; b.textContent = 'Run ' + (qi + 1) + ' of ' + queue.length;
+  $('#status').textContent = 'Next: ' + label(queue[qi]);
+}
+document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-one="sw"]')) updGo(); });
+
+/* ---------- the sample sound: three soft notes, 1.6 s (with 2.5 s of silence first for "mic first") ---------- */
+var wavCache = {};
+function pcm(rate, lead) {
+  var notes = [523.25, 659.25, 783.99], per = Math.round(rate * 0.52), pre = Math.round(rate * lead), n = pre + per * notes.length, out = new Float32Array(n);
+  notes.forEach(function (f, k) { for (var i = 0; i < per; i++) { var env = Math.min(1, i / (rate * 0.02), (per - i) / (rate * 0.06)); out[pre + k * per + i] = 0.32 * env * Math.sin(2 * Math.PI * f * i / rate); } });
+  return out;
+}
+function wavUrl(rate, lead) {
+  var k = rate + '/' + lead; if (wavCache[k]) return wavCache[k];
+  var f = pcm(rate, lead), n = f.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  function w(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, f[i])) * 32767, true);
+  return (wavCache[k] = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+}
+var sharedEl = null, sharedCtx = null, keepU = [];
+function hiddenFrame() {
+  var f = document.createElement('iframe'); f.setAttribute('aria-hidden', 'true'); f.setAttribute('allow', 'microphone; autoplay');
+  f.style.cssText = 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+  document.body.appendChild(f); return f;
+}
+function killEl(a) { try { a.onended = a.onerror = null; a.pause(); a.removeAttribute('src'); a.load(); } catch (e) {} try { a.remove(); } catch (e) {} }
+/** Plays the sample. MUST be called inside the tap (it starts playing before returning). Resolves when the sample is over and cleaned up. */
+function playSample(method, rate, lead) {
+  return new Promise(function (done) {
+    var finished = false, safety = setTimeout(function () { end('sample took too long'); }, 12000 + lead * 1000), cleanup = function () {};
+    function end(note) { if (finished) return; finished = true; clearTimeout(safety); try { cleanup(); } catch (e) {} ev('sample end' + (note ? ' (' + note + ')' : '') + ' session=' + sess()); done(note || ''); }
+    function viaEl(a, after) {
+      a.onended = function () { end(); }; a.onerror = function () { end('audio error ' + (a.error && a.error.code)); };
+      a.src = wavUrl(rate, lead); cleanup = after || cleanup;
+      var p = a.play(); if (p && p.then) p.then(function () { ev('sample playing'); }, function (e) { end('play blocked ' + (e && e.name)); });
+    }
+    function viaCtx(ctx, after) {
+      try { var rp = ctx.resume(); if (rp && rp.catch) rp.catch(function () {}); } catch (e) {}
+      var f = pcm(rate, lead), b = ctx.createBuffer(1, f.length, rate); b.getChannelData(0).set(f);
+      var s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.onended = function () { end(); };
+      cleanup = after; s.start(0); ev('webaudio playing, context ' + ctx.state + ' ' + ctx.sampleRate + ' Hz');
+    }
+    try {
+      if (method === 'audio' || method === 'audio-lead') { if (!sharedEl) { sharedEl = new Audio(); sharedEl.preload = 'auto'; } viaEl(sharedEl); }
+      else if (method === 'audio-new') { var a = document.createElement('audio'); document.body.appendChild(a); viaEl(a, function () { killEl(a); ev('element removed'); }); }
+      else if (method === 'iframe-audio') {
+        var fr = hiddenFrame(), d = fr.contentDocument, a2 = d.createElement('audio'); d.body.appendChild(a2);
+        viaEl(a2, function () { killEl(a2); fr.remove(); ev('sound frame removed'); });
+      }
+      else if (method === 'webaudio') { if (!sharedCtx) sharedCtx = new AC(); var c1 = sharedCtx; viaCtx(c1, function () { try { c1.suspend(); } catch (e) {} ev('context suspended'); }); }
+      else if (method === 'webaudio-close') { var c2 = new AC(); viaCtx(c2, function () { try { c2.close(); } catch (e) {} ev('context closed'); }); }
+      else if (method === 'synth') {
+        try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch (e) {}
+        var u = new SpeechSynthesisUtterance('Good morning. How are you today?'); u.lang = 'en-US'; keepU = [u];
+        u.onend = function () { end(); }; u.onerror = function (e) { end('synth error ' + (e && e.error)); };
+        cleanup = function () { try { speechSynthesis.cancel(); } catch (e) {} };
+        speechSynthesis.speak(u); ev('synth speaking');
+      }
+      else end('unknown method');
+    } catch (e) { end('failed ' + (e && (e.name || e.message))); }
+  });
+}
+
+/* ---------- the microphone ---------- */
+var say = $('#say'), sayEv = $('#sayev');
+function showSay(waiting) { say.className = 'on' + (waiting ? ' wait' : ''); $('#saybig').textContent = waiting ? 'WAIT…' : 'SAY NOW'; $('#saytxt').textContent = waiting ? 'sample playing / mic starting' : '“' + PHRASE + '”'; }
+function hideSay() { say.className = ''; }
+var curRun = null;
+function recRun(c, row, during) {
+  return new Promise(function (resolve) {
+    var fr = null, Rc = SR, done = false, pass = '', text = '', sampleEnd = during ? Infinity : 0, t0 = now(), limit = +$('#limit').value, timers = [];
+    function later(f, ms) { timers.push(setTimeout(f, ms)); }
+    if (c.rec === 'iframe') {
+      try { fr = hiddenFrame(); var w = fr.contentWindow; Rc = (w && (w.SpeechRecognition || w.webkitSpeechRecognition)) || SR; if (Rc === SR) ev('frame has no SpeechRecognition, page one used'); }
+      catch (e) { ev('frame failed ' + e.name); }
+    }
+    var r;
+    try { r = new Rc(); } catch (e) { row.err = 'new failed ' + e.name; return resolve(); }
+    r.lang = 'en-US'; r.interimResults = true; r.continuous = !!during;
+    function t() { return ((now() - t0) / 1000).toFixed(1) + 's'; }
+    ['start', 'audiostart', 'soundstart', 'speechstart', 'speechend', 'soundend', 'audioend', 'nomatch'].forEach(function (n) {
+      r.addEventListener(n, function () {
+        row.ev.push(n + '@' + t()); ev('ev:' + n + ' ' + t() + ' session=' + sess()); sayEv.textContent = row.ev.join(' ');
+        if (n === 'audiostart') { row.as = t(); row.sAs = sess(); if (!during) showSay(); }
+        if ((n === 'soundstart' || n === 'speechstart') && now() > sampleEnd + 200) good(n);
+      });
+    });
+    r.onresult = function (e) {
+      var s = ''; for (var i = 0; i < e.results.length; i++) s += e.results[i][0].transcript + ' ';
+      text = s.trim(); ev('ev:result ' + t() + ' "' + text + '"'); row.ev.push('result@' + t());
+      if (now() > sampleEnd + 300) good('result');
+    };
+    r.onerror = function (e) { row.err = e.error + (e.message ? ': ' + e.message : ''); ev('ev:error ' + t() + ' ' + row.err); row.ev.push('error@' + t()); };
+    r.onend = function () { ev('ev:end ' + t()); row.ev.push('end@' + t()); finish(); };
+    function good(why) {
+      if (pass || done) return; pass = why; ev('PASS by ' + why);
+      later(function () { try { r.stop(); } catch (e) {} }, 2200); later(finish, 5000);
+    }
+    function finish() {
+      if (done) return; done = true; timers.forEach(clearTimeout); hideSay(); curRun = null;
+      row.ok = !!pass; row.by = pass; row.text = text; row.sEnd = sess();
+      try { r.onend = r.onresult = r.onerror = null; r.abort(); } catch (e) {}
+      if (fr) { var f = fr; setTimeout(function () { try { f.remove(); } catch (e) {} }, 300); }
+      setTimeout(resolve, 400);
+    }
+    curRun = { skip: function () { ev('skipped'); finish(); } };
+    later(function () { if (!pass) { ev('time is up (' + limit / 1000 + ' s), abort'); try { r.abort(); } catch (e) {} later(finish, 1500); } }, limit + (during ? 6000 : 0));
+    micUses++; sinceReset++; row.use = sinceReset;
+    row.sStart = sess();
+    try { r.start(); ev('start() ok session=' + sess()); } catch (e) { row.err = 'start threw ' + e.name; ev(row.err); return finish(); }
+    if (during) {
+      showSay(true);
+      playSample('audio-lead', +$('#rate').value, 2.5).then(function (note) { if (note) row.note = note; sampleEnd = now(); row.sS = sess(); if (!done) showSay(); });
+    } else later(function () { if (!done) showSay(); }, 3000);
+  });
+}
+
+/* ---------- one run ---------- */
+var logLines = [];
+function ev(m) { logLines.push(((now() - T0) / 1000).toFixed(1) + ' ' + m); if (logLines.length > 60) logLines.shift(); $('#log').textContent = logLines.join('\n'); }
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+/* the second tap starts the mic synchronously inside that tap (like the app's mic button) */
+function waitTap(start) { return new Promise(function (res) { var b = $('#tapmic'); b.style.display = 'block'; b.onclick = function () { b.style.display = 'none'; b.onclick = null; res(start()); }; }); }
+function runOne(c) {
+  // everything up to the first wait happens inside the tap (needed for sound and, on some phones, for the mic)
+  logLines = []; ev('run: ' + label(c) + ' | session=' + sess());
+  var row = { n: rows.length + 1, k: key(c), c: c, sw: pick.sw, ev: [], s0: sess(), at: new Date().toTimeString().slice(0, 8) };
+  var ss = c.ss || $('#ss').value, rate = +$('#rate').value, p;
+  function startMic() { setSess(c.before, 'before mic'); return recRun(c, row, false); }
+  if (c.play === 'during-rec') { setSess(c.before, 'before mic'); p = recRun(c, row, true); }
+  else if (c.play === 'none') p = startMic();          // no sample: the mic starts now, inside the tap
+  else {
+    setSess(ss, 'for sample'); showSay(true);
+    p = playSample(c.play, rate, 0).then(function (note) {
+      if (note) row.note = note;
+      row.sS = sess(); hideSay();
+      return c.delay ? sleep(c.delay) : null;
+    }).then(function () {
+      if ($('#micstart').value === 'tap') { $('#status').textContent = 'Tap the green button, then say “' + PHRASE + '”'; return waitTap(startMic); }
+      return startMic();
+    });
+  }
+  return p.then(function () {
+    setSess($('#after').value, 'after mic');
+    rows.push(row); store('rows', rows); draw(); return row;
+  });
+}
+function runNext() {
+  if (busy || qi >= queue.length) { if (qi >= queue.length && queue.length) { qi = 0; updGo(); } return; }
+  busy = true; stopFlag = false; updGo(); $('#banner').style.display = 'none';
+  var c = queue[qi];
+  $('#status').textContent = 'Running: ' + label(c);
+  runOne(c).then(function (row) {
+    busy = false; qi++;
+    if (c.control) {
+      if (!row.ok) { var b = $('#banner'); b.style.display = 'block'; b.innerHTML = '<b>The mic is stuck even with no sound.</b> Reset it: switch to another app (or lock the phone) for about 2 minutes, come back, then tap Run. Results after this point would not tell us anything.'; }
+    } else if (!row.ok && $('#control').checked && c.play !== 'none') {
+      queue.splice(qi, 0, { play: 'none', before: 'play-and-record', delay: 0, rec: 'iframe', control: true, rep: 1, reps: 1 });
+    }
+    updGo();
+    if ($('#autonext').checked && !stopFlag && qi < queue.length && $('#banner').style.display === 'none') setTimeout(runNext, 1500);
+  }, function (e) { busy = false; ev('run failed ' + (e && e.message)); updGo(); });
+}
+$('#go').onclick = runNext;
+$('#sayskip').onclick = function () { if (curRun) curRun.skip(); };
+$('#skip').onclick = function () { if (curRun) curRun.skip(); else if (qi < queue.length) { qi++; updGo(); } };
+$('#stop').onclick = function () { stopFlag = true; if (curRun) curRun.skip(); };
+
+/* background resets the phone's audio: note it in the results */
+var hiddenAt = 0;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) { hiddenAt = now(); return; }
+  var s = hiddenAt ? Math.round((now() - hiddenAt) / 1000) : 0; hiddenAt = 0;
+  ev('back from background after ' + s + ' s, session=' + sess());
+  if (s >= 20) { sinceReset = 0; rows.push({ mark: 'back from background after ' + s + ' s' }); store('rows', rows); draw(); }
+});
+if (AS && AS.addEventListener) try { AS.addEventListener('statechange', function () { ev('audioSession statechange -> ' + sess()); }); } catch (e) {}
+
+/* ---------- results ---------- */
+function line(r) {
+  if (r.mark) return '-- ' + r.mark;
+  return '#' + r.n + ' ' + (r.ok ? 'PASS' : 'FAIL') + ' [' + r.sw + '] ' + (r.c.control ? 'CHECK ' : '') + r.k + (r.c.reps > 1 ? ' run' + r.c.rep + '/' + r.c.reps : '') + ' use#' + r.use +
+    (r.as ? ' audiostart=' + r.as : ' no-audiostart') + (r.by ? ' by=' + r.by : '') + (r.text ? ' "' + r.text + '"' : '') + (r.err ? ' err=' + r.err : '') + (r.note ? ' note=' + r.note : '') +
+    ' sess: start=' + r.s0 + ' afterSample=' + (r.sS || '-') + ' micStart=' + (r.sStart || '-') + ' end=' + (r.sEnd || '-') + ' ev=' + r.ev.join(',');
+}
+function summary() {
+  var g = {}, order = [];
+  rows.forEach(function (r) { if (r.mark || r.c.control) return; var k = r.sw + ' ' + r.k; if (!g[k]) { g[k] = { p: 0, n: 0, seq: '' }; order.push(k); } g[k].n++; if (r.ok) g[k].p++; g[k].seq += r.ok ? 'P' : 'F'; });
+  return order.map(function (k) { return { k: k, p: g[k].p, n: g[k].n, seq: g[k].seq }; });
+}
+function draw() {
+  var s = summary();
+  $('#sum').innerHTML = s.length ? '<table><tr><th>combination</th><th>pass</th><th>runs</th></tr>' + s.map(function (x) {
+    return '<tr><td>' + esc(x.k) + '</td><td class="' + (x.p === x.n ? 'P' : x.p ? '' : 'F') + '">' + x.p + '/' + x.n + '</td><td>' + x.seq + '</td></tr>'; }).join('') + '</table>' : 'No runs yet.';
+  $('#rows').innerHTML = rows.length ? '<table>' + rows.slice().reverse().map(function (r) {
+    if (r.mark) return '<tr><td colspan="3"><i>' + esc(r.mark) + '</i></td></tr>';
+    return '<tr><td class="' + (r.ok ? 'P' : 'F') + '">' + (r.ok ? 'PASS' : 'FAIL') + '</td><td>#' + r.n + ' ' + esc((r.c.control ? 'CHECK ' : '') + r.k) + ' <span class="muted">[' + esc(r.sw) + '] use#' + r.use + '</span><br>' +
+      esc((r.as ? 'audiostart ' + r.as : 'no audiostart') + (r.text ? ' · "' + r.text + '"' : '') + (r.err ? ' · ' + r.err : '') + (r.note ? ' · ' + r.note : '')) + '<br><span class="muted">' + esc(r.ev.join(' ')) + '</span></td></tr>';
+  }).join('') + '</table>' : '-';
+}
+function text() {
+  return ['Kelvin mic lab ' + new Date().toISOString().slice(0, 16) + ' | ' + navigator.userAgent,
+    'settings: sampleSession=' + $('#ss').value + ' after=' + $('#after').value + ' micStart=' + $('#micstart').value + ' limit=' + $('#limit').value + ' rate=' + $('#rate').value + ' audioSession=' + (AS ? 'yes' : 'no'),
+    'SUMMARY'].concat(summary().map(function (x) { return x.p + '/' + x.n + ' ' + x.seq + '  ' + x.k; }), ['RUNS'], rows.map(line)).join('\n');
+}
+$('#copy').onclick = function () {
+  var t = text(), box = $('#copybox');
+  function fallback() { box.value = t; box.focus(); box.select(); try { box.setSelectionRange(0, t.length); document.execCommand('copy'); alert('Copied ' + rows.length + ' lines.'); } catch (e) { alert('Copy failed: select the text in the log instead.'); $('#log').textContent = t; } }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { alert('Copied. Paste it to Claude.'); }, fallback); else fallback();
+};
+$('#clear').onclick = function () { if (!confirm('Clear all results?')) return; rows = []; store('rows', rows); draw(); };
+
+$('#env').textContent = (SR ? 'SpeechRecognition: yes' : 'SpeechRecognition: NO') + ' · audioSession: ' + (AS ? sess() : 'not available') + ' · Web Audio: ' + (AC ? 'yes' : 'no') + ' · ' + (navigator.userAgent.match(/(CriOS|FxiOS|EdgiOS|Version)\/[\d.]+/) || [''])[0] + ' iOS ' + ((navigator.userAgent.match(/OS (\d+_\d+)/) || [])[1] || '?').replace('_', '.');
+draw(); updGo();
+})();
+</script>
+</body>
+</html>

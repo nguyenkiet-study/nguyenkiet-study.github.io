@@ -165,6 +165,9 @@ const CONFIG = Object.freeze({
     SET_SIZE: Object.freeze({ reading: 5, listening: 4 }),
     /** How far one answer moves the ability estimate (Elo-style step; the placement test stays the main measurement). */
     ELO_STEP: 0.12,
+    /** Listening: how much one answer counts toward the level, compared with a Practice listening question (1 = ELO_STEP in full).
+        Conversation answers count 40%, Listen and build (a Practice set, marked in the browser) 30%. Daily mix does not move the level. */
+    LISTEN_WEIGHT: Object.freeze({ conversation: 0.4, listenBuild: 0.3 }),
     /** One writing or speaking piece moves the estimate this fraction of the way towards the piece's level, at most MAX_MOVE. */
     PRODUCTIVE_BLEND: 0.2,
     MAX_MOVE: 0.35,
@@ -5658,19 +5661,28 @@ var Practice = (function () {
    * Scores a finished set of items that is not a QuestionBank multiple-choice set (used by Listening conversations).
    * results: [{correct:boolean, b:number}] where b is the item difficulty on the theta scale.
    */
-  function scoreSet(user, skill, results, startedAt, title, ids) {
-    var uid = user.UserID, now = Db.now(), right = results.filter(function (r) { return r.correct; }).length, row = levelRow(uid, skill), moved = null;
-    if (row && row.MeasuredLevel && isFinite(Number(row.Theta))) {
-      var theta = Number(row.Theta);
-      results.forEach(function (r) { theta += P.ELO_STEP * ((r.correct ? 1 : 0) - Engine.prob(theta, r.b)); });
-      moved = applyTheta(uid, skill, theta, row, now);
-    }
+  /**
+   * Moves a measured skill by a list of results {correct, b}; each answer counts `weight` of a Practice question (1 = full ELO_STEP).
+   * b may be left out: the item is then taken at the middle of the learner's level. Call inside Db.lock(). Returns moved, or null when not measured.
+   */
+  function nudge(uid, skill, results, weight) {
+    var row = levelRow(uid, skill);
+    if (!row || !row.MeasuredLevel || !isFinite(Number(row.Theta)) || !results.length) return null;
+    var w = weight == null ? 1 : Number(weight), theta = Number(row.Theta), mid = Engine.itemTheta(row.MeasuredLevel, 50);
+    results.forEach(function (r) { theta += w * P.ELO_STEP * ((r.correct ? 1 : 0) - Engine.prob(theta, r.b == null ? mid : r.b)); });
+    return applyTheta(uid, skill, theta, row, Db.now());
+  }
+
+  /** weight: how much each answer counts toward the level (see CONFIG.PRACTICE.LISTEN_WEIGHT); 1 when left out. */
+  function scoreSet(user, skill, results, startedAt, title, ids, weight) {
+    var uid = user.UserID, right = results.filter(function (r) { return r.correct; }).length;
+    var moved = nudge(uid, skill, results, weight);
     var minutes = Util.clamp(Math.round((Date.now() - startedAt) / 60000), 1, 40), pct = Math.round(right / Math.max(1, results.length) * 100);
     Progress.record(uid, { skill: skill, type: 'practice', title: title + ' | ' + right + ' of ' + results.length + ' correct', minutes: minutes, score: pct, lessons: 1, questionIds: ids || [] });
     return { right: right, total: results.length, pct: pct, minutes: minutes, measured: !!moved, before: moved && moved.before, after: moved && moved.after, levelUp: !!(moved && moved.levelUp), levelDown: !!(moved && moved.levelDown) };
   }
 
-  return { start: start, answer: answer, submit: submit, scoreSet: scoreSet };
+  return { start: start, answer: answer, submit: submit, scoreSet: scoreSet, nudge: nudge };
 })();
 
 // ======================================================================
@@ -6047,7 +6059,7 @@ var Conv = (function () {
       out = { correct: correct, key: key, line: e.line == null ? -1 : e.line, done: false };
       if (Object.keys(st.answers).length >= active(L).length) {
         var b = Engine.itemTheta(L.level, 50), res = Object.keys(st.answers).map(function (k) { return { correct: st.answers[k].correct, b: b }; });
-        out.summary = Practice.scoreSet(user, 'listening', res, st.startedAt, 'Listening conversation: ' + L.title, [L.id]);
+        out.summary = Practice.scoreSet(user, 'listening', res, st.startedAt, 'Listening conversation: ' + L.title, [L.id], CONFIG.PRACTICE.LISTEN_WEIGHT.conversation);
         out.done = true; st.final = out.summary;
         Db.update(CONFIG.SHEETS.TEST_SESSIONS, row._row, { Status: 'completed', CompletedAt: Db.now(), EngineStateJSON: JSON.stringify(st) });
         Db.update(QB, q._row, { TimesCorrect: (Number(q.TimesCorrect) || 0) + out.summary.right });
@@ -6183,7 +6195,9 @@ var Drill = (function () {
     return { mode: mode, title: M.title, skill: M.skill, steps: steps };
   }
 
-  /** api: drillFinish {mode, right, total, seconds, kinds:{kind:n}} - counts the time toward each skill that was used. */
+  /** api: drillFinish {mode, right, total, seconds, kinds:{kind:n}} - counts the time toward each skill that was used.
+   *  Listen and build (mode "listen") also moves the Listening level, each answer at CONFIG.PRACTICE.LISTEN_WEIGHT.listenBuild of a
+   *  Practice question (lower: short sentences with word tiles, marked in the browser). Other sets do not move any level. */
   function finish(user, p) {
     var mode = MODES[p && p.mode] ? p.mode : 'mix', M = MODES[mode];
     var total = Math.max(0, Math.min(40, Math.round(Number(p.total) || 0))), right = Math.max(0, Math.min(total, Math.round(Number(p.right) || 0)));
@@ -6192,12 +6206,17 @@ var Drill = (function () {
     var score = Math.round(right / total * 100), kinds = p.kinds && typeof p.kinds === 'object' ? p.kinds : {}, bySkill = {}, n = 0;
     Object.keys(kinds).forEach(function (k) { var s = SKILL_OF[k]; var c = Math.max(0, Math.round(Number(kinds[k]) || 0)); if (s && c) { bySkill[s] = (bySkill[s] || 0) + c; n += c; } });
     if (!n) { bySkill[M.skill === 'mix' ? 'reading' : M.skill] = 1; n = 1; }
+    var moved = null;
     Db.lock(function () {
       Object.keys(bySkill).forEach(function (s, i) {
         Progress.record(user.UserID, { skill: s, type: 'drill', title: M.title + ' | ' + right + ' of ' + total + ' right', seconds: Math.round(secs * bySkill[s] / n), score: score, lessons: i === 0 ? 1 : 0 });
       });
+      if (mode === 'listen') {
+        var res = []; for (var k = 0; k < total; k++) res.push({ correct: k < right });
+        moved = Practice.nudge(user.UserID, 'listening', res, CONFIG.PRACTICE.LISTEN_WEIGHT.listenBuild);
+      }
     });
-    return { saved: true, score: score, right: right, total: total };
+    return { saved: true, score: score, right: right, total: total, measured: !!moved, before: moved && moved.before, after: moved && moved.after };
   }
 
   return { start: start, finish: finish, MODES: MODES };

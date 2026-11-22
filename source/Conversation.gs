@@ -360,7 +360,7 @@ var Conv = (function () {
       out = { correct: correct, key: key, line: e.line == null ? -1 : e.line, done: false };
       if (Object.keys(st.answers).length >= active(L).length) {
         var b = Engine.itemTheta(L.level, 50), res = Object.keys(st.answers).map(function (k) { return { correct: st.answers[k].correct, b: b }; });
-        out.summary = Practice.scoreSet(user, 'listening', res, st.startedAt, 'Listening conversation: ' + L.title, [L.id]);
+        out.summary = Practice.scoreSet(user, 'listening', res, st.startedAt, 'Listening conversation: ' + L.title, [L.id], CONFIG.PRACTICE.LISTEN_WEIGHT.conversation);
         out.done = true; st.final = out.summary;
         Db.update(CONFIG.SHEETS.TEST_SESSIONS, row._row, { Status: 'completed', CompletedAt: Db.now(), EngineStateJSON: JSON.stringify(st) });
         Db.update(QB, q._row, { TimesCorrect: (Number(q.TimesCorrect) || 0) + out.summary.right });

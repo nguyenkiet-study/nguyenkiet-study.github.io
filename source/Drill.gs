@@ -119,7 +119,9 @@ var Drill = (function () {
     return { mode: mode, title: M.title, skill: M.skill, steps: steps };
   }
 
-  /** api: drillFinish {mode, right, total, seconds, kinds:{kind:n}} - counts the time toward each skill that was used. */
+  /** api: drillFinish {mode, right, total, seconds, kinds:{kind:n}} - counts the time toward each skill that was used.
+   *  Listen and build (mode "listen") also moves the Listening level, each answer at CONFIG.PRACTICE.LISTEN_WEIGHT.listenBuild of a
+   *  Practice question (lower: short sentences with word tiles, marked in the browser). Other sets do not move any level. */
   function finish(user, p) {
     var mode = MODES[p && p.mode] ? p.mode : 'mix', M = MODES[mode];
     var total = Math.max(0, Math.min(40, Math.round(Number(p.total) || 0))), right = Math.max(0, Math.min(total, Math.round(Number(p.right) || 0)));
@@ -128,12 +130,17 @@ var Drill = (function () {
     var score = Math.round(right / total * 100), kinds = p.kinds && typeof p.kinds === 'object' ? p.kinds : {}, bySkill = {}, n = 0;
     Object.keys(kinds).forEach(function (k) { var s = SKILL_OF[k]; var c = Math.max(0, Math.round(Number(kinds[k]) || 0)); if (s && c) { bySkill[s] = (bySkill[s] || 0) + c; n += c; } });
     if (!n) { bySkill[M.skill === 'mix' ? 'reading' : M.skill] = 1; n = 1; }
+    var moved = null;
     Db.lock(function () {
       Object.keys(bySkill).forEach(function (s, i) {
         Progress.record(user.UserID, { skill: s, type: 'drill', title: M.title + ' | ' + right + ' of ' + total + ' right', seconds: Math.round(secs * bySkill[s] / n), score: score, lessons: i === 0 ? 1 : 0 });
       });
+      if (mode === 'listen') {
+        var res = []; for (var k = 0; k < total; k++) res.push({ correct: k < right });
+        moved = Practice.nudge(user.UserID, 'listening', res, CONFIG.PRACTICE.LISTEN_WEIGHT.listenBuild);
+      }
     });
-    return { saved: true, score: score, right: right, total: total };
+    return { saved: true, score: score, right: right, total: total, measured: !!moved, before: moved && moved.before, after: moved && moved.after };
   }
 
   return { start: start, finish: finish, MODES: MODES };

@@ -162,6 +162,9 @@ const CONFIG = Object.freeze({
     SET_SIZE: Object.freeze({ reading: 5, listening: 4 }),
     /** How far one answer moves the ability estimate (Elo-style step; the placement test stays the main measurement). */
     ELO_STEP: 0.12,
+    /** Listening: how much one answer counts toward the level, compared with a Practice listening question (1 = ELO_STEP in full).
+        Conversation answers count 40%, Listen and build (a Practice set, marked in the browser) 30%. Daily mix does not move the level. */
+    LISTEN_WEIGHT: Object.freeze({ conversation: 0.4, listenBuild: 0.3 }),
     /** One writing or speaking piece moves the estimate this fraction of the way towards the piece's level, at most MAX_MOVE. */
     PRODUCTIVE_BLEND: 0.2,
     MAX_MOVE: 0.35,

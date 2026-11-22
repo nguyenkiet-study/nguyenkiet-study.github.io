@@ -7603,8 +7603,8 @@ function topicStk() { var t = (C.lesson.title + ' ' + (C.data.lesson.topic || ''
 function side(s) { var first = C.lesson.lines.length ? C.lesson.lines[0].s : 0; return s === first ? 'a' : 'b'; }
 
 function entry() {
-  return '<div class="cv-entry"><img src="' + STK_BASE + 'kel-listening.webp" alt="" width="52" height="52"><div class="grow"><b>Conversation</b><span class="small muted">Two people talk about everyday life or work. Listen, then answer 8 to 10 questions about it.</span></div>' +
-    '<button class="btn btn-soft" data-action="cv-start" id="cv-start">' + ic('i-play', 'ic-sm') + 'Start</button></div>';
+  return '<div class="cv-entry"><img src="' + STK_BASE + 'kel-team.webp" alt="" width="52" height="52"><div class="grow"><b>Conversation</b><span class="small muted">Two people talk about everyday life or work. Listen, then answer 8 to 10 questions about it.</span></div>' +
+    '<button class="btn btn-primary" data-action="cv-start" id="cv-start">' + ic('i-play', 'ic-sm') + 'Start</button></div>';
 }
 
 function start(btn) {

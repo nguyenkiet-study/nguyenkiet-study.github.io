@@ -37,6 +37,25 @@ t('finishing saves the score',f.ok&&f.data.saved&&f.data.score===75,f);
 const h=sheets.UserProgress.rows[0],rows=sheets.UserProgress.rows.slice(1);
 const sk=rows.map(r=>r[h.indexOf('Skill')]);
 t('time counts toward each skill that was practised',['listening','speaking','reading','writing','words'].every(s=>sk.includes(s)),sk);
+// Listening level (22/11/2026): a Practice listening question counts 100%, a Conversation answer 40%, Listen and build 30%; Daily mix does not move it
+{ const uidOf=un=>get("Db.find(CONFIG.SHEETS.USERS,function(r){return r.Username==='"+un+"'}).UserID");
+  const SH=sheets.SkillLevels.rows[0],si=n=>SH.indexOf(n),uid=uidOf('drill');
+  const row=sk=>sheets.SkillLevels.rows.find(r=>r[si('UserID')]===uid&&r[si('Skill')]===sk);
+  const setTheta=(sk,th)=>{const r=row(sk);r[si('MeasuredLevel')]='B1';r[si('Theta')]=String(th);r[si('ProgressPct')]=50};
+  const E=get('Engine'),W=get('CONFIG.PRACTICE.LISTEN_WEIGHT'),STEP=get('CONFIG.PRACTICE.ELO_STEP');
+  t('weights: Conversation 40%, Listen and build 30% of a Practice question',W.conversation===0.4&&W.listenBuild===0.3,W);
+  setTheta('listening',0.2);
+  const fl=api('drillFinish',{token:A,mode:'listen',right:6,total:8,seconds:300,kinds:{listen:6,spell:2}});
+  let th=0.2;const mid=E.itemTheta('B1',50);for(let k=0;k<8;k++)th+=0.3*STEP*((k<6?1:0)-E.prob(th,mid));
+  t('Listen and build moves Listening at 30% of a Practice question',fl.ok&&fl.data.measured&&Math.abs(Number(row('listening')[si('Theta')])-th)<0.002,{got:row('listening')[si('Theta')],want:th.toFixed(3)});
+  const before=row('listening')[si('Theta')];
+  api('drillFinish',{token:A,mode:'mix',right:12,total:12,seconds:600,kinds:{listen:2,repeat:2,gap:2,tiles:2,write:1,meaning:2,spell:1}});
+  t('Daily mix does not move the Listening level',row('listening')[si('Theta')]===before);
+  const P=get('Practice'),d=w=>{setTheta('reading',0);P.nudge(uid,'reading',[{correct:true,b:0},{correct:true,b:0},{correct:true,b:0}],w);return Number(row('reading')[si('Theta')])};
+  const full=d(1),conv=d(W.conversation),lb=d(W.listenBuild);
+  t('the same answers move the level 100% / 40% / 30%',Math.abs(conv/full-0.4)<0.03&&Math.abs(lb/full-0.3)<0.03,{full,conv,lb});
+  t('Conversation answers are scored with the 40% weight',/scoreSet\([^)]*LISTEN_WEIGHT\.conversation\)/.test(require('fs').readFileSync(require('path').join(__dirname,'..','Conversation.gs'),'utf8')));
+}
 t('a set with no answers is not saved',api('drillFinish',{token:A,mode:'mix',right:0,total:0,seconds:10}).data.saved===false);
 t('a bad token is refused',!api('drillStart',{token:'nope',mode:'mix'}).ok);
 t('the AI sentence check works without a grammar topic',api('grammarJudge',{token:A,prompt:'Tôi thích cà phê.',model:'I like coffee.',answer:'I love coffee.'}).ok);
